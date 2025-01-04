@@ -38,6 +38,7 @@ find_package(FairLogger REQUIRED)
 find_package(VMC REQUIRED)
 find_package(Geant4VMC REQUIRED)
 find_package(VGM REQUIRED)
+find_package(HepMC3 REQUIRED)
 
 # Locate sources and headers for this project
 #
@@ -80,6 +81,7 @@ target_link_libraries(na6psim
   Boost::program_options
   fmt::fmt
   FairLogger::FairLogger
+  HepMC3::HepMC3
   )
 # Explicit dependency on module headers
 target_include_directories(na6psim PRIVATE

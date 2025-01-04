@@ -5,6 +5,8 @@
 #include "NA6PDipoleIP.h"
 #include "NA6PTarget.h"
 #include "NA6PVerTel.h"
+#include "NA6PAbsorber.h"
+#include "NA6PMuonSpec.h"
 #include "NA6PLayoutParam.h"
 
 #include <TGeoManager.h>
@@ -45,7 +47,9 @@ void NA6PDetector::createGeometry(const std::string& name)
   addModule(new NA6PDipoleIP());
   addModule(new NA6PTarget());
   addModule(new NA6PVerTel());
-  
+  addModule(new NA6PAbsorber());
+  addModule(new NA6PMuonSpec());
+
   for (auto m : mModules) {
     m.second->createMaterials();
     m.second->createGeometry(world);
