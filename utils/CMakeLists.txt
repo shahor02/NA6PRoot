@@ -1,38 +1,45 @@
-set(UTILS_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set(UTILS_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
+set(THIS_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
+set(THIS_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+set(MOD_NAME "utils")
+set(LIB_NAME "${MOD_NAME}Lib")
 
 # Include directoroes
-include_directories(${UTILS_INCLUDE_DIR})
+include_directories(${THIS_INCLUDE_DIR})
 include_directories(${ROOT_INCLUDE_DIRS})
 include_directories(${Boost_INCLUDE_DIRS})
 
+file(GLOB THIS_SOURCES ${THIS_SRC_DIR}/*.cxx)
+file(GLOB THIS_HEADERS ${THIS_INCLUDE_DIR}/*.h)
+
 # Add the library
-file(GLOB UTILS_SOURCES ${UTILS_SRC_DIR}/*.cxx)
-file(GLOB UTILS_HEADERS ${UTILS_INCLUDE_DIR}/*.h)
+add_library(utilsLib SHARED ${THIS_SOURCES} ${THIS_HEADERS})
 
 set(DICTIONARY_HEADERS
-  ${UTILS_INCLUDE_DIR}/StringUtils.h
-  ${UTILS_INCLUDE_DIR}/ConfigurableParamHelper.h
-  ${UTILS_INCLUDE_DIR}/KeyValParam.h
-  ${UTILS_INCLUDE_DIR}/MiscUtils.h
+  StringUtils.h
+  ConfigurableParamHelper.h
+  KeyValParam.h
+  MiscUtils.h
   ) # Add all class headers requiring dictionary
-set(DICTIONARY_LINKDEF ${UTILS_SRC_DIR}/UtilsLinkDef.h)
-set(DICTIONARY_OUTPUT UtilsDict)
-set(DICTIONARY_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/dict)
+
+set(DICTIONARY_LINKDEF ${THIS_SRC_DIR}/${MOD_NAME}LinkDef.h)
+set(DICTIONARY_OUTPUT ${LIB_NAME}Dict)
 
 ROOT_GENERATE_DICTIONARY(
     ${DICTIONARY_OUTPUT}
     ${DICTIONARY_HEADERS}
     LINKDEF ${DICTIONARY_LINKDEF}
+    MODULE ${LIB_NAME}
 )
 
-add_library(utilsLib SHARED ${UTILS_SOURCES} ${UTILS_HEADERS} ${DICTIONARY_OUTPUT})
-
 # Set include directories for consumers
-target_include_directories(utilsLib INTERFACE)
+target_include_directories(${LIB_NAME} INTERFACE ${THIS_INCLUDE_DIR})
+
+# !!!!!!!!!!!!!!!!!!!!!!
+#target_compile_options(${LIB_NAME} PRIVATE -ggdb -g -O0)
 
 # Link against required libraries
-target_link_libraries(utilsLib
+target_link_libraries(${LIB_NAME}
     ${ROOT_LIBRARIES}
     Boost::program_options
     fmt::fmt
@@ -40,8 +47,8 @@ target_link_libraries(utilsLib
 )
 
 # Installation instructions
-install(TARGETS utilsLib LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
-install(FILES ${UTILS_HEADERS} DESTINATION include)
+install(TARGETS ${LIB_NAME} LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
+install(FILES ${THIS_HEADERS} DESTINATION include)
 install(FILES
-  ${CMAKE_CURRENT_BINARY_DIR}/lib${DICTIONARY_OUTPUT}_rdict.pcm
-  ${CMAKE_CURRENT_BINARY_DIR}/lib${DICTIONARY_OUTPUT}.rootmap DESTINATION lib)
+  ${CMAKE_CURRENT_BINARY_DIR}/lib${LIB_NAME}_rdict.pcm
+  ${CMAKE_CURRENT_BINARY_DIR}/lib${LIB_NAME}.rootmap DESTINATION lib)
