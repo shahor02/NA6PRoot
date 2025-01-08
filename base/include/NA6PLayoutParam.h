@@ -16,7 +16,7 @@ struct NA6PLayoutParam : public na6p::conf::ConfigurableParamHelper<NA6PLayoutPa
  
   // VerTel Dipole 
   float posDipIP[3] = {0.f, 0.f, 0.f};  // Vertex dipole position
-  std::string flukaInpDipIP = "$(NA6PROOT_ROOT)/share/data/MEP48_field_map.inp";
+  std::string flukaInpDipVT = "$(NA6PROOT_ROOT)/share/data/MEP48_field_map.inp";
   
   // MS Dipole 
   float posDipMS[3] = {0.f, 0.f, 430.f};  // Vertex dipole position
