@@ -17,21 +17,26 @@
 void NA6PAbsorber::createMaterials()
 {
   auto& matPool = NA6PTGeoHelper::instance().getMatPool();
-  if (matPool.find("Iron") == matPool.end()) {
-    matPool["Iron"] = new TGeoMaterial("Iron", 55.845, 26, 7.874);
-    NA6PTGeoHelper::instance().addMedium("Iron","", kGray);
+  std::string nameM;
+  nameM = addName("Iron");
+  if (matPool.find(nameM) == matPool.end()) {
+    matPool[nameM] = new TGeoMaterial(nameM.c_str(), 55.845, 26, 7.874);
+    NA6PTGeoHelper::instance().addMedium(nameM,"", kGray);
   }
-  if (matPool.find("BeO") == matPool.end()) {
-    matPool["BeO"] = new TGeoMaterial("BeO", 9.012, 4, 3.01);
-    NA6PTGeoHelper::instance().addMedium("BeO","", kYellow+2);
+  nameM = addName("BeO");
+  if (matPool.find(nameM) == matPool.end()) {
+    matPool[nameM] = new TGeoMaterial(nameM.c_str(), 9.012, 4, 3.01);
+    NA6PTGeoHelper::instance().addMedium(nameM,"", kYellow+2);
   }
-  if (matPool.find("Graphite") == matPool.end()) {
-    matPool["Graphite"] = new TGeoMaterial("Graphite", 12.01, 6, 2.267);
-    NA6PTGeoHelper::instance().addMedium("Graphite", "", kGray+2);
+  nameM = addName("Graphite");  
+  if (matPool.find(nameM) == matPool.end()) {
+    matPool[nameM] = new TGeoMaterial(nameM.c_str(), 12.01, 6, 2.267);
+    NA6PTGeoHelper::instance().addMedium(nameM, "", kGray+2);
   }
-  if (matPool.find("Tungsten") == matPool.end()) {
-    matPool["Tungsten"] = new TGeoMaterial("Tungsten", 183.84, 74, 19.3);
-    NA6PTGeoHelper::instance().addMedium("Tungsten","", kBlack);
+  nameM = addName("Tungsten");
+  if (matPool.find(nameM) == matPool.end()) {
+    matPool[nameM] = new TGeoMaterial(nameM.c_str(), 183.84, 74, 19.3);
+    NA6PTGeoHelper::instance().addMedium(nameM,"", kBlack);
   }
 }
 
@@ -61,12 +66,12 @@ void NA6PAbsorber::createGeometry(TGeoVolume *world)
       slice = new TGeoCompositeShape((slnm + "_HS").c_str(), new TGeoSubtraction(slice, hole));   // slice with plug hole
       auto slnmP = fmt::format("AbsSlPlug{}{}", isl, param.medAbsorber[isl]);
       auto* plug = new TGeoTube((slnmP + "_SH").c_str(), 0.0, param.radPlug[isl], param.thicknessAbsorber[isl]/2);
-      auto* plugVol = new TGeoVolume(slnmP.c_str(), plug, NA6PTGeoHelper::instance().getMedium(param.medAbsorberPlug[isl]));
-      plugVol->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(param.medAbsorberPlug[isl]));
+      auto* plugVol = new TGeoVolume(slnmP.c_str(), plug, NA6PTGeoHelper::instance().getMedium(addName(param.medAbsorberPlug[isl])));
+      plugVol->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName(param.medAbsorberPlug[isl])));
       world->AddNode(plugVol, composeNonSensorVolID(isl+50), new TGeoTranslation(0.0, 0.0, zplace + param.thicknessAbsorber[isl]/2));
     }
-    auto sliceVol = new TGeoVolume(slnm.c_str(), slice, NA6PTGeoHelper::instance().getMedium(param.medAbsorber[isl]));
-    sliceVol->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(param.medAbsorber[isl]));
+    auto sliceVol = new TGeoVolume(slnm.c_str(), slice, NA6PTGeoHelper::instance().getMedium(addName(param.medAbsorber[isl])));
+    sliceVol->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName(param.medAbsorber[isl])));
     world->AddNode(sliceVol, composeNonSensorVolID(isl), new TGeoTranslation(0.0, 0.0, zplace + param.thicknessAbsorber[isl]/2));
     zplace += param.thicknessAbsorber[isl];
   }

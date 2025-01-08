@@ -22,9 +22,19 @@
 void NA6PMuonSpec::createMaterials()
 {
   auto& matPool = NA6PTGeoHelper::instance().getMatPool();
-  if (matPool.find("Silicon") == matPool.end()) {
-    matPool["Silicon"] = new TGeoMaterial("Silicon", 28.09, 14, 2.33);
-    NA6PTGeoHelper::instance().addMedium("Silicon","", kCyan + 1);
+  std::string nameM;
+  nameM = addName("Silicon");
+  if (matPool.find(nameM) == matPool.end()) {
+    matPool[nameM] = new TGeoMaterial(nameM.c_str(), 28.09, 14, 2.33);
+    NA6PTGeoHelper::instance().addMedium(nameM,"", kCyan + 1);
+  }
+  nameM = addName("Air");
+  if (matPool.find(nameM) == matPool.end()) {
+    auto mixt = new TGeoMixture(nameM.c_str(), 2, 0.001);
+    mixt->AddElement(new TGeoElement("N", "Nitrogen", 7, 14.01), 0.78);
+    mixt->AddElement(new TGeoElement("O", "Oxygen", 8, 16.00), 0.22);
+    matPool[nameM] = mixt;
+    NA6PTGeoHelper::instance().addMedium(nameM);
   }
 }
 
@@ -55,9 +65,9 @@ void NA6PMuonSpec::createGeometry(TGeoVolume *world)
       }
       station = new TGeoCompositeShape((stnm + "_HS").c_str(), new TGeoSubtraction(station, hole));   // station with plug hole
     }
-    auto stationSensVol = new TGeoVolume(stnm.c_str(), station, NA6PTGeoHelper::instance().getMedium(param.medMSPlane[ist]));
-    stationSensVol->SetLineColor( NA6PTGeoHelper::instance().getMediumColor(param.medMSPlane[ist]));
-    auto stationSensVolEnv = new TGeoVolume((stnm+"Env").c_str(), station, NA6PTGeoHelper::instance().getMedium("Air"));
+    auto stationSensVol = new TGeoVolume(stnm.c_str(), station, NA6PTGeoHelper::instance().getMedium(addName(param.medMSPlane[ist])));
+    stationSensVol->SetLineColor( NA6PTGeoHelper::instance().getMediumColor(addName(param.medMSPlane[ist])));
+    auto stationSensVolEnv = new TGeoVolume((stnm+"Env").c_str(), station, NA6PTGeoHelper::instance().getMedium(addName("Air")));
     // put physical station into dummy envelope to avoid precision problems with stepping (very thin objects are not well recognised with large steps)    
     stationSensVolEnv->AddNode(stationSensVol, composeSensorVolID(ist));    
     world->AddNode(stationSensVolEnv, composeNonSensorVolID(ist), new TGeoTranslation(param.shiftMS[0] + param.posMSPlaneX[ist],

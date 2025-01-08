@@ -17,9 +17,11 @@
 void NA6PTarget::createMaterials()
 {
   auto& matPool = NA6PTGeoHelper::instance().getMatPool();
-  if (matPool.find("Lead") == matPool.end()) {
-    matPool["Lead"] = new TGeoMaterial("Lead", 207.19, 82, 11.35);
-    NA6PTGeoHelper::instance().addMedium("Lead","", kGray + 1);
+  std::string nameM;
+  nameM = addName("Lead");
+  if (matPool.find(nameM) == matPool.end()) {
+    matPool[nameM] = new TGeoMaterial(nameM.c_str(), 207.19, 82, 11.35);
+    NA6PTGeoHelper::instance().addMedium(nameM,"", kGray + 1);
   }
 }
 
@@ -40,9 +42,9 @@ void NA6PTarget::createGeometry(TGeoVolume *world)
   float zoffs = param.posTargetZ[0] + boxDZ/2 - boxMargin; // offset to be added due to the placement of targets to the tgt box
   for (int i = 0; i < param.nTargets; ++i) {
     auto *targetShape = new TGeoTube(Form("TgtShape_%zu", i), 0, param.radTarget[i], param.thicknessTarget[i]/2);
-    TGeoVolume *target = new TGeoVolume(Form("TgtVol_%zu", i), targetShape, NA6PTGeoHelper::instance().getMedium(param.medTarget[i]));
+    TGeoVolume *target = new TGeoVolume(Form("TgtVol_%zu", i), targetShape, NA6PTGeoHelper::instance().getMedium(addName(param.medTarget[i])));
     auto *targetTransform = new TGeoCombiTrans(param.posTargetX[i], param.posTargetY[i], param.posTargetZ[i] + zoffs, NA6PTGeoHelper::rotAroundVector(0.0, 0.0, 0.0, 0.0));
-    target->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(param.medTarget[i]));
+    target->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName(param.medTarget[i])));
     tgtContainer->AddNode(target, composeNonSensorVolID(i + 1), targetTransform);
   }
 

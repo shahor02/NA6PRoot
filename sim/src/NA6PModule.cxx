@@ -52,3 +52,8 @@ void NA6PModule::writeHits(const std::vector<int>&)
 {
   LOGP(warning, "writeHits called for {}, this should not happen", getName());
 }
+
+std::string NA6PModule::addName(const std::string& n)
+{
+  return fmt::format("{}_{}", n, getName());
+}

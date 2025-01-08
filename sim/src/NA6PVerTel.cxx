@@ -24,16 +24,27 @@
 void NA6PVerTel::createMaterials()
 {
   auto& matPool = NA6PTGeoHelper::instance().getMatPool();
-  if (matPool.find("Silicon") == matPool.end()) {
-    matPool["Silicon"] = new TGeoMaterial("Silicon", 28.09, 14, 2.33);
-    NA6PTGeoHelper::instance().addMedium("Silicon", "", kCyan + 1);
+  std::string nameM;
+  nameM = addName("Silicon");
+  if (matPool.find(nameM) == matPool.end()) {
+    matPool[nameM] = new TGeoMaterial(nameM.c_str(), 28.09, 14, 2.33);
+    NA6PTGeoHelper::instance().addMedium(nameM,"", kCyan + 1);
   }
-  if (matPool.find("CarbonFoam") == matPool.end()) {
-    auto mixt = new TGeoMixture("CarbonFoam", 1, 0.5);
+  nameM = addName("CarbonFoam");
+  if (matPool.find(nameM) == matPool.end()) {
+    auto mixt = new TGeoMixture(nameM.c_str(), 1, 0.5);
     mixt->AddElement(12.01, 6, 1.0); // Carbon-only mixture
-    matPool["CarbonFoam"] = mixt;
-    NA6PTGeoHelper::instance().addMedium("CarbonFoam","", kBlue - 6);
+    matPool[nameM] = mixt;
+    NA6PTGeoHelper::instance().addMedium(nameM,"", kBlue - 6);
   }
+  nameM = addName("Air");
+  if (matPool.find(nameM) == matPool.end()) {
+    auto mixt = new TGeoMixture(nameM.c_str(), 2, 0.001);
+    mixt->AddElement(new TGeoElement("N", "Nitrogen", 7, 14.01), 0.78);
+    mixt->AddElement(new TGeoElement("O", "Oxygen", 8, 16.00), 0.22);
+    matPool[nameM] = mixt;
+    NA6PTGeoHelper::instance().addMedium(nameM);
+  } 
 }
 
 void NA6PVerTel::createGeometry(TGeoVolume *world)
@@ -69,7 +80,7 @@ void NA6PVerTel::createGeometry(TGeoVolume *world)
 
   // Container
   auto *vtShape = new TGeoBBox("VTContainer", (frameDX+2.f)/2, (frameDY+2.f)/2, boxDZ/2);
-  TGeoVolume *vtContainer = new TGeoVolume("VTContainer", vtShape, NA6PTGeoHelper::instance().getMedium("Air"));
+  TGeoVolume *vtContainer = new TGeoVolume("VTContainer", vtShape, NA6PTGeoHelper::instance().getMedium(addName("Air")));
   auto *vtTransform = new TGeoCombiTrans(param.shiftVerTel[0],
 					 param.shiftVerTel[1],
 					 param.shiftVerTel[2] +  (param.posVerTelPlaneZ[0] + boxDZ/2 - boxDZMargin),
@@ -87,15 +98,15 @@ void NA6PVerTel::createGeometry(TGeoVolume *world)
     frameSubtraction = new TGeoSubtraction(pixStFrameShape, pixChipHole, nullptr, holeTransform);
     pixStFrameShape = new TGeoCompositeShape(Form("PixStFrameBoxHole0%zu", ii), frameSubtraction);
   }
-  TGeoVolume *pixStFrame = new TGeoVolume("PixStFrame", pixStFrameShape, NA6PTGeoHelper::instance().getMedium("CarbonFoam"));
-  pixStFrame->SetLineColor(NA6PTGeoHelper::instance().getMediumColor("CarbonFoam"));
+  TGeoVolume *pixStFrame = new TGeoVolume("PixStFrame", pixStFrameShape, NA6PTGeoHelper::instance().getMedium(addName("CarbonFoam")));
+  pixStFrame->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName("CarbonFoam")));
       
   // Silicon Tracker Station
   auto *pixelStationShape = new TGeoBBox("PixelStationShape", pixChipContainerDX/2, pixChipContainerDY/2, pixChipContainerDz/2);
   auto *sensorShape = new TGeoBBox("SensorShape", pixChipDX/2, pixChipDY/2, pixChipDz/2);
-  auto *pixelStationVol = new TGeoVolume("PixelStationVol", pixelStationShape, NA6PTGeoHelper::instance().getMedium("Air"));    
-  TGeoVolume *pixelSensor = new TGeoVolume("PixelSensor", sensorShape, NA6PTGeoHelper::instance().getMedium("Silicon"));
-  pixelSensor->SetLineColor(NA6PTGeoHelper::instance().getMediumColor("Silicon"));
+  auto *pixelStationVol = new TGeoVolume("PixelStationVol", pixelStationShape, NA6PTGeoHelper::instance().getMedium(addName("Air")));    
+  TGeoVolume *pixelSensor = new TGeoVolume("PixelSensor", sensorShape, NA6PTGeoHelper::instance().getMedium(addName("Silicon")));
+  pixelSensor->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName("Silicon")));
 
   // place sensors to station
   std::vector<float> alpdx{pixChipDX/2+pixChipOffsX,  -pixChipDX/2+pixChipOffsY, -pixChipDX/2-pixChipOffsX, pixChipDX/2-pixChipOffsY};

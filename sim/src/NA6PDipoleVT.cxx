@@ -19,13 +19,24 @@
 void NA6PDipoleVT::createMaterials()
 {
   auto& matPool = NA6PTGeoHelper::instance().getMatPool();
-  if (matPool.find("Iron") == matPool.end()) {
-    matPool["Iron"] = new TGeoMaterial("Iron", 55.845, 26, 7.874); // Iron density
-    NA6PTGeoHelper::instance().addMedium("Iron", "", kGray);
+  std::string nameM;
+  nameM = addName("Iron");
+  if (matPool.find(nameM) == matPool.end()) {
+    matPool[nameM] = new TGeoMaterial(nameM.c_str(), 55.845, 26, 7.874);
+    NA6PTGeoHelper::instance().addMedium(nameM,"", kGray);
   }
-  if (matPool.find("Copper") == matPool.end()) {
-    matPool["Copper"] = new TGeoMaterial("Copper", 63.546, 29, 8.96); // Copper density
-    NA6PTGeoHelper::instance().addMedium("Copper", "" , kRed - 7);
+  nameM = addName("Copper");
+  if (matPool.find(nameM) == matPool.end()) {
+    matPool[nameM] = new TGeoMaterial(nameM.c_str(), 63.546, 29, 8.96); // Copper density
+    NA6PTGeoHelper::instance().addMedium(nameM, "" , kRed - 7);
+  }
+  nameM = addName("Air");
+  if (matPool.find(nameM) == matPool.end()) {
+    auto mixt = new TGeoMixture(nameM.c_str(), 2, 0.001);
+    mixt->AddElement(new TGeoElement("N", "Nitrogen", 7, 14.01), 0.78);
+    mixt->AddElement(new TGeoElement("O", "Oxygen", 8, 16.00), 0.22);
+    matPool[nameM] = mixt;
+    NA6PTGeoHelper::instance().addMedium(nameM);
   }
 }
 
@@ -64,26 +75,26 @@ void NA6PDipoleVT::createGeometry(TGeoVolume *world)
 
   // Iron Pole
   TGeoShape *ironPoleShape = new TGeoParaboloid("IronPole", ironPoleR, ironPoleR2, ironPoleH / 2);
-  TGeoVolume *ironPole = new TGeoVolume("IronPole", ironPoleShape, NA6PTGeoHelper::instance().getMedium("Iron"));
-  ironPole->SetLineColor(NA6PTGeoHelper::instance().getMediumColor("Iron"));
+  TGeoVolume *ironPole = new TGeoVolume("IronPole", ironPoleShape, NA6PTGeoHelper::instance().getMedium(addName("Iron")));
+  ironPole->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName("Iron")));
   auto ironPoleComb = new TGeoCombiTrans(0, ironPoleYPos + ironPoleH/2, 0, NA6PTGeoHelper::rotAroundVector(1.0f, 0.0f, 0.0f, 270.0f));
 
   // Copper Coil
   TGeoShape *copperCoilShape = new TGeoTube("CopperCoilShape", copperCoilRmin, copperCoilRmax, copperCoilH / 2);
-  TGeoVolume *copperCoil = new TGeoVolume("CopperCoil", copperCoilShape, NA6PTGeoHelper::instance().getMedium("Copper"));
-  copperCoil->SetLineColor(NA6PTGeoHelper::instance().getMediumColor("Copper"));
+  TGeoVolume *copperCoil = new TGeoVolume("CopperCoil", copperCoilShape, NA6PTGeoHelper::instance().getMedium(addName("Copper")));
+  copperCoil->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName("Copper")));
   auto copperCoilComb = new TGeoCombiTrans(0, ironPoleYPos + ironPoleH - copperCoilH/2, 0, NA6PTGeoHelper::rotAroundVector(1.0f, 0.0f, 0.0f, 90.0f));
 
   // Iron Box
   TGeoShape *ironBoxShape = new TGeoBBox("IronBox", ironBoxX/2, ironBoxY/2, ironBoxZ / 2);
-  TGeoVolume *ironBox = new TGeoVolume("IronBox", ironBoxShape, NA6PTGeoHelper::instance().getMedium("Iron"));
-  ironBox->SetLineColor(NA6PTGeoHelper::instance().getMediumColor("Iron"));
+  TGeoVolume *ironBox = new TGeoVolume("IronBox", ironBoxShape, NA6PTGeoHelper::instance().getMedium(addName("Iron")));
+  ironBox->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName("Iron")));
   auto ironBoxComb = new TGeoCombiTrans(copperCoilRmax + ironTrapL + ironBoxX/2, ironBoxY/2, 0., new TGeoRotation());
 
   // Iron Trapezoid
   TGeoShape *ironTrapShape = new TGeoTrd2("IronTrap", ironBoxZ/2, ironTrapW/2, ironBoxY/2, ironBoxY/2, ironTrapL / 2);
-  TGeoVolume *ironTrap = new TGeoVolume("IronTrap", ironTrapShape, NA6PTGeoHelper::instance().getMedium("Iron"));
-  ironTrap->SetLineColor(NA6PTGeoHelper::instance().getMediumColor("Iron"));
+  TGeoVolume *ironTrap = new TGeoVolume("IronTrap", ironTrapShape, NA6PTGeoHelper::instance().getMedium(addName("Iron")));
+  ironTrap->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName("Iron")));
   auto ironTrapComb = new TGeoCombiTrans(copperCoilRmax + ironTrapL/2, ironBoxY/2, 0, NA6PTGeoHelper::rotAroundVector(0.0f, -1.0f, 0.0f, 90.0f));
 
   // Magnet Roof (solidFeTrapRoof)    
@@ -115,8 +126,8 @@ void NA6PDipoleVT::createGeometry(TGeoVolume *world)
   auto sub5 = new TGeoSubtraction(solidFeTrapRoof4, solidRoofCut1, nullptr, trans5);
   TGeoCompositeShape *solidFeTrapRoof = new TGeoCompositeShape("solidFeTrapRoof", sub5);
   // Final magnet roof volume
-  TGeoVolume *magnetRoof = new TGeoVolume("MagnetRoof", solidFeTrapRoof, NA6PTGeoHelper::instance().getMedium("Iron"));
-  magnetRoof->SetLineColor(NA6PTGeoHelper::instance().getMediumColor("Iron"));    
+  TGeoVolume *magnetRoof = new TGeoVolume("MagnetRoof", solidFeTrapRoof, NA6PTGeoHelper::instance().getMedium(addName("Iron")));
+  magnetRoof->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName("Iron")));    
   // Correct placement for magnet roof
   auto magnetRoofComb = new TGeoCombiTrans(ironRoofL/2 - copperCoilRmax, ironBoxY + ironRoofY/2, 0.0f, NA6PTGeoHelper::rotAroundVector(0.0f, 1.0f, 0.0f, 90.0f));
 

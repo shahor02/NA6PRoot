@@ -56,6 +56,7 @@ class NA6PModule
   
  protected:
   void setActiveID(int i);
+  std::string addName(const std::string& n);
   
   int mActiveID = -1; // uinuqeID of the active detector
   int mID = -1;   // module ID

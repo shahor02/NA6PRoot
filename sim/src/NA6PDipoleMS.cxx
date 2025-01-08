@@ -19,13 +19,16 @@
 void NA6PDipoleMS::createMaterials()
 {
   auto& matPool = NA6PTGeoHelper::instance().getMatPool();
-  if (matPool.find("Iron") == matPool.end()) {
-    matPool["Iron"] = new TGeoMaterial("Iron", 55.845, 26, 7.874); // Iron density
-    NA6PTGeoHelper::instance().addMedium("Iron", "", kGray);
+  std::string nameM;
+  nameM = addName("Iron");
+  if (matPool.find(nameM) == matPool.end()) {
+    matPool[nameM] = new TGeoMaterial(nameM.c_str(), 55.845, 26, 7.874);
+    NA6PTGeoHelper::instance().addMedium(nameM,"", kGray);
   }
-  if (matPool.find("Copper") == matPool.end()) {
-    matPool["Copper"] = new TGeoMaterial("Copper", 63.546, 29, 8.96); // Copper density
-    NA6PTGeoHelper::instance().addMedium("Copper", "" , kRed - 7);
+  nameM = addName("Copper");
+  if (matPool.find(nameM) == matPool.end()) {
+    matPool[nameM] = new TGeoMaterial(nameM.c_str(), 63.546, 29, 8.96); // Copper density
+    NA6PTGeoHelper::instance().addMedium(nameM, "" , kRed - 7);
   }
 }
 
@@ -49,8 +52,8 @@ void NA6PDipoleMS::createGeometry(TGeoVolume *world)
 
   auto* sub = new TGeoSubtraction(ironBoxS, apperBoxS);
   auto* dipShape = new TGeoCompositeShape("DipoleMS", sub);
-  auto* dipVol = new TGeoVolume("DipoleMS", dipShape, NA6PTGeoHelper::instance().getMedium("Iron"));
-  dipVol->SetLineColor(NA6PTGeoHelper::instance().getMediumColor("Iron"));
+  auto* dipVol = new TGeoVolume("DipoleMS", dipShape, NA6PTGeoHelper::instance().getMedium(addName("Iron")));
+  dipVol->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName("Iron")));
 
   // Add the full assembly to the world
   world->AddNode(dipVol, composeNonSensorVolID(0), new TGeoTranslation(param.posDipMS[0], param.posDipMS[1], param.posDipMS[2]));
