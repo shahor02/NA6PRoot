@@ -120,6 +120,6 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/init.sh
               GROUP_EXECUTE GROUP_READ
               WORLD_EXECUTE WORLD_READ)
 
-target_compile_options(na6psim PUBLIC -ggdb -g -O0)
-SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -ggdb -g")
+#target_compile_options(na6psim PUBLIC -ggdb -g -O0)
+#SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -ggdb -g")
 
