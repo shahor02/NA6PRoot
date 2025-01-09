@@ -20,6 +20,7 @@ set(DICTIONARY_HEADERS
   ConfigurableParamHelper.h
   KeyValParam.h
   MiscUtils.h
+  NA6PTreeStream.h
   ) # Add all class headers requiring dictionary
 
 set(DICTIONARY_LINKDEF ${THIS_SRC_DIR}/${MOD_NAME}LinkDef.h)
