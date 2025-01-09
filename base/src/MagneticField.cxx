@@ -16,7 +16,7 @@ MagneticField::~MagneticField()
 void MagneticField::loadFlukaField()
 {
   const auto& param = NA6PLayoutParam::Instance();
-  mDipoleVT.loadFlukaField(gSystem->ExpandPathName(param.flukaInpDipVT.c_str()));  
+  mDipoleVT.loadFlukaField(gSystem->ExpandPathName(param.flukaInpDipVT.c_str()));
   mDipoleMS.loadFlukaField(gSystem->ExpandPathName(param.flukaInpDipMS.c_str()));
   mDipoleVT.setRefPosition(param.posDipIP[0], param.posDipIP[1], param.posDipIP[2]);
   mDipoleMS.setRefPosition(param.posDipMS[0], param.posDipMS[1], param.posDipMS[2]);

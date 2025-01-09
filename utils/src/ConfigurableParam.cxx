@@ -925,4 +925,4 @@ ConfigurableParam::EParamUpdateStatus ConfigurableParam::updateThroughStorageMap
 }
 
 } // namespace conf
-} // namespace o2
+} // namespace na6p

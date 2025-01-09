@@ -9,7 +9,7 @@ class NA6PMuonSpecHit : public NA6PBaseHit
 {
  public:
   using NA6PBaseHit::NA6PBaseHit;
- 
+
   ClassDefNV(NA6PMuonSpecHit, 1);
 };
 

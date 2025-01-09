@@ -23,32 +23,32 @@ void NA6PDipoleMS::createMaterials()
   nameM = addName("Iron");
   if (matPool.find(nameM) == matPool.end()) {
     matPool[nameM] = new TGeoMaterial(nameM.c_str(), 55.845, 26, 7.874);
-    NA6PTGeoHelper::instance().addMedium(nameM,"", kGray);
+    NA6PTGeoHelper::instance().addMedium(nameM, "", kGray);
   }
   nameM = addName("Copper");
   if (matPool.find(nameM) == matPool.end()) {
     matPool[nameM] = new TGeoMaterial(nameM.c_str(), 63.546, 29, 8.96); // Copper density
-    NA6PTGeoHelper::instance().addMedium(nameM, "" , kRed - 7);
+    NA6PTGeoHelper::instance().addMedium(nameM, "", kRed - 7);
   }
 }
 
-void NA6PDipoleMS::createGeometry(TGeoVolume *world)
+void NA6PDipoleMS::createGeometry(TGeoVolume* world)
 {
   const auto& param = NA6PLayoutParam::Instance();
 
   createMaterials();
 
   // Define dimensions and positions
-  float extDX = 440.f; // cm, external size
-  float extDY = 400.f; // cm, external size
-  float extDZ = 130.f; // cm, external size
+  float extDX = 440.f;       // cm, external size
+  float extDY = 400.f;       // cm, external size
+  float extDZ = 130.f;       // cm, external size
   float appertureDX = 320.f; // cm, hole X apperture
   float appertureDY = 240.f; // cm, hole Y apperture
 
   // Iron box
-  TGeoShape *ironBoxS = new TGeoBBox("IronBox", extDX/2, extDY/2, extDZ/2);
+  TGeoShape* ironBoxS = new TGeoBBox("IronBox", extDX / 2, extDY / 2, extDZ / 2);
   // Apperture
-  TGeoShape *apperBoxS = new TGeoBBox("ApperBox", appertureDX/2, appertureDY/2, extDZ);
+  TGeoShape* apperBoxS = new TGeoBBox("ApperBox", appertureDX / 2, appertureDY / 2, extDZ);
 
   auto* sub = new TGeoSubtraction(ironBoxS, apperBoxS);
   auto* dipShape = new TGeoCompositeShape("DipoleMS", sub);
@@ -57,5 +57,4 @@ void NA6PDipoleMS::createGeometry(TGeoVolume *world)
 
   // Add the full assembly to the world
   world->AddNode(dipVol, composeNonSensorVolID(0), new TGeoTranslation(param.posDipMS[0], param.posDipMS[1], param.posDipMS[2]));
-
 }

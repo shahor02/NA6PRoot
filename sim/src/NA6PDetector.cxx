@@ -47,12 +47,12 @@ void NA6PDetector::addModule(NA6PModule* m)
   if (m->isActive()) {
     for (const auto mo : mModulesVec) {
       if (mo->getActiveID() == m->getActiveID()) {
-	LOGP(fatal, "Redefinition of ActiveModuleID:{} {}, previosly defined module: {}", m->getActiveID(), m->getName(), mo->getName());
+        LOGP(fatal, "Redefinition of ActiveModuleID:{} {}, previosly defined module: {}", m->getActiveID(), m->getName(), mo->getName());
       }
     }
   }
   mModulesMap[m->getName()] = m;
-  m->setID((int)mModulesVec.size() + 1);  // ID should be counted from 1!!!
+  m->setID((int)mModulesVec.size() + 1); // ID should be counted from 1!!!
   mModulesVec.push_back(m);
   if (m->isActive()) {
     mActiveModulesVec.push_back(m);
@@ -62,9 +62,9 @@ void NA6PDetector::addModule(NA6PModule* m)
 
 void NA6PDetector::createGeometry(const std::string& name)
 {
-  TGeoManager *geom = new TGeoManager(name.c_str(), (name + " TGeometry").c_str());
+  TGeoManager* geom = new TGeoManager(name.c_str(), (name + " TGeometry").c_str());
   createCommonMaterials();
-  TGeoVolume *world = geom->MakeBox("World", NA6PTGeoHelper::instance().getMedium("Air"), 1000, 1000, 1000);
+  TGeoVolume* world = geom->MakeBox("World", NA6PTGeoHelper::instance().getMedium("Air"), 1000, 1000, 1000);
   geom->SetTopVolume(world);
   //
   // build modules
@@ -72,7 +72,7 @@ void NA6PDetector::createGeometry(const std::string& name)
     m->createMaterials();
     m->createGeometry(world);
   }
-  
+
   // Close the geometry
   geom->CloseGeometry();
 

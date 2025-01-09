@@ -9,11 +9,11 @@
 #include <unordered_map>
 #include <string>
 
-
 class NA6PTGeoHelper
 {
  public:
-  static NA6PTGeoHelper& instance() {
+  static NA6PTGeoHelper& instance()
+  {
     static NA6PTGeoHelper inst;
     return inst;
   }
@@ -21,19 +21,18 @@ class NA6PTGeoHelper
   auto& getMatPool() { return mMatPool; }
   auto& getMedPool() { return mMedPool; }
 
-  void addMedium(const std::string& medName, const std::string& matName="", Color_t col = kGray);
+  void addMedium(const std::string& medName, const std::string& matName = "", Color_t col = kGray);
   TGeoMedium* getMedium(const std::string& medName) const;
   Color_t getMediumColor(const std::string& medName) const;
   static TGeoRotation* rotAroundVector(float uX, float uY, float uZ, float ddelta);
-  
+
  private:
   NA6PTGeoHelper() = default;
   ~NA6PTGeoHelper() = default;
-  
+
   std::unordered_map<std::string, TGeoMaterial*> mMatPool;
   std::unordered_map<std::string, TGeoMedium*> mMedPool;
   std::unordered_map<std::string, Color_t> mColorPool;
-
 };
 
 #endif

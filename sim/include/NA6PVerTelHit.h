@@ -9,7 +9,7 @@ class NA6PVerTelHit : public NA6PBaseHit
 {
  public:
   using NA6PBaseHit::NA6PBaseHit;
- 
+
   ClassDefNV(NA6PVerTelHit, 1);
 };
 

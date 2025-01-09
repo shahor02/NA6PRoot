@@ -14,10 +14,10 @@ class TTree;
 
 class NA6PMC : public TVirtualMCApplication
 {
-public:
+ public:
   NA6PMC(const char* name, const char* title);
   virtual ~NA6PMC();
-  
+
   void ConstructGeometry() override;
   void ConstructOpGeometry() override;
   void InitGeometry() override;
@@ -28,7 +28,7 @@ public:
   void BeginPrimary() override;
   void FinishPrimary() override;
   void Stepping() override;
-  void PreTrack() override {}  
+  void PreTrack() override {}
   void PostTrack() override {}
 
   bool setupGenerator(const std::string& s);
@@ -46,14 +46,14 @@ public:
   void closeKineOutput();
   void writeKine();
 
-private:
+ private:
   void clearHits();
   void addSpecialParticles();
-  
+
   std::unique_ptr<NA6PDetector> mDet;
   std::unique_ptr<NA6PMCStack> mStack{};
   std::unique_ptr<NA6PGenerator> mGenerator{};
-  
+
   NA6PMCEventHeader mMCHeader, *mMCHeaderPtr = &mMCHeader;
   std::vector<TParticle> mMCTracks, *mMCTracksPtr = &mMCTracks;
   std::vector<int> mRemap; // tmp vector for selected tracks remapping

@@ -32,7 +32,7 @@ class NA6PBaseHit
     kTrackStopped = 0x1 << 4,
     kTrackAlive = 0x1 << 5
   };
-  
+
   NA6PBaseHit() = default;
   NA6PBaseHit(int trackid, short did, const TVector3& xyzIn, const TVector3& xyzOut, const TVector3& momIn, float time, float val, uint8_t statusStart, uint8_t statusEnd);
 
@@ -44,7 +44,7 @@ class NA6PBaseHit
   auto getYIn() const { return mPosIn[1]; }
   auto getZIn() const { return mPosIn[2]; }
   auto* getPosIn() const { return mPosIn; }
-  
+
   auto getXOut() const { return mPosOut[0]; }
   auto getYOut() const { return mPosOut[1]; }
   auto getZOut() const { return mPosOut[2]; }
@@ -54,7 +54,7 @@ class NA6PBaseHit
   auto getPX() const { return mMomIn[0]; }
   auto getPY() const { return mMomIn[1]; }
   auto getPZ() const { return mMomIn[2]; }
-    
+
   auto getHitValue() const { return mHitValue; }
   auto getTime() const { return mTime; }
   auto getDetectorID() const { return mDetectorID; }
@@ -75,14 +75,15 @@ class NA6PBaseHit
   Bool_t isOutStart() const { return mTrackStatusStart & kTrackOut; }
   Bool_t isStoppedStart() const { return mTrackStatusStart & kTrackStopped; }
   Bool_t isAliveStart() const { return mTrackStatusStart & kTrackAlive; }
-  
+
   // modifiers
   void setTime(float time) { mTime = time; }
   void setHitValue(float val) { mHitValue = val; }
   void setDetectorID(short detID) { mDetectorID = detID; }
 
   void setPosIn(const TVector3& v) { setPosIn(v.X(), v.Y(), v.Z()); }
-  void setPosIn(float x, float y, float z) {
+  void setPosIn(float x, float y, float z)
+  {
     setXIn(x);
     setYIn(y);
     setZIn(z);
@@ -92,7 +93,8 @@ class NA6PBaseHit
   void setZIn(float z) { mPosIn[2] = z; }
 
   void setPosOut(const TVector3& v) { setPosOut(v.X(), v.Y(), v.Z()); }
-  void setPosOut(float x, float y, float z) {
+  void setPosOut(float x, float y, float z)
+  {
     setXOut(x);
     setYOut(y);
     setZOut(z);
@@ -101,25 +103,26 @@ class NA6PBaseHit
   void setYOut(float y) { mPosOut[1] = y; }
   void setZOut(float z) { mPosOut[2] = z; }
 
-  void setMomIn(const TVector3& v) {
+  void setMomIn(const TVector3& v)
+  {
     mMomIn[0] = v.X();
     mMomIn[1] = v.Y();
     mMomIn[2] = v.Z();
   }
-  
+
   void print() const;
   std::string asString() const;
-  
-protected:  
-  float mPosIn[3] = {};                // cartesian position of Hit at the entrance
-  float mPosOut[3] = {};               // cartesian position of Hit at the exit
-  float mMomIn[3] = {};                // momentum at entrance
-  float mTime = 0.f;                   // time of flight
-  float mHitValue = 0.;                // hit value
-  int mTrackID = 0;                    // track_id
-  short mDetectorID = 0;               // the detector/sensor id
-  uint8_t mTrackStatusEnd = 0;         // MC status flag at exit
-  uint8_t mTrackStatusStart = 0;       // MC status at starting point
+
+ protected:
+  float mPosIn[3] = {};          // cartesian position of Hit at the entrance
+  float mPosOut[3] = {};         // cartesian position of Hit at the exit
+  float mMomIn[3] = {};          // momentum at entrance
+  float mTime = 0.f;             // time of flight
+  float mHitValue = 0.;          // hit value
+  int mTrackID = 0;              // track_id
+  short mDetectorID = 0;         // the detector/sensor id
+  uint8_t mTrackStatusEnd = 0;   // MC status flag at exit
+  uint8_t mTrackStatusStart = 0; // MC status at starting point
 
   ClassDefNV(NA6PBaseHit, 1);
 };

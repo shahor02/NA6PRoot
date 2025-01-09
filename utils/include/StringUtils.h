@@ -37,9 +37,9 @@ struct Str {
   // Code for trimming coming from https://stackoverflow.com/questions/216823/whats-the-best-way-to-trim-stdstring
 
   /**
- * Trim from start (in place)
- * @param s
- */
+   * Trim from start (in place)
+   * @param s
+   */
   static inline void ltrim(std::string& s)
   {
     s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](int ch) { return !std::isspace(ch); }));
@@ -53,9 +53,9 @@ struct Str {
   }
 
   /** Trim from end (in place)
- *
- * @param s
- */
+   *
+   * @param s
+   */
   static inline void rtrim(std::string& s)
   {
     s.erase(std::find_if(s.rbegin(), s.rend(), [](int ch) { return !std::isspace(ch); }).base(), s.end());
@@ -69,9 +69,9 @@ struct Str {
   }
 
   /**
- * Trim from both ends (in place)
- * @param s
- */
+   * Trim from both ends (in place)
+   * @param s
+   */
   static inline void trim(std::string& s)
   {
     ltrim(s);
@@ -79,10 +79,10 @@ struct Str {
   }
 
   /**
- * Trim from start (copying)
- * @param s
- * @return
- */
+   * Trim from start (copying)
+   * @param s
+   * @return
+   */
   static inline std::string ltrim_copy(const std::string& s)
   {
     std::string ss = s;
@@ -98,10 +98,10 @@ struct Str {
   }
 
   /**
- * Trim from end (copying)
- * @param s
- * @return
- */
+   * Trim from end (copying)
+   * @param s
+   * @return
+   */
   static inline std::string rtrim_copy(const std::string& s)
   {
     std::string ss = s;
@@ -117,10 +117,10 @@ struct Str {
   }
 
   /**
- * Trim from both sides (copying)
- * @param s
- * @return
- */
+   * Trim from both sides (copying)
+   * @param s
+   * @return
+   */
   static inline std::string trim_copy(const std::string& s)
   {
     std::string ss = s;
@@ -175,4 +175,4 @@ struct Str {
 } // namespace utils
 } // namespace na6p
 
-#endif //ALICEO2_STRINGUTILS_H
+#endif // ALICEO2_STRINGUTILS_H

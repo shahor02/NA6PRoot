@@ -1,6 +1,5 @@
 // NA6PCCopyright
 
-
 #ifndef NA6P_GENCUT_PARAMS_H_
 #define NA6P_GENCUT_PARAMS_H_
 
@@ -9,8 +8,7 @@
 
 // generic cuts for generator
 
-struct NA6PGenCutParam : public na6p::conf::ConfigurableParamHelper<NA6PGenCutParam>
-{
+struct NA6PGenCutParam : public na6p::conf::ConfigurableParamHelper<NA6PGenCutParam> {
   size_t maxTrailsPerParticle = 1000000;
   float etaMin = 0.f;
   float etaMax = 6.f;

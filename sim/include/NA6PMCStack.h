@@ -39,8 +39,8 @@ class NA6PMCStack : public TVirtualMCStack
 
   // methods
   void PushTrack(int toBeDone, int parent, int pdg, double px, double py, double pz, double e,
-		 double vx, double vy, double vz, double tof, double polx, double poly, double polz,
-		 TMCProcess mech, int& ntr, double weight, int is) override;
+                 double vx, double vy, double vz, double tof, double polx, double poly, double polz,
+                 TMCProcess mech, int& ntr, double weight, int is) override;
   TParticle* PopNextTrack(int& track) override;
   TParticle* PopPrimaryForTracking(int i) override;
   void Print(Option_t* option = "") const override;
@@ -54,7 +54,8 @@ class NA6PMCStack : public TVirtualMCStack
   int GetNprimary() const override { return mNPrimary; }
   TParticle* GetCurrentTrack() const override { return GetParticle(mCurrentTrack); }
   int GetCurrentTrackNumber() const override { return mCurrentTrack; }
-  int GetCurrentParentTrackNumber() const override {
+  int GetCurrentParentTrackNumber() const override
+  {
     TParticle* current = GetCurrentTrack();
     return current ? current->GetFirstMother() : -1;
   }
@@ -66,12 +67,12 @@ class NA6PMCStack : public TVirtualMCStack
 
  private:
   // data members
-  std::stack<TParticle*> mStack{};          //!< The stack of particles (transient)
-  TClonesArray* mParticles = nullptr;       ///< The array of particle (persistent)
-  int mCurrentTrack = -1;                   ///< The current track number
-  int mNPrimary = 0;                        ///< The number of primaries
-  int mVerbosity = 0;                       //!
-  
+  std::stack<TParticle*> mStack{};    //!< The stack of particles (transient)
+  TClonesArray* mParticles = nullptr; ///< The array of particle (persistent)
+  int mCurrentTrack = -1;             ///< The current track number
+  int mNPrimary = 0;                  ///< The number of primaries
+  int mVerbosity = 0;                 //!
+
   ClassDefOverride(NA6PMCStack, 1); // NA6PMCStack
 };
 

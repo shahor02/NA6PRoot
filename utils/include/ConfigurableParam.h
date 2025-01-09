@@ -9,7 +9,7 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-//first version 8/2018, Sandro Wenzel
+// first version 8/2018, Sandro Wenzel
 
 #ifndef COMMON_SIMCONFIG_INCLUDE_SIMCONFIG_CONFIGURABLEPARAM_H_
 #define COMMON_SIMCONFIG_INCLUDE_SIMCONFIG_CONFIGURABLEPARAM_H_
@@ -319,21 +319,21 @@ class ConfigurableParam
 };
 
 } // end namespace conf
-} // end namespace o2
+} // namespace na6p
 
 // a helper macro for boilerplate code in parameter classes
 #define NA6PParamDef(classname, key)                \
- public:                                          \
-  classname(TRootIOCtor*) {}                      \
-  classname(classname const&) = delete;           \
-                                                  \
- private:                                         \
-  static constexpr char const* const sKey = key;  \
-  static classname sInstance;                     \
-  classname() = default;                          \
-  template <typename T>                           \
+ public:                                            \
+  classname(TRootIOCtor*) {}                        \
+  classname(classname const&) = delete;             \
+                                                    \
+ private:                                           \
+  static constexpr char const* const sKey = key;    \
+  static classname sInstance;                       \
+  classname() = default;                            \
+  template <typename T>                             \
   friend class na6p::conf::ConfigurableParamHelper; \
-  template <typename T, typename P>               \
+  template <typename T, typename P>                 \
   friend class na6p::conf::ConfigurableParamPromoter;
 
 // a helper macro to implement necessary symbols in source

@@ -21,7 +21,7 @@
 #include <fairlogger/Logger.h>
 #include <filesystem>
 
-using Str=na6p::utils::Str;
+using Str = na6p::utils::Str;
 
 NA6PMC::NA6PMC(const char* name, const char* title) : TVirtualMCApplication(name, title)
 {
@@ -44,7 +44,8 @@ void NA6PMC::ConstructGeometry()
   TVirtualMC::GetMC()->SetRootGeometry();
 }
 
-void NA6PMC::InitGeometry() {
+void NA6PMC::InitGeometry()
+{
   LOGP(info, "Init geometry...");
 }
 
@@ -55,7 +56,7 @@ void NA6PMC::ConstructOpGeometry()
 
 void NA6PMC::AddParticles()
 {
-  if (mVerbosity>0) {
+  if (mVerbosity > 0) {
     LOGP(info, "Adding particles to the simulation");
   }
   //
@@ -66,9 +67,9 @@ void NA6PMC::GeneratePrimaries()
 {
   // Implement primary particle generation here
   mGenerator->generate();
-  if (mVerbosity>0) {
+  if (mVerbosity > 0) {
     LOGP(info, "Generated {} primary particles with {}", mStack->GetNprimary(), mGenerator->getName());
-    if (mVerbosity>2) {
+    if (mVerbosity > 2) {
       mStack->Print();
     }
   }
@@ -76,7 +77,7 @@ void NA6PMC::GeneratePrimaries()
 
 void NA6PMC::BeginEvent()
 {
-  if (mVerbosity>0) {
+  if (mVerbosity > 0) {
     LOGP(info, "Beginning event {}", mEvCount);
   }
   mStack->clear();
@@ -87,9 +88,9 @@ void NA6PMC::BeginEvent()
 
 void NA6PMC::FinishEvent()
 {
-  if (mVerbosity>0) {    
+  if (mVerbosity > 0) {
     std::string rep = fmt::format(" Tracked {} particles ({} primaries) | Hits:", mStack->GetNtrack(), mStack->GetNprimary());
-    for (int im=0; im<mDet->getNActiveModules(); im++) {
+    for (int im = 0; im < mDet->getNActiveModules(); im++) {
       const auto* det = mDet->getActiveModule(im);
       rep += fmt::format(" {}:{}", det->getName(), det->getNHits());
     }
@@ -140,11 +141,11 @@ bool NA6PMC::setupGenerator(const std::string& s)
       LOGP(fatal, "Loading of generator macro {} leads to error TInterpreter::EErrorCode={}", s, int(errCode));
     }
     std::filesystem::path mpth(s);
-    std::string confMacroFun = fmt::format("{}()",mpth.stem().string());    
+    std::string confMacroFun = fmt::format("{}()", mpth.stem().string());
     gen = dynamic_cast<NA6PGenerator*>((TObject*)TInterpreter::Instance()->ProcessLineSynch(confMacroFun.c_str(), &errCode));
     if (errCode != TInterpreter::EErrorCode::kNoError || !gen) {
       LOGP(fatal, "Execution of generator function {} from macro {} leads to error TInterpreter::EErrorCode={} and returned pointer {}",
-	   confMacroFun, s, int(errCode), (void*)gen);
+           confMacroFun, s, int(errCode), (void*)gen);
     }
     gen->setStack(mStack.get());
     if (mRandomSeed) {
@@ -160,11 +161,11 @@ bool NA6PMC::setupGenerator(const std::string& s)
 
 void NA6PMC::setRandomSeed(Long64_t r)
 {
-  if (r<0) {
+  if (r < 0) {
     std::chrono::system_clock::time_point t0, t = std::chrono::high_resolution_clock::now();
-    mRandomSeed = std::chrono::duration_cast<std::chrono::nanoseconds>(t-t0).count();
+    mRandomSeed = std::chrono::duration_cast<std::chrono::nanoseconds>(t - t0).count();
   } else {
-    mRandomSeed = r;  
+    mRandomSeed = r;
   }
   if (mRandomSeed) {
     gRandom->SetSeed(mRandomSeed);
@@ -176,15 +177,15 @@ void NA6PMC::init()
 {
   if (mVerbosity < 2) {
     MiscUtils::silenceStdOut("for BuildPhysics()");
-  }  
+  }
 
   TVirtualMC::GetMC()->Init();
 
   TVirtualMC::GetMC()->BuildPhysics();
   if (mVerbosity < 2) {
     MiscUtils::reviveStdOut();
-  }  
-  
+  }
+
   TVirtualMC::GetMC()->SetStack(mStack.get());
 
   mDet->setVerbosity(mVerbosity);
@@ -200,13 +201,13 @@ void NA6PMC::init()
   createKineOutput(dir);
   mDet->createHitsOutput(dir);
 }
-  
+
 void NA6PMC::clearHits()
 {
-  if (mVerbosity>0) {
+  if (mVerbosity > 0) {
     LOGP(info, "clearHits");
   }
-  for (int i=0;i<mDet->getNModules();i++) {
+  for (int i = 0; i < mDet->getNModules(); i++) {
     auto det = mDet->getModule(i);
     det->clearHits();
   }
@@ -214,7 +215,7 @@ void NA6PMC::clearHits()
 
 void NA6PMC::createKineOutput(const std::string& outDir)
 {
-  auto nm = fmt::format("{}MCKine.root",outDir);
+  auto nm = fmt::format("{}MCKine.root", outDir);
   mKineFile = TFile::Open(nm.c_str(), "recreate");
   mKineTree = new TTree("mckine", "MC kinematics");
   mKineTree->Branch("header", &mMCHeaderPtr);
@@ -236,9 +237,9 @@ void NA6PMC::closeKineOutput()
 }
 
 void NA6PMC::writeKine()
-{  
+{
   if (mKineTree) {
-    mKineTree->Fill();    
+    mKineTree->Fill();
   }
 }
 
@@ -249,24 +250,24 @@ void NA6PMC::selectTracksToSave()
   mRemap.clear();
   mRemap.resize(mStack->GetNtrack(), -1);
   int nkeep = 0;
-  for (int i=0;i<nPrimIni;i++) { // generator primaries are stored as is
+  for (int i = 0; i < nPrimIni; i++) { // generator primaries are stored as is
     mRemap[i] = nkeep++;
   }
-  for (int i=nPrimIni;i<ntrIni;i++) {
+  for (int i = nPrimIni; i < ntrIni; i++) {
     const auto* part = mStack->GetParticle(i);
     if (NA6PModule::testActiveIDBits(*part)) { // has hits
       mRemap[i] = 0;
       int mothID;
-      LOGP(debug, "will save contributor {}, mother {}({})", i, part->GetFirstMother(), part->GetFirstMother()>=0 ? mRemap[part->GetFirstMother()] : -1);
-      while ((mothID=part->GetFirstMother())>=0 && mRemap[mothID] < 0) {
-	mRemap[mothID] = 0;
-	part = mStack->GetParticle(mothID);
-	LOGP(debug, "will save mother {}, its mother {}({})", mothID, part->GetFirstMother(), part->GetFirstMother()>=0 ? mRemap[part->GetFirstMother()] : -1);
+      LOGP(debug, "will save contributor {}, mother {}({})", i, part->GetFirstMother(), part->GetFirstMother() >= 0 ? mRemap[part->GetFirstMother()] : -1);
+      while ((mothID = part->GetFirstMother()) >= 0 && mRemap[mothID] < 0) {
+        mRemap[mothID] = 0;
+        part = mStack->GetParticle(mothID);
+        LOGP(debug, "will save mother {}, its mother {}({})", mothID, part->GetFirstMother(), part->GetFirstMother() >= 0 ? mRemap[part->GetFirstMother()] : -1);
       }
     }
   }
   // enumerate mRemapped indices
-  for (int i=nPrimIni;i<ntrIni;i++) {
+  for (int i = nPrimIni; i < ntrIni; i++) {
     if (mRemap[i] == 0) {
       mRemap[i] = nkeep++;
     }
@@ -275,29 +276,29 @@ void NA6PMC::selectTracksToSave()
   mMCHeader.setNTracks(nkeep);
   mMCHeader.setNPrimaries(nPrimIni);
   mMCHeader.setEventID(mEvCount);
-  
+
   // record selected tracks, mRemapping mother/daughter indices
-  for (int i=0;i<ntrIni;i++) {
+  for (int i = 0; i < ntrIni; i++) {
     if (mRemap[i] >= 0) {
       auto* part = mStack->GetParticle(i);
-      mMCTracks.push_back(*part);      
+      mMCTracks.push_back(*part);
       auto& partN = mMCTracks.back();
       partN.SetLastMother(-1);
       int mothID = partN.GetFirstMother();
       if (mothID >= 0) {
-	if (mRemap[mothID]<0) {
-	  LOGP(debug, "Mother {} of {} should have been spared but it is not!", mothID, i);
-	}
-	partN.SetFirstMother(mRemap[mothID]);
-	auto& moth = mMCTracks[mRemap[mothID]]; // set daughters
-	if (moth.GetFirstDaughter()<0) {
-	  moth.SetFirstDaughter(mRemap[i]);
-	}
-	moth.SetLastDaughter(mRemap[i]);
+        if (mRemap[mothID] < 0) {
+          LOGP(debug, "Mother {} of {} should have been spared but it is not!", mothID, i);
+        }
+        partN.SetFirstMother(mRemap[mothID]);
+        auto& moth = mMCTracks[mRemap[mothID]]; // set daughters
+        if (moth.GetFirstDaughter() < 0) {
+          moth.SetFirstDaughter(mRemap[i]);
+        }
+        moth.SetLastDaughter(mRemap[i]);
       }
     }
   }
-  
+
   LOGP(info, "Will save {} tracks out of {}", mMCTracks.size(), mRemap.size());
 }
 
@@ -311,19 +312,19 @@ void NA6PMC::addSpecialParticles()
 
   LOG(info) << "Adding custom particles to VMC";
 
-  //Hypertriton
+  // Hypertriton
   TVirtualMC::GetMC()->DefineParticle(1010010030, "HyperTriton", kPTHadron, 2.991134, 1.0, 2.632e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 3, kFALSE);
-  //Anti-Hypertriton
+  // Anti-Hypertriton
   TVirtualMC::GetMC()->DefineParticle(-1010010030, "AntiHyperTriton", kPTHadron, 2.991134, 1.0, 2.632e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 3, kFALSE);
 
-  //Hyper hydrogen 4 ground state
+  // Hyper hydrogen 4 ground state
   TVirtualMC::GetMC()->DefineParticle(1010010040, "Hyperhydrog4", kPTHadron, 3.922434, 1.0, 2.08e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
-  //Anti-Hyper hydrogen 4 ground state
+  // Anti-Hyper hydrogen 4 ground state
   TVirtualMC::GetMC()->DefineParticle(-1010010040, "AntiHyperhydrog4", kPTHadron, 3.922434, 1.0, 2.08e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
 
-  //Hyper helium 4 ground state
+  // Hyper helium 4 ground state
   TVirtualMC::GetMC()->DefineParticle(1010020040, "Hyperhelium4", kPTHadron, 3.921728, 2.0, 2.50e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
-  //Anti-Hyper helium 4 ground state
+  // Anti-Hyper helium 4 ground state
   TVirtualMC::GetMC()->DefineParticle(-1010020040, "AntiHyperhelium4", kPTHadron, 3.921728, 2.0, 2.50e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
 
   // Lithium 4 ground state
@@ -331,14 +332,14 @@ void NA6PMC::addSpecialParticles()
   // Anti-Lithium 4 ground state
   TVirtualMC::GetMC()->DefineParticle(-1000030040, "AntiLithium4", kPTHadron, 3.7513, 3.0, 9.1e-23, "Ion", 0.003, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
 
-  //Hyper helium 5
+  // Hyper helium 5
   TVirtualMC::GetMC()->DefineParticle(1010020050, "Hyperhelium5", kPTHadron, 4.839961, 2.0, 2.74e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 5, kFALSE);
-  //Anti-Hyper helium 5
+  // Anti-Hyper helium 5
   TVirtualMC::GetMC()->DefineParticle(-1010020050, "AntiHyperhelium5", kPTHadron, 4.839961, 2.0, 2.74e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 5, kFALSE);
 
-  //Double Hyper hydrogen 4
+  // Double Hyper hydrogen 4
   TVirtualMC::GetMC()->DefineParticle(1020010040, "DoubleHyperhydrogen4", kPTHadron, 4.106, 1.0, 2.632e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
-  //Double Anti-Hyper hydrogen 4
+  // Double Anti-Hyper hydrogen 4
   TVirtualMC::GetMC()->DefineParticle(-1020010040, "DoubleAntiHyperhydrogen4", kPTHadron, 4.106, 1.0, 2.632e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
 
   // 4Xi(-)H
@@ -355,72 +356,72 @@ void NA6PMC::addSpecialParticles()
   // Anti-Hyper helium 4 sigma
   TVirtualMC::GetMC()->DefineParticle(-1110020040, "AntiHyperhelium4sigma", kPTHadron, 3.995, 2.0, 8.018e-11, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
 
-  //Lambda-Neutron
+  // Lambda-Neutron
   TVirtualMC::GetMC()->DefineParticle(1010000020, "LambdaNeutron", kPTNeutron, 2.054, 0.0, 2.632e-10, "Hadron", 0.0, 0, 1, 0, 0, 0, 0, 0, 2, kFALSE);
 
-  //Anti-Lambda-Neutron
+  // Anti-Lambda-Neutron
   TVirtualMC::GetMC()->DefineParticle(-1010000020, "AntiLambdaNeutron", kPTNeutron, 2.054, 0.0, 2.632e-10, "Hadron", 0.0, 0, 1, 0, 0, 0, 0, 0, 2, kFALSE);
 
-  //H-Dibaryon
+  // H-Dibaryon
   TVirtualMC::GetMC()->DefineParticle(1020000020, "Hdibaryon", kPTNeutron, 2.23, 0.0, 2.632e-10, "Hadron", 0.0, 0, 1, 0, 0, 0, 0, 0, 2, kFALSE);
 
-  //Anti-H-Dibaryon
+  // Anti-H-Dibaryon
   TVirtualMC::GetMC()->DefineParticle(-1020000020, "AntiHdibaryon", kPTNeutron, 2.23, 0.0, 2.632e-10, "Hadron", 0.0, 0, 1, 0, 0, 0, 0, 0, 2, kFALSE);
 
-  //Xi-Proton
+  // Xi-Proton
   TVirtualMC::GetMC()->DefineParticle(1020010020, "Xi0Proton", kPTHadron, 2.248, 1.0, 1.333e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 2, kFALSE);
 
-  //Anti-Xi-Proton
+  // Anti-Xi-Proton
   TVirtualMC::GetMC()->DefineParticle(-1020010020, "AntiXi0Proton", kPTHadron, 2.248, 1.0, 1.333e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 2, kFALSE);
 
-  //Lambda-Neutron-Neutron
+  // Lambda-Neutron-Neutron
   TVirtualMC::GetMC()->DefineParticle(1010000030, "LambdaNeutronNeutron", kPTNeutron, 2.99, 0.0, 2.632e-10, "Hadron", 0.0, 0, 1, 0, 0, 0, 0, 0, 3, kFALSE);
 
-  //Anti-Lambda-Neutron-Neutron
+  // Anti-Lambda-Neutron-Neutron
   TVirtualMC::GetMC()->DefineParticle(-1010000030, "AntiLambdaNeutronNeutron", kPTNeutron, 2.99, 0.0, 2.632e-10, "Hadron", 0.0, 0, 1, 0, 0, 0, 0, 0, 3, kFALSE);
 
-  //Omega-Proton
+  // Omega-Proton
   TVirtualMC::GetMC()->DefineParticle(1030000020, "OmegaProton", kPTNeutron, 2.592, 0.0, 2.632e-10, "Hadron", 0.0, 2, 1, 0, 0, 0, 0, 0, 2, kFALSE);
 
-  //Anti-Omega-Proton
+  // Anti-Omega-Proton
   TVirtualMC::GetMC()->DefineParticle(-1030000020, "AntiOmegaProton", kPTNeutron, 2.592, 0.0, 2.632e-10, "Hadron", 0.0, 2, 1, 0, 0, 0, 0, 0, 2, kFALSE);
 
-  //Omega-Neutron
+  // Omega-Neutron
   TVirtualMC::GetMC()->DefineParticle(1030010020, "OmegaNeutron", kPTHadron, 2.472, 1.0, 2.190e-22, "Hadron", 0.0, 2, 1, 0, 0, 0, 0, 0, 2, kFALSE);
 
-  //Anti-Omega-Neutron
+  // Anti-Omega-Neutron
   TVirtualMC::GetMC()->DefineParticle(-1030010020, "AntiOmegaNeutron", kPTHadron, 2.472, 1.0, 2.190e-22, "Hadron", 0.0, 2, 1, 0, 0, 0, 0, 0, 2, kFALSE);
 
-  //Omega-Omega
+  // Omega-Omega
   TVirtualMC::GetMC()->DefineParticle(1060020020, "OmegaOmega", kPTHadron, 3.229, 2.0, 2.632e-10, "Hadron", 0.0, 0, 1, 0, 0, 0, 0, 0, 2, kFALSE);
 
-  //Anti-Omega-Omega
+  // Anti-Omega-Omega
   TVirtualMC::GetMC()->DefineParticle(-1060020020, "AntiOmegaOmega", kPTHadron, 3.229, 2.0, 2.632e-10, "Hadron", 0.0, 0, 1, 0, 0, 0, 0, 0, 2, kFALSE);
 
-  //Lambda(1405)-Proton
+  // Lambda(1405)-Proton
   TVirtualMC::GetMC()->DefineParticle(1010010021, "Lambda1405Proton", kPTHadron, 2.295, 1.0, 1.316e-23, "Hadron", 0.0, 0, 1, 0, 0, 0, 0, 0, 2, kFALSE);
 
-  //Anti-Lambda(1405)-Proton
+  // Anti-Lambda(1405)-Proton
   TVirtualMC::GetMC()->DefineParticle(-1010010021, "AntiLambda1405Proton", kPTHadron, 2.295, 1.0, 1.316e-23, "Hadron", 0.0, 0, 1, 0, 0, 0, 0, 0, 2, kFALSE);
 
-  //Lambda(1405)-Lambda(1405)
+  // Lambda(1405)-Lambda(1405)
   TVirtualMC::GetMC()->DefineParticle(1020000021, "Lambda1405Lambda1405", kPTNeutron, 2.693, 0.0, 1.316e-23, "Hadron", 0.0, 0, 1, 0, 0, 0, 0, 0, 2, kFALSE);
 
-  //Anti-Lambda(1405)-Lambda(1405)
+  // Anti-Lambda(1405)-Lambda(1405)
   TVirtualMC::GetMC()->DefineParticle(-1020000021, "AntiLambda1405Lambda1405", kPTNeutron, 2.693, 0.0, 1.316e-23, "Hadron", 0.0, 0, 1, 0, 0, 0, 0, 0, 2, kFALSE);
 
-  //c-deuteron
+  // c-deuteron
   TVirtualMC::GetMC()->DefineParticle(2010010020, "CDeuteron", kPTHadron, 3.226, 1.0, 2.0e-13, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 3, kFALSE);
-  //Anti-c-deuteron
+  // Anti-c-deuteron
   TVirtualMC::GetMC()->DefineParticle(-2010010020, "AntiCDeuteron", kPTHadron, 3.226, 1.0, 2.0e-13, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 3, kFALSE);
 
-  //c-triton
+  // c-triton
   TVirtualMC::GetMC()->DefineParticle(2010010030, "CTriton", kPTHadron, 4.162, 1.0, 2.0e-13, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 2, kFALSE);
-  //Anti-c-Hypertriton
+  // Anti-c-Hypertriton
   TVirtualMC::GetMC()->DefineParticle(-2010010030, "AntiCTriton", kPTHadron, 4.162, 1.0, 2.0e-13, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 2, kFALSE);
 
-  //Resonances not in Generators
-  // f0(980) assume 70 MeV as width (PDG: 40 to 100 MeV)
+  // Resonances not in Generators
+  //  f0(980) assume 70 MeV as width (PDG: 40 to 100 MeV)
   TVirtualMC::GetMC()->DefineParticle(9010221, "f0_980", kPTNeutron, 0.98, 0.0, 9.403e-24, "Hadron", 7e-2, 0, 1, 1, 0, 0, 1, 0, 0, kTRUE);
 
   // f2(1270) (PDG: width = 185 MeV)
@@ -488,7 +489,7 @@ void NA6PMC::addSpecialParticles()
   TVirtualMC::GetMC()->SetDecayMode(-9322134, psratio, psmode);
   TVirtualMC::GetMC()->SetDecayMode(-9322136, psratio, psmode);
 
-  //Omega(2012)
+  // Omega(2012)
   for (int j = 1; j < 6; j++) {
     psmode[j][0] = psmode[j][1] = 0;
     psratio[j] = 0.;
@@ -1541,7 +1542,7 @@ void NA6PMC::addSpecialParticles()
 
   // --------------------------------------------------------------------
 
-  //Sexaquark (uuddss): compact, neutral and stable hypothetical bound state (arxiv.org/abs/1708.08951)
+  // Sexaquark (uuddss): compact, neutral and stable hypothetical bound state (arxiv.org/abs/1708.08951)
   TVirtualMC::GetMC()->DefineParticle(900000020, "Sexaquark", kPTUndefined, 2.0, 0.0, 4.35e+17, "Hadron", 0.0, 0, 1, 0, 0, 0, 0, 0, 2, kTRUE);
   TVirtualMC::GetMC()->DefineParticle(-900000020, "AntiSexaquark", kPTUndefined, 2.0, 0.0, 4.35e+17, "Hadron", 0.0, 0, 1, 0, 0, 0, 0, 0, -2, kTRUE);
 }

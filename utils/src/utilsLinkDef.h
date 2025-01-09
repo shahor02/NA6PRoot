@@ -13,6 +13,6 @@
 
 #pragma link C++ class NA6PTreeStream + ;
 #pragma link C++ class NA6PTreeSRedirector + ;
-#pragma link C++ class NA6PTreeDataElement+ ;
+#pragma link C++ class NA6PTreeDataElement + ;
 
 #endif

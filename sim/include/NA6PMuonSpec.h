@@ -16,7 +16,7 @@ class NA6PMuonSpec : public NA6PModule
   NA6PMuonSpec() : NA6PModule("MuonSpec") { setActiveID(1); }
   ~NA6PMuonSpec() override = default;
   void createMaterials() override;
-  void createGeometry(TGeoVolume *world) override;
+  void createGeometry(TGeoVolume* world) override;
   bool stepManager(int volID) override;
   size_t getNHits() const override { return mHits.size(); }
   void createHitsOutput(const std::string& outDir) override;
@@ -24,14 +24,13 @@ class NA6PMuonSpec : public NA6PModule
   void writeHits(const std::vector<int>& remapping) override;
 
   void clearHits() override { mHits.clear(); }
-  
+
   const auto& getHits() const { return mHits; }
 
   NA6PMuonSpecHit* addHit(int trackID, int detID, const TVector3& startPos, const TVector3& endPos, const TVector3& startMom,
-			  float endTime, float eLoss, unsigned char startStatus, unsigned char endStatus);
+                          float endTime, float eLoss, unsigned char startStatus, unsigned char endStatus);
 
-  
-private:
+ private:
   std::vector<NA6PMuonSpecHit> mHits, *hHitsPtr = &mHits;
   TFile* mHitsFile = nullptr;
   TTree* mHitsTree = nullptr;

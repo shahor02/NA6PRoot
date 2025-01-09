@@ -2,7 +2,7 @@
 #include "NA6PTGeoHelper.h"
 #include <TMath.h>
 
-void NA6PTGeoHelper::addMedium(const std::string& medName, const std::string& matName, Color_t col )
+void NA6PTGeoHelper::addMedium(const std::string& medName, const std::string& matName, Color_t col)
 {
   const auto& matN = matName.empty() ? medName : matName;
   if (mMedPool.find(medName) != mMedPool.end()) {
@@ -47,10 +47,8 @@ TGeoRotation* NA6PTGeoHelper::rotAroundVector(float uX, float uY, float uZ, floa
     oneMinusCosDelta * uY * uZ - sinDelta * uX,
     oneMinusCosDelta * uZ * uX - sinDelta * uY,
     oneMinusCosDelta * uZ * uY + sinDelta * uX,
-    oneMinusCosDelta * uZ * uZ + cosDelta
-  };
+    oneMinusCosDelta * uZ * uZ + cosDelta};
   auto rot = new TGeoRotation();
   rot->SetMatrix(rmat);
   return rot;
 }
-

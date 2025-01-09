@@ -11,8 +11,7 @@ class NA6PMCGenHeader
 {
  public:
   NA6PMCGenHeader() = default;
-  NA6PMCGenHeader(uint32_t np, uint32_t ns, uint32_t proffs, uint32_t secoffs, const std::string& info) :
-  mInfo(info), mNPrimaries(np), mNSecondaries(ns), mPrimariesOffset(proffs), mSecondariesOffset(secoffs) {}
+  NA6PMCGenHeader(uint32_t np, uint32_t ns, uint32_t proffs, uint32_t secoffs, const std::string& info) : mInfo(info), mNPrimaries(np), mNSecondaries(ns), mPrimariesOffset(proffs), mSecondariesOffset(secoffs) {}
 
   uint32_t getNPrimaries() const { return mNPrimaries; }
   uint32_t getNSecondaries() const { return mNSecondaries; }
@@ -37,15 +36,15 @@ class NA6PMCGenHeader
   void clear();
   void print(bool full = true) const;
   std::string asString(bool full = true) const;
-  
+
  protected:
-  uint32_t mNPrimaries = 0;       // number of primaries
-  uint32_t mNSecondaries = 0;     // number of secondaries
-  uint32_t mPrimariesOffset = 0;  // 1st primary entry in the kine tree
-  uint32_t mSecondariesOffset = 0;  // 1st primary entry in the kine tree
-  std::string mInfo{};            // text info
+  uint32_t mNPrimaries = 0;                        // number of primaries
+  uint32_t mNSecondaries = 0;                      // number of secondaries
+  uint32_t mPrimariesOffset = 0;                   // 1st primary entry in the kine tree
+  uint32_t mSecondariesOffset = 0;                 // 1st primary entry in the kine tree
+  std::string mInfo{};                             // text info
   std::unordered_map<std::string, float> mKeyVals; // optional metadata
-  
+
   ClassDefNV(NA6PMCGenHeader, 1);
 };
 

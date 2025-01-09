@@ -15,8 +15,8 @@ class MiscUtils
   static void reviveStdOut(const std::string& warn = "");
 
   static std::pair<float, float> genCorrelatedPair(float sig0, float sig1, float corr);
-  
-  ClassDefNV(MiscUtils,1);
+
+  ClassDefNV(MiscUtils, 1);
 };
 
 #endif

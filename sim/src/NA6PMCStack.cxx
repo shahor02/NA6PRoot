@@ -32,11 +32,11 @@ ClassImp(NA6PMCStack)
   /// \endcond
 
   //_____________________________________________________________________________
-NA6PMCStack::NA6PMCStack(int size) : mParticles(0), mCurrentTrack(-1), mNPrimary(0)
+  NA6PMCStack::NA6PMCStack(int size) : mParticles(0), mCurrentTrack(-1), mNPrimary(0)
 {
   /// Standard constructor
   /// \param size  The stack size
-  
+
   mParticles = new TClonesArray("TParticle", size);
 }
 
@@ -51,7 +51,8 @@ NA6PMCStack::~NA6PMCStack()
 {
   /// Destructor
 
-  if (mParticles) mParticles->Delete();
+  if (mParticles)
+    mParticles->Delete();
   delete mParticles;
 }
 
@@ -61,10 +62,10 @@ NA6PMCStack::~NA6PMCStack()
 
 //_____________________________________________________________________________
 void NA6PMCStack::PushTrack(int toBeDone, int parent, int pdg,
-			    double px, double py, double pz, double e,
-			    double vx, double vy, double vz, double tof,
-			    double polx, double poly, double polz,
-			    TMCProcess mech, int& ntr, double weight, int is)
+                            double px, double py, double pz, double e,
+                            double vx, double vy, double vz, double tof,
+                            double polx, double poly, double polz,
+                            TMCProcess mech, int& ntr, double weight, int is)
 {
   /// Create a new particle and push into stack;
   /// adds it to the particles array (mParticles) and if not done to the
@@ -95,7 +96,7 @@ void NA6PMCStack::PushTrack(int toBeDone, int parent, int pdg,
   TClonesArray& particlesRef = *mParticles;
   int trackId = GetNtrack();
   TParticle* particle = new (particlesRef[trackId]) TParticle(pdg, is, parent,
-    trackId, kFirstDaughter, kLastDaughter, px, py, pz, e, vx, vy, vz, tof);
+                                                              trackId, kFirstDaughter, kLastDaughter, px, py, pz, e, vx, vy, vz, tof);
 
   particle->SetPolarisation(polx, poly, polz);
   particle->SetWeight(weight);
@@ -112,9 +113,8 @@ void NA6PMCStack::PushTrack(int toBeDone, int parent, int pdg,
   ntr = GetNtrack() - 1;
   if (mVerbosity > 1) {
     LOGP(info, "PushTrack({},{},{},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{},{:.2f},{:.2f},{:.2f},{},{},{},{})",
-	 toBeDone, parent, pdg, px, py, pz, e, vx, vy, vz, tof, polx, poly, polz, (int) mech, ntr, weight, is);
+         toBeDone, parent, pdg, px, py, pz, e, vx, vy, vz, tof, polx, poly, polz, (int)mech, ntr, weight, is);
   }
-
 }
 
 //_____________________________________________________________________________
@@ -125,16 +125,18 @@ TParticle* NA6PMCStack::PopNextTrack(int& itrack)
   /// \param track  The index of the popped track
 
   itrack = -1;
-  if (mStack.empty()) return nullptr;
+  if (mStack.empty())
+    return nullptr;
 
   TParticle* particle = mStack.top();
   mStack.pop();
 
-  if (!particle) return nullptr;
+  if (!particle)
+    return nullptr;
 
   mCurrentTrack = particle->GetSecondMother();
   itrack = mCurrentTrack;
-  if (mVerbosity>1) {
+  if (mVerbosity > 1) {
     LOGP(info, "PopNextTrack {} | NParticles:{}, NPrimaries:{} StackSize:{}", itrack, GetNtrack(), GetNprimary(), mStack.size());
     particle->Print();
   }
@@ -147,7 +149,7 @@ TParticle* NA6PMCStack::PopPrimaryForTracking(int i)
   /// Return \em i -th particle in mParticles.
   /// \return   The popped primary particle object
   /// \param i  The index of primary particle to be popped
-  if (mVerbosity>1) {
+  if (mVerbosity > 1) {
     LOGP(info, "PopPrimaryForTracking {} | NParticles:{}, NPrimaries:{} StackSize:{}", i, GetNtrack(), GetNprimary(), mStack.size());
   }
   if (i < 0 || i >= mNPrimary) {
@@ -162,7 +164,8 @@ void NA6PMCStack::Print(Option_t* /*option*/) const
   /// Print info for all particles.
   LOGP(info, "NA6PMCStack Info: NParticles:{}, NPrimaries:{}", GetNtrack(), GetNprimary());
 
-  for (int i = 0; i < GetNtrack(); i++) GetParticle(i)->Print();
+  for (int i = 0; i < GetNtrack(); i++)
+    GetParticle(i)->Print();
 }
 
 //_____________________________________________________________________________
@@ -173,7 +176,7 @@ void NA6PMCStack::clear()
   mCurrentTrack = -1;
   mNPrimary = 0;
   mParticles->Clear();
-  while(!mStack.empty()) {
+  while (!mStack.empty()) {
     mStack.pop();
   }
 }
@@ -183,7 +186,7 @@ void NA6PMCStack::SetCurrentTrack(int track)
 {
   /// Set the current track number to a given value.
   /// \param  track The current track number
-  if (mVerbosity>1) {
+  if (mVerbosity > 1) {
     LOGP(info, "SetCurrentTrack {} | NParticles:{}, NPrimaries:{} StackSize:{}", track, GetNtrack(), GetNprimary(), mStack.size());
   }
   mCurrentTrack = track;

@@ -17,9 +17,9 @@ class NA6PVerTel : public NA6PModule
   NA6PVerTel() : NA6PModule("VerTel") { setActiveID(0); }
   ~NA6PVerTel() override = default;
   void createMaterials() override;
-  void createGeometry(TGeoVolume *world) override;
+  void createGeometry(TGeoVolume* world) override;
   bool stepManager(int volID) override;
-  size_t getNHits() const override { return mHits.size(); }  
+  size_t getNHits() const override { return mHits.size(); }
   void createHitsOutput(const std::string& outDir) override;
   void closeHitsOutput() override;
   void writeHits(const std::vector<int>& remapping) override;
@@ -29,14 +29,14 @@ class NA6PVerTel : public NA6PModule
   const auto& getHits() const { return mHits; }
 
   NA6PVerTelHit* addHit(int trackID, int detID, const TVector3& startPos, const TVector3& endPos, const TVector3& startMom,
-			float endTime, float eLoss, unsigned char startStatus, unsigned char endStatus);  
-private:
+                        float endTime, float eLoss, unsigned char startStatus, unsigned char endStatus);
+
+ private:
   static constexpr int NChipsPerStation = 4;
 
   std::vector<NA6PVerTelHit> mHits, *hHitsPtr = &mHits;
   TFile* mHitsFile = nullptr;
   TTree* mHitsTree = nullptr;
 };
-
 
 #endif

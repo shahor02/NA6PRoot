@@ -15,28 +15,30 @@ class NA6PModule;
 class NA6PDetector
 {
  public:
-
   NA6PDetector();
-  
+
   void createGeometry(const std::string& name = "NA6P");
   void createCommonMaterials();
 
   auto getNModules() const { return (int)mModulesVec.size(); }
   auto getNActiveModules() const { return (int)mActiveModulesVec.size(); }
 
-  NA6PModule* getModule(const std::string& name) {
+  NA6PModule* getModule(const std::string& name)
+  {
     auto m = mModulesMap.find(name);
     return m != mModulesMap.end() ? m->second : nullptr;
   }
 
-  NA6PModule* getModule(int id) {
+  NA6PModule* getModule(int id)
+  {
     return mModulesVec[id];
   }
 
-  NA6PModule* getActiveModule(int id) {
+  NA6PModule* getActiveModule(int id)
+  {
     return mActiveModulesVec[id];
   }
-  
+
   void addModule(NA6PModule* m);
 
   void setVerbosity(int v);
@@ -45,7 +47,7 @@ class NA6PDetector
   void createHitsOutput(const std::string& outDir = "");
   void closeHitsOutput();
   void writeHits(const std::vector<int>& remapping);
-  
+
  private:
   std::unordered_map<std::string, NA6PModule*> mModulesMap;
   std::vector<NA6PModule*> mModulesVec;

@@ -12,7 +12,7 @@ class NA6PDipoleVT : public NA6PModule
   NA6PDipoleVT() : NA6PModule("DipoleVT") {}
   ~NA6PDipoleVT() override = default;
   void createMaterials() override;
-  void createGeometry(TGeoVolume *world) override;
+  void createGeometry(TGeoVolume* world) override;
 };
 
 #endif

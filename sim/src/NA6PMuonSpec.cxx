@@ -18,7 +18,6 @@
 #include <TFile.h>
 #include <TTree.h>
 
-
 void NA6PMuonSpec::createMaterials()
 {
   auto& matPool = NA6PTGeoHelper::instance().getMatPool();
@@ -26,7 +25,7 @@ void NA6PMuonSpec::createMaterials()
   nameM = addName("Silicon");
   if (matPool.find(nameM) == matPool.end()) {
     matPool[nameM] = new TGeoMaterial(nameM.c_str(), 28.09, 14, 2.33);
-    NA6PTGeoHelper::instance().addMedium(nameM,"", kCyan + 1);
+    NA6PTGeoHelper::instance().addMedium(nameM, "", kCyan + 1);
   }
   nameM = addName("Air");
   if (matPool.find(nameM) == matPool.end()) {
@@ -38,7 +37,7 @@ void NA6PMuonSpec::createMaterials()
   }
 }
 
-void NA6PMuonSpec::createGeometry(TGeoVolume *world)
+void NA6PMuonSpec::createGeometry(TGeoVolume* world)
 {
   const auto& param = NA6PLayoutParam::Instance();
   const float EnvelopDXH = 0.5;
@@ -46,33 +45,31 @@ void NA6PMuonSpec::createGeometry(TGeoVolume *world)
   const float EnvelopDZH = 0.5;
   createMaterials();
 
-  for (int ist=0;ist<param.nMSPlanes;ist++) {
+  for (int ist = 0; ist < param.nMSPlanes; ist++) {
     TGeoShape *station = nullptr, *stationEnv = nullptr;
     auto stnm = fmt::format("MS{}", ist);
     if (param.dimYMSPlane[ist] > 0) {
-      stationEnv = new TGeoBBox((stnm+"SHEnv").c_str(), param.dimXMSPlane[ist]/2 + EnvelopDXH, param.dimYMSPlane[ist]/2 + EnvelopDYH, param.thicknessMSPlane[ist]/2 + EnvelopDZH);
-      station = new TGeoBBox((stnm+"SH").c_str(), param.dimXMSPlane[ist]/2, param.dimYMSPlane[ist]/2, param.thicknessMSPlane[ist]/2);
+      stationEnv = new TGeoBBox((stnm + "SHEnv").c_str(), param.dimXMSPlane[ist] / 2 + EnvelopDXH, param.dimYMSPlane[ist] / 2 + EnvelopDYH, param.thicknessMSPlane[ist] / 2 + EnvelopDZH);
+      station = new TGeoBBox((stnm + "SH").c_str(), param.dimXMSPlane[ist] / 2, param.dimYMSPlane[ist] / 2, param.thicknessMSPlane[ist] / 2);
     } else {
-      stationEnv = new TGeoTube((stnm+"SHEnv").c_str(), 0.0, param.dimXMSPlane[ist]/2 + EnvelopDXH, param.thicknessMSPlane[ist]/2 + EnvelopDZH);
-      station = new TGeoTube((stnm+"SH").c_str(), 0.0, param.dimXMSPlane[ist]/2, param.thicknessMSPlane[ist]/2);
+      stationEnv = new TGeoTube((stnm + "SHEnv").c_str(), 0.0, param.dimXMSPlane[ist] / 2 + EnvelopDXH, param.thicknessMSPlane[ist] / 2 + EnvelopDZH);
+      station = new TGeoTube((stnm + "SH").c_str(), 0.0, param.dimXMSPlane[ist] / 2, param.thicknessMSPlane[ist] / 2);
     }
-    if (param.dimXMSPlaneHole[ist]>0) {
+    if (param.dimXMSPlaneHole[ist] > 0) {
       TGeoShape* hole = nullptr;
-      if (param.dimYMSPlaneHole[ist]>0) {
-	hole = new TGeoBBox((stnm + "HL").c_str(), param.dimXMSPlaneHole[ist]/2, param.dimYMSPlaneHole[ist]/2, param.thicknessMSPlane[ist]);
+      if (param.dimYMSPlaneHole[ist] > 0) {
+        hole = new TGeoBBox((stnm + "HL").c_str(), param.dimXMSPlaneHole[ist] / 2, param.dimYMSPlaneHole[ist] / 2, param.thicknessMSPlane[ist]);
       } else {
-	hole = new TGeoTube((stnm + "HL").c_str(), 0.0, param.dimXMSPlaneHole[ist]/2, param.thicknessMSPlane[ist]);
+        hole = new TGeoTube((stnm + "HL").c_str(), 0.0, param.dimXMSPlaneHole[ist] / 2, param.thicknessMSPlane[ist]);
       }
-      station = new TGeoCompositeShape((stnm + "_HS").c_str(), new TGeoSubtraction(station, hole));   // station with plug hole
+      station = new TGeoCompositeShape((stnm + "_HS").c_str(), new TGeoSubtraction(station, hole)); // station with plug hole
     }
     auto stationSensVol = new TGeoVolume(stnm.c_str(), station, NA6PTGeoHelper::instance().getMedium(addName(param.medMSPlane[ist])));
-    stationSensVol->SetLineColor( NA6PTGeoHelper::instance().getMediumColor(addName(param.medMSPlane[ist])));
-    auto stationSensVolEnv = new TGeoVolume((stnm+"Env").c_str(), station, NA6PTGeoHelper::instance().getMedium(addName("Air")));
-    // put physical station into dummy envelope to avoid precision problems with stepping (very thin objects are not well recognised with large steps)    
-    stationSensVolEnv->AddNode(stationSensVol, composeSensorVolID(ist));    
-    world->AddNode(stationSensVolEnv, composeNonSensorVolID(ist), new TGeoTranslation(param.shiftMS[0] + param.posMSPlaneX[ist],
-										      param.shiftMS[1] + param.posMSPlaneY[ist],
-										      param.shiftMS[2] + param.posMSPlaneZ[ist]));
+    stationSensVol->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName(param.medMSPlane[ist])));
+    auto stationSensVolEnv = new TGeoVolume((stnm + "Env").c_str(), station, NA6PTGeoHelper::instance().getMedium(addName("Air")));
+    // put physical station into dummy envelope to avoid precision problems with stepping (very thin objects are not well recognised with large steps)
+    stationSensVolEnv->AddNode(stationSensVol, composeSensorVolID(ist));
+    world->AddNode(stationSensVolEnv, composeNonSensorVolID(ist), new TGeoTranslation(param.shiftMS[0] + param.posMSPlaneX[ist], param.shiftMS[1] + param.posMSPlaneY[ist], param.shiftMS[2] + param.posMSPlaneZ[ist]));
   }
 }
 
@@ -124,15 +121,15 @@ bool NA6PMuonSpec::stepManager(int volID)
     mc->TrackPosition(mTrackData.mPositionStart);
     mTrackData.mTrkStatusStart = status;
     mTrackData.mHitStarted = true;
-  }  
+  }
   if (stopHit) {
     TLorentzVector positionStop;
     mc->TrackPosition(positionStop);
     // Retrieve the indices with the volume path
     auto* p = addHit(stack->GetCurrentTrackNumber(), sensID, mTrackData.mPositionStart.Vect(), positionStop.Vect(),
-		     mTrackData.mMomentumStart.Vect(), positionStop.T(),
-		     mTrackData.mEnergyLoss, mTrackData.mTrkStatusStart, status);
-    if (mVerbosity>0) {
+                     mTrackData.mMomentumStart.Vect(), positionStop.T(),
+                     mTrackData.mEnergyLoss, mTrackData.mTrkStatusStart, status);
+    if (mVerbosity > 0) {
       LOGP(info, "{} Tr{} {}", getName(), stack->GetCurrentTrackNumber(), p->asString());
     }
     // register det points in TParticle
@@ -143,15 +140,15 @@ bool NA6PMuonSpec::stepManager(int volID)
 }
 
 NA6PMuonSpecHit* NA6PMuonSpec::addHit(int trackID, int detID, const TVector3& startPos, const TVector3& endPos, const TVector3& startMom,
-				      float endTime, float eLoss, unsigned char startStatus, unsigned char endStatus)
+                                      float endTime, float eLoss, unsigned char startStatus, unsigned char endStatus)
 {
-  mHits.emplace_back(trackID, detID, startPos, endPos, startMom, endTime, eLoss, startStatus, endStatus);  
+  mHits.emplace_back(trackID, detID, startPos, endPos, startMom, endTime, eLoss, startStatus, endStatus);
   return &(mHits.back());
 }
 
 void NA6PMuonSpec::createHitsOutput(const std::string& outDir)
 {
-  auto nm = fmt::format("{}Hits{}.root",outDir, getName());
+  auto nm = fmt::format("{}Hits{}.root", outDir, getName());
   mHitsFile = TFile::Open(nm.c_str(), "recreate");
   mHitsTree = new TTree(fmt::format("hits{}", getName()).c_str(), fmt::format("{} Hits", getName()).c_str());
   mHitsTree->Branch(getName().c_str(), &hHitsPtr);
@@ -174,7 +171,7 @@ void NA6PMuonSpec::closeHitsOutput()
 void NA6PMuonSpec::writeHits(const std::vector<int>& remapping)
 {
   int nh = mHits.size();
-  for (int i=0;i<nh;i++) {
+  for (int i = 0; i < nh; i++) {
     auto& h = mHits[i];
     if (remapping[h.getTrackID()] < 0) {
       LOGP(error, "Track {} hit {} in {} was not remapped!", h.getTrackID(), i, getName());
@@ -182,6 +179,6 @@ void NA6PMuonSpec::writeHits(const std::vector<int>& remapping)
     h.setTrackID(remapping[h.getTrackID()]);
   }
   if (mHitsTree) {
-    mHitsTree->Fill();    
+    mHitsTree->Fill();
   }
 }

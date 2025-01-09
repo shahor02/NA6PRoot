@@ -8,7 +8,7 @@
 class NA6PGenBox : public NA6PGenerator
 {
  public:
-  NA6PGenBox(int pdg=211, int npart=1, const std::string& name = "genbox") : NA6PGenerator(name), mPDGCode(pdg), mNTracks(npart) {}
+  NA6PGenBox(int pdg = 211, int npart = 1, const std::string& name = "genbox") : NA6PGenerator(name), mPDGCode(pdg), mNTracks(npart) {}
   ~NA6PGenBox() override = default;
   void generate() override;
 
@@ -18,12 +18,11 @@ class NA6PGenBox : public NA6PGenerator
   void setNTracks(int n) { mNTracks = n; }
   auto getNTracks() const { return mNTracks; }
 
-protected:
+ protected:
+  int mPDGCode = 211; // particle type
+  int mNTracks = 1;   // number of particles to generate
 
-  int mPDGCode = 211;     // particle type
-  int mNTracks = 1;       // number of particles to generate
-  
-  ClassDefOverride(NA6PGenBox,1);  // Square box (in variables of NA6PGenCutParam) random generator  
+  ClassDefOverride(NA6PGenBox, 1); // Square box (in variables of NA6PGenCutParam) random generator
 };
 
 #endif

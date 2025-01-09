@@ -4,16 +4,15 @@
 #include <fairlogger/Logger.h>
 #include <fmt/format.h>
 
-
 std::string NA6PMCEventHeader::asString(bool genh) const
 {
   int nh = getNGenHeaders();
   auto rep = fmt::format("Run:{} Ev:{} Vtx:[{:6.3}, {:6.3}, {:6.3}] NTracks:{} NPrim:{} | {} GenHeaders",
-			 mRunNumber, mEventID, mVX, mVY, mVZ, mNTracks, mNPrimaries, nh);
+                         mRunNumber, mEventID, mVX, mVY, mVZ, mNTracks, mNPrimaries, nh);
   if (genh) {
-    rep += ": ";    
-    for (int ih=0; ih<nh; ih++) {
-      rep += fmt::format("(H{}: {})", ih, getGenHeader(ih).asString() );
+    rep += ": ";
+    for (int ih = 0; ih < nh; ih++) {
+      rep += fmt::format("(H{}: {})", ih, getGenHeader(ih).asString());
     }
   }
   return rep;

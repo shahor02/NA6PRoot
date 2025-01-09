@@ -45,7 +45,8 @@ int main(int argc, char** argv)
 
     bpo::notify(vm);
   } catch (bpo::error& e) {
-    std::cerr << "ERROR: " << e.what() << std::endl << std::endl;
+    std::cerr << "ERROR: " << e.what() << std::endl
+              << std::endl;
     std::cerr << opt_general << std::endl;
     exit(1);
   } catch (std::exception& e) {
@@ -55,7 +56,7 @@ int main(int argc, char** argv)
   auto flini = vm["load-ini"].as<std::string>();
   na6p::conf::ConfigurableParam::updateFromString(vm["configKeyValues"].as<std::string>());
   if (!flini.empty()) {
-    na6p::conf::ConfigurableParam::updateFromFile(flini,"",true);
+    na6p::conf::ConfigurableParam::updateFromFile(flini, "", true);
   }
   LOGP(info, "Printing all configs");
   na6p::conf::ConfigurableParam::printAllKeyValuePairs();
@@ -70,27 +71,27 @@ int main(int argc, char** argv)
 
   auto runConfig = new TG4RunConfiguration("geomRoot", "FTFP_BERT");
   auto geant4 = new TGeant4("TGeant4", "Geant4 Monte Carlo Engine", runConfig, argc, argv);
-  
-  TVirtualMC::GetMC()->SetMagField( TGeoGlobalMagField::Instance()->GetField() );
+
+  TVirtualMC::GetMC()->SetMagField(TGeoGlobalMagField::Instance()->GetField());
   //
   mc->setupGenerator(vm["generator"].as<std::string>());
   mc->init();
-  
-  const int nEvents =  vm["nevents"].as<uint32_t>(); // Number of events to simulate
+
+  const int nEvents = vm["nevents"].as<uint32_t>(); // Number of events to simulate
   if (nEvents) {
     LOGP(info, "Processing {} events", nEvents);
-    TVirtualMC::GetMC()->ProcessRun( nEvents );
+    TVirtualMC::GetMC()->ProcessRun(nEvents);
   }
   /*
   for (int i = 0; i < nEvents; ++i) {
     std::cout << "Processing event " << i + 1 << "..." << std::endl;
-    
+
     // Begin the event
     mc->BeginEvent();
-    
+
     // Process the event using Geant4
     geant4->ProcessRun(i);
-    
+
     // Finish the event
     mc->FinishEvent();
   }
@@ -99,12 +100,11 @@ int main(int argc, char** argv)
     try {
       std::string pth = na6p::utils::Str::rectifyDirectory(na6p::conf::ConfigurableParam::getOutputDir());
       if (pth.empty()) {
-	pth = std::filesystem::current_path();
+        pth = std::filesystem::current_path();
       }
-      na6p::conf::ConfigurableParam::writeINI(layoutIni);    
+      na6p::conf::ConfigurableParam::writeINI(layoutIni);
       LOGP(info, "Stored configurable params to {}/{}", pth, layoutIni);
-    }
-    catch ( std::exception e ) {
+    } catch (std::exception e) {
       LOGP(error, "Failed to store configurable params, the reason is {}", e.what());
     }
   }
