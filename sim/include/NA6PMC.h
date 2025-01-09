@@ -48,7 +48,8 @@ public:
 
 private:
   void clearHits();
-    
+  void addSpecialParticles();
+  
   std::unique_ptr<NA6PDetector> mDet;
   std::unique_ptr<NA6PMCStack> mStack{};
   std::unique_ptr<NA6PGenerator> mGenerator{};

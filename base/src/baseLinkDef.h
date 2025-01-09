@@ -11,4 +11,9 @@
 #pragma link C++ class MagneticFieldRegion + ;
 #pragma link C++ class MagneticField + ;
 
+#pragma link C++ class NA6PBeamParam + ;
+#pragma link C++ class na6p::conf::ConfigurableParamHelper < NA6PBeamParam> + ;
+
+#pragma link C++ class NA6PBeam + ;
+
 #endif
