@@ -53,16 +53,16 @@ void NA6PTarget::createGeometry(TGeoVolume* world)
     const auto* mat = med->GetMaterial();
     TGeoVolume* target = new TGeoVolume(Form("TgtVol_%zu", i), targetShape, med);
     auto* targetTransform = new TGeoCombiTrans(param.posTargetX[i], param.posTargetY[i], param.posTargetZ[i] + zoffs, NA6PTGeoHelper::rotAroundVector(0.0, 0.0, 0.0, 0.0));
-    target->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName(param.medTarget[i])));    
+    target->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName(param.medTarget[i])));
     tgtContainer->AddNode(target, composeNonSensorVolID(i + 1), targetTransform);
     if (param.xsectionTarget[i] <= 0.) {
       LOGP(fatal, "The cross-section in barn for {} target {} is not defined, the beam is {}", param.medTarget[i], i, beamParam.particle);
     }
-    mTgtLambda[i] = 1./(param.xsectionTarget[i]*BarnToCM * Avogadro / mat->GetA() * mat->GetDensity());
-    float l2Lambda = param.thicknessTarget[i]/mTgtLambda[i];
+    mTgtLambda[i] = 1. / (param.xsectionTarget[i] * BarnToCM * Avogadro / mat->GetA() * mat->GetDensity());
+    float l2Lambda = param.thicknessTarget[i] / mTgtLambda[i];
     mTgtProb[i] = 1. - std::exp(-l2Lambda);
     LOGP(info, "Added {:.3f} cm {} target: interaction probability {:.3f} for {} beam",
-	 param.thicknessTarget[i],  param.medTarget[i], mTgtProb[i], beamParam.particle);
+         param.thicknessTarget[i], param.medTarget[i], mTgtProb[i], beamParam.particle);
     ltoL += l2Lambda;
   }
   LOGP(info, "Total interaction probability on the targets is {:.3f}", 1. - std::exp(-ltoL));
@@ -74,17 +74,17 @@ void NA6PTarget::createGeometry(TGeoVolume* world)
   world->AddNode(tgtContainer, composeNonSensorVolID(0), vtTransform);
 }
 
-bool NA6PTarget::generateVertex(float &x, float&y, float&z, int maxTrials) const
+bool NA6PTarget::generateVertex(float& x, float& y, float& z, int maxTrials) const
 {
   const auto& beamPar = NA6PBeamParam::Instance();
   const auto& layoutPar = NA6PLayoutParam::Instance();
- 
+
   NA6PBeam beam;
   int ntrials = 0, ntrialsTouch = 0;
 
   while (ntrials < maxTrials) {
     beamPar.generate(beam);
-    for (int it=0; it<layoutPar.nTargets;it++) {
+    for (int it = 0; it < layoutPar.nTargets; it++) {
       // Calculate particle position at the Z position of the target center and check if the particle intersects the cylinder
       float xTgt = layoutPar.posTargetX[it] + layoutPar.shiftTargets[0];
       float yTgt = layoutPar.posTargetY[it] + layoutPar.shiftTargets[1];
@@ -93,15 +93,15 @@ bool NA6PTarget::generateVertex(float &x, float&y, float&z, int maxTrials) const
       float dY = beam.getX(zTgt) - yTgt;
       float d2 = dX * dX + dY * dY;
       if (d2 <= layoutPar.radTarget[it] * layoutPar.radTarget[it]) {
-	ntrialsTouch++;
-	auto r = gRandom->Rndm();
-	if (r < mTgtProb[it]) {
-	  z = zTgt - 0.5f * layoutPar.thicknessTarget[it] - mTgtLambda[it] * std::log(1. - r);
-	  x = beam.getX(z);
-	  y = beam.getY(z);
-	  LOGP(info, "generate on tgt {} : {} {} {} Ztgt = {}", it, x,y,z, zTgt);
-	  return true; // Interaction occurred, exit the function
-	}
+        ntrialsTouch++;
+        auto r = gRandom->Rndm();
+        if (r < mTgtProb[it]) {
+          z = zTgt - 0.5f * layoutPar.thicknessTarget[it] - mTgtLambda[it] * std::log(1. - r);
+          x = beam.getX(z);
+          y = beam.getY(z);
+          LOGP(info, "generate on tgt {} : {} {} {} Ztgt = {}", it, x, y, z, zTgt);
+          return true; // Interaction occurred, exit the function
+        }
       }
     }
     ntrials++;

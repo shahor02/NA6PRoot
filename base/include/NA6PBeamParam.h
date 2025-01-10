@@ -27,7 +27,7 @@ struct NA6PBeamParam : public na6p::conf::ConfigurableParamHelper<NA6PBeamParam>
   float corrY = 0.f; // correlation between sigY and sigSlopeY
 
   float zFocus = 0.f; // Z position for which these parameters are defined
-  
+
   void generate(NA6PBeam& beam) const;
   void generate(TParticle& part, float z = 0.f) const;
 

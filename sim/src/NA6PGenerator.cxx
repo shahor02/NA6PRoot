@@ -24,16 +24,16 @@ void NA6PGenerator::generatePrimaryVertex(int maxTrials)
     LOGP(warn, "The primary vertex was already generated, refusing!");
     return;
   }
-  float x,y,z;
-  if (!tgt->generateVertex(x,y,z, maxTrials)) {
+  float x, y, z;
+  if (!tgt->generateVertex(x, y, z, maxTrials)) {
     LOGP(fatal, "Failed to generate primary vertex");
   }
-  setOrigin(x,y,z);
+  setOrigin(x, y, z);
   auto mcH = mStack->getEventHeader();
   mcH->setVX(x);
   mcH->setVY(y);
   mcH->setVZ(z);
   if (mVerbosity) {
     LOGP(info, "Generated primary vertex at {:.4f},{:4f},{:4f}", x, y, z);
-  }  
+  }
 }

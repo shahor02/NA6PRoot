@@ -63,7 +63,7 @@ class NA6PMCStack : public TVirtualMCStack
 
   void setPVGenerated(bool v) { mPVGenerated = v; }
   bool isPVGenerated() const { return mPVGenerated; }
-  
+
   void addHit(int detBit) { GetCurrentTrack()->SetBit(detBit); }
   void setVerbosity(int v) { mVerbosity = v; }
   auto getVerbosity() const { return mVerbosity; }

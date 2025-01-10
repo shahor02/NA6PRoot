@@ -17,7 +17,7 @@ void NA6PGenBox::init()
 
 void NA6PGenBox::generate()
 {
-  const auto& param = NA6PGenCutParam::Instance();  
+  const auto& param = NA6PGenCutParam::Instance();
   float rnd[3 * mNTracks];
   gRandom->RndmArray(3 * mNTracks, rnd);
   auto* stack = getStack();
