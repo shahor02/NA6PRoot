@@ -22,8 +22,11 @@ class NA6PGenerator : public TObject
   auto getStack() const { return mStack; }
 
   virtual void generate() = 0;
-  virtual void setOrigin(const std::array<double, 3>& v) { mOrigin = v; }
   virtual void init();
+  virtual void generatePrimaryVertex(int maxTrials = 1000000);
+  virtual void setOrigin(const std::array<double, 3>& v) { mOrigin = v; }
+  template<typename T>
+  void setOrigin(T x, T y, T z) { mOrigin = {x, y, z}; }
   auto& getOrigin() { return mOrigin; }
   auto& getOrigin() const { return mOrigin; }
   auto getOriginX() const { return mOrigin[0]; }

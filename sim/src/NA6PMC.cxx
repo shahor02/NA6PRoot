@@ -25,7 +25,7 @@ using Str = na6p::utils::Str;
 
 NA6PMC::NA6PMC(const char* name, const char* title) : TVirtualMCApplication(name, title)
 {
-  mDet = std::make_unique<NA6PDetector>();
+  NA6PDetector::instance();
   mStack = std::make_unique<NA6PMCStack>(200);
   LOGP(info, "NA6PMC application initialized.");
 }
@@ -33,14 +33,14 @@ NA6PMC::NA6PMC(const char* name, const char* title) : TVirtualMCApplication(name
 NA6PMC::~NA6PMC()
 {
   closeKineOutput();
-  mDet->closeHitsOutput();
+  NA6PDetector::instance().closeHitsOutput();
   LOGP(info, "NA6PMC application terminated.");
 }
 
 void NA6PMC::ConstructGeometry()
 {
   LOGP(info, "Constructing geometry");
-  mDet->createGeometry();
+  NA6PDetector::instance().createGeometry();
   TVirtualMC::GetMC()->SetRootGeometry();
 }
 
@@ -82,7 +82,6 @@ void NA6PMC::BeginEvent()
   }
   mStack->clear();
   clearHits();
-  mMCHeader.clear();
   mMCTracks.clear();
 }
 
@@ -90,15 +89,15 @@ void NA6PMC::FinishEvent()
 {
   if (mVerbosity > 0) {
     std::string rep = fmt::format(" Tracked {} particles ({} primaries) | Hits:", mStack->GetNtrack(), mStack->GetNprimary());
-    for (int im = 0; im < mDet->getNActiveModules(); im++) {
-      const auto* det = mDet->getActiveModule(im);
+    for (int im = 0; im < NA6PDetector::instance().getNActiveModules(); im++) {
+      const auto* det = NA6PDetector::instance().getActiveModule(im);
       rep += fmt::format(" {}:{}", det->getName(), det->getNHits());
     }
     LOGP(info, "Finishing event {} | {}", mEvCount, rep);
   }
   selectTracksToSave();
   writeKine();
-  mDet->writeHits(mRemap);
+  NA6PDetector::instance().writeHits(mRemap);
   mEvCount++;
 }
 
@@ -125,7 +124,7 @@ void NA6PMC::Stepping()
   int volCopy;
   TVirtualMC::GetMC()->CurrentVolID(volCopy);
   if (NA6PModule::isSensor(volCopy)) {
-    mDet->getModule(NA6PModule::volID2ModuleID(volCopy))->stepManager(volCopy);
+    NA6PDetector::instance().getModule(NA6PModule::volID2ModuleID(volCopy))->stepManager(volCopy);
   } else {
     // non-sensitive volumes treatment
   }
@@ -188,7 +187,7 @@ void NA6PMC::init()
 
   TVirtualMC::GetMC()->SetStack(mStack.get());
 
-  mDet->setVerbosity(mVerbosity);
+  NA6PDetector::instance().setVerbosity(mVerbosity);
   mStack->setVerbosity(mVerbosity);
   if (mGenerator) {
     mGenerator->setVerbosity(mVerbosity);
@@ -199,7 +198,7 @@ void NA6PMC::init()
     dir = na6p::utils::Str::rectifyDirectory(".");
   }
   createKineOutput(dir);
-  mDet->createHitsOutput(dir);
+  NA6PDetector::instance().createHitsOutput(dir);
 }
 
 void NA6PMC::clearHits()
@@ -207,8 +206,8 @@ void NA6PMC::clearHits()
   if (mVerbosity > 0) {
     LOGP(info, "clearHits");
   }
-  for (int i = 0; i < mDet->getNModules(); i++) {
-    auto det = mDet->getModule(i);
+  for (int i = 0; i < NA6PDetector::instance().getNModules(); i++) {
+    auto det = NA6PDetector::instance().getModule(i);
     det->clearHits();
   }
 }
@@ -218,7 +217,8 @@ void NA6PMC::createKineOutput(const std::string& outDir)
   auto nm = fmt::format("{}MCKine.root", outDir);
   mKineFile = TFile::Open(nm.c_str(), "recreate");
   mKineTree = new TTree("mckine", "MC kinematics");
-  mKineTree->Branch("header", &mMCHeaderPtr);
+  static NA6PMCEventHeader* mchPtr = mStack->getEventHeader();
+  mKineTree->Branch("header", &mchPtr);
   mKineTree->Branch("tracks", &mMCTracksPtr);
   LOGP(info, "Will store MC Kinematics in {}", nm);
 }
@@ -273,9 +273,10 @@ void NA6PMC::selectTracksToSave()
     }
   }
   // update headers
-  mMCHeader.setNTracks(nkeep);
-  mMCHeader.setNPrimaries(nPrimIni);
-  mMCHeader.setEventID(mEvCount);
+  auto mcHeader = mStack->getEventHeader();
+  mcHeader->setNTracks(nkeep);
+  mcHeader->setNPrimaries(nPrimIni);
+  mcHeader->setEventID(mEvCount);
 
   // record selected tracks, mRemapping mother/daughter indices
   for (int i = 0; i < ntrIni; i++) {

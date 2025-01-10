@@ -27,12 +27,8 @@ Based on:
 
 using namespace std;
 
-/// \cond CLASSIMP
-ClassImp(NA6PMCStack)
-  /// \endcond
-
-  //_____________________________________________________________________________
-  NA6PMCStack::NA6PMCStack(int size) : mParticles(0), mCurrentTrack(-1), mNPrimary(0)
+//_____________________________________________________________________________
+NA6PMCStack::NA6PMCStack(int size) : mParticles(0), mCurrentTrack(-1), mNPrimary(0)
 {
   /// Standard constructor
   /// \param size  The stack size
@@ -51,8 +47,9 @@ NA6PMCStack::~NA6PMCStack()
 {
   /// Destructor
 
-  if (mParticles)
+  if (mParticles) {
     mParticles->Delete();
+  }
   delete mParticles;
 }
 
@@ -125,15 +122,16 @@ TParticle* NA6PMCStack::PopNextTrack(int& itrack)
   /// \param track  The index of the popped track
 
   itrack = -1;
-  if (mStack.empty())
+  if (mStack.empty()) {
     return nullptr;
+  }
 
   TParticle* particle = mStack.top();
   mStack.pop();
 
-  if (!particle)
+  if (!particle) {
     return nullptr;
-
+  }
   mCurrentTrack = particle->GetSecondMother();
   itrack = mCurrentTrack;
   if (mVerbosity > 1) {
@@ -176,6 +174,8 @@ void NA6PMCStack::clear()
   mCurrentTrack = -1;
   mNPrimary = 0;
   mParticles->Clear();
+  mMCHeader.clear();
+  mPVGenerated = false;
   while (!mStack.empty()) {
     mStack.pop();
   }

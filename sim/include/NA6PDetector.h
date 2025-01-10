@@ -15,8 +15,12 @@ class NA6PModule;
 class NA6PDetector
 {
  public:
-  NA6PDetector();
-
+  static NA6PDetector& instance()
+  {
+    static NA6PDetector inst;
+    return inst;
+  }
+  
   void createGeometry(const std::string& name = "NA6P");
   void createCommonMaterials();
 
@@ -49,6 +53,8 @@ class NA6PDetector
   void writeHits(const std::vector<int>& remapping);
 
  private:
+  NA6PDetector();
+  
   std::unordered_map<std::string, NA6PModule*> mModulesMap;
   std::vector<NA6PModule*> mModulesVec;
   std::vector<NA6PModule*> mActiveModulesVec;

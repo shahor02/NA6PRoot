@@ -18,7 +18,7 @@ void NA6PBeamParam::generate(NA6PBeam& beam) const
   beam.setSlopeY(meanSlopeY + ysy.second);
 }
 
-void NA6PBeamParam::generate(TParticle& part, float z) const
+void NA6PBeamParam::generate(TParticle& part, float zpos) const
 {
   NA6PBeam beam;
   generate(beam);
@@ -27,5 +27,5 @@ void NA6PBeamParam::generate(TParticle& part, float z) const
   double ptot = std::sqrt(etot * etot - mass * mass);
   double normI = 1. / std::sqrt(1. + beam.getSlopeX() * beam.getSlopeX() + beam.getSlopeY() * beam.getSlopeY());
   part.SetMomentum(ptot * beam.getSlopeX() * normI, ptot * beam.getSlopeY() * normI, ptot * normI, etot);
-  part.SetProductionVertex(beam.getX(), beam.getY(), z, 0.);
+  part.SetProductionVertex(beam.getX(zpos), beam.getY(zpos), zpos, 0.);
 }

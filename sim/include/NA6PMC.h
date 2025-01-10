@@ -4,10 +4,8 @@
 
 #include <TVirtualMCApplication.h>
 #include <TParticle.h>
-#include "NA6PMCEventHeader.h"
 
 class NA6PMCStack;
-class NA6PDetector;
 class NA6PGenerator;
 class TFile;
 class TTree;
@@ -32,6 +30,7 @@ class NA6PMC : public TVirtualMCApplication
   void PostTrack() override {}
 
   bool setupGenerator(const std::string& s);
+  auto getGenerator() const { return mGenerator.get(); }
 
   void setRandomSeed(Long64_t r);
   auto getRandomSeed() const { return mRandomSeed; }
@@ -50,11 +49,9 @@ class NA6PMC : public TVirtualMCApplication
   void clearHits();
   void addSpecialParticles();
 
-  std::unique_ptr<NA6PDetector> mDet;
   std::unique_ptr<NA6PMCStack> mStack{};
   std::unique_ptr<NA6PGenerator> mGenerator{};
 
-  NA6PMCEventHeader mMCHeader, *mMCHeaderPtr = &mMCHeader;
   std::vector<TParticle> mMCTracks, *mMCTracksPtr = &mMCTracks;
   std::vector<int> mRemap; // tmp vector for selected tracks remapping
   int mVerbosity = 0;

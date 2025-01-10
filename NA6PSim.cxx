@@ -74,28 +74,20 @@ int main(int argc, char** argv)
 
   TVirtualMC::GetMC()->SetMagField(TGeoGlobalMagField::Instance()->GetField());
   //
-  mc->setupGenerator(vm["generator"].as<std::string>());
+  if (!vm["generator"].as<std::string>().empty()) {
+    mc->setupGenerator(vm["generator"].as<std::string>());
+  } else {
+    LOGP(info, "generator is not set");
+  }
   mc->init();
 
   const int nEvents = vm["nevents"].as<uint32_t>(); // Number of events to simulate
-  if (nEvents) {
+  if (nEvents && mc->getGenerator()) {
     LOGP(info, "Processing {} events", nEvents);
+    // RS: if we want to silence long geant initialization output, we can add here MiscUtils::silenceStdOut("for Geant4 inits");
+    // and add in the NA6PMC::BeginEvent() MiscUtils::reviveStdOut();
     TVirtualMC::GetMC()->ProcessRun(nEvents);
   }
-  /*
-  for (int i = 0; i < nEvents; ++i) {
-    std::cout << "Processing event " << i + 1 << "..." << std::endl;
-
-    // Begin the event
-    mc->BeginEvent();
-
-    // Process the event using Geant4
-    geant4->ProcessRun(i);
-
-    // Finish the event
-    mc->FinishEvent();
-  }
-  */
   if (!vm["disable-write-ini"].as<bool>()) {
     try {
       std::string pth = na6p::utils::Str::rectifyDirectory(na6p::conf::ConfigurableParam::getOutputDir());

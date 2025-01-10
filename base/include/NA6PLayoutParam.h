@@ -28,6 +28,7 @@ struct NA6PLayoutParam : public na6p::conf::ConfigurableParamHelper<NA6PLayoutPa
   float posTargetZ[MaxTargets] = {-2.f, -1.f, 0.f, 1.f, 2.f};
   float thicknessTarget[MaxTargets] = {0.15f, 0.15f, 0.15f, 0.15f, 0.15f};
   float radTarget[MaxTargets] = {0.3f, 0.1f, 0.1f, 0.1f, 0.1f};
+  float xsectionTarget[MaxTargets] = {6.6f, 6.6f, 6.6f, 6.6f, 6.6f};  // X-sections in barns
   std::string medTarget[MaxTargets] = {"Lead", "Lead", "Lead", "Lead", "Lead"};
 
   // VerTel

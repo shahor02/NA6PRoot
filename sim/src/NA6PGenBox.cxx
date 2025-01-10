@@ -17,9 +17,13 @@ void NA6PGenBox::init()
 
 void NA6PGenBox::generate()
 {
-  const auto& param = NA6PGenCutParam::Instance();
+  const auto& param = NA6PGenCutParam::Instance();  
   float rnd[3 * mNTracks];
   gRandom->RndmArray(3 * mNTracks, rnd);
+  auto* stack = getStack();
+  if (!stack->isPVGenerated()) { // Generate vertex only it was not already generated, the generator might be a part of the cocktail!
+    generatePrimaryVertex();
+  }
   float m = TDatabasePDG::Instance()->GetParticle(mPDGCode)->Mass();
   int nTrials = 0;
   for (int i = 0; i < mNTracks; i++) {
@@ -44,8 +48,11 @@ void NA6PGenBox::generate()
     int dummy = 0;
     float p = pt / std::sin(tht), pz = pt / std::tan(tht), e = std::sqrt(p * p + m * m);
     mStack->PushTrack(true, -1, mPDGCode, pt * cs, pt * sn, pz, e, getOriginX(), getOriginY(), getOriginZ(),
-                      0., 0., 0., 0.,
-                      TMCProcess::kPPrimary, dummy, 1., 0);
+                      0., 0., 0., 0., TMCProcess::kPPrimary, dummy, 1., 0);
     nTrials = 0;
   }
+  // register generatot header in the MCHeader
+  auto mcHead = stack->getEventHeader();
+  static std::string info = fmt::format("{}_pdg{}x{}", getName(), mPDGCode, mNTracks);
+  mcHead->getGenHeaders().emplace_back(mNTracks, 0, mcHead->getNPrimaries(), 0, info);
 }

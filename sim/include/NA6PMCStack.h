@@ -22,6 +22,7 @@ Based on:
 #ifndef NA6P_MCSTACK_H
 #define NA6P_MCSTACK_H
 
+#include "NA6PMCEventHeader.h"
 #include <TVirtualMCStack.h>
 #include <TClonesArray.h>
 #include <TParticle.h>
@@ -46,10 +47,7 @@ class NA6PMCStack : public TVirtualMCStack
   void Print(Option_t* option = "") const override;
   void clear();
 
-  // set methods
   void SetCurrentTrack(int track) override;
-
-  // get methods
   int GetNtrack() const override { return mParticles->GetEntriesFast(); }
   int GetNprimary() const override { return mNPrimary; }
   TParticle* GetCurrentTrack() const override { return GetParticle(mCurrentTrack); }
@@ -61,17 +59,24 @@ class NA6PMCStack : public TVirtualMCStack
   }
   TParticle* GetParticle(int id) const { return (TParticle*)mParticles->At(id); }
 
+  NA6PMCEventHeader* getEventHeader() { return &mMCHeader; }
+
+  void setPVGenerated(bool v) { mPVGenerated = v; }
+  bool isPVGenerated() const { return mPVGenerated; }
+  
   void addHit(int detBit) { GetCurrentTrack()->SetBit(detBit); }
   void setVerbosity(int v) { mVerbosity = v; }
   auto getVerbosity() const { return mVerbosity; }
 
  private:
   // data members
-  std::stack<TParticle*> mStack{};    //!< The stack of particles (transient)
-  TClonesArray* mParticles = nullptr; ///< The array of particle (persistent)
-  int mCurrentTrack = -1;             ///< The current track number
-  int mNPrimary = 0;                  ///< The number of primaries
-  int mVerbosity = 0;                 //!
+  NA6PMCEventHeader mMCHeader{};
+  std::stack<TParticle*> mStack{};
+  TClonesArray* mParticles = nullptr;
+  bool mPVGenerated = false;
+  int mCurrentTrack = -1;
+  int mNPrimary = 0;
+  int mVerbosity = 0;
 
   ClassDefOverride(NA6PMCStack, 1); // NA6PMCStack
 };
