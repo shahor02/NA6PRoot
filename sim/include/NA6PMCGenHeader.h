@@ -27,6 +27,8 @@ class NA6PMCGenHeader
 
   void setNPrimaries(uint32_t nPrimaries) { mNPrimaries = nPrimaries; }
   void setNSecondaries(uint32_t nSecondaries) { mNSecondaries = nSecondaries; }
+  void incNPrimaries() { mNPrimaries++; }
+  void incNSecondaries() { mNSecondaries++; }
   void setPrimariesOffset(uint32_t primariesOffset) { mPrimariesOffset = primariesOffset; }
   void setSecondariesOffset(uint32_t secondariesOffset) { mSecondariesOffset = secondariesOffset; }
   void setInfo(const std::string& info) { mInfo = info; }

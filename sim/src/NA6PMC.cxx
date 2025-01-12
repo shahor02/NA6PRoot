@@ -250,30 +250,72 @@ void NA6PMC::selectTracksToSave()
   mRemap.clear();
   mRemap.resize(mStack->GetNtrack(), -1);
   int nkeep = 0;
-  for (int i = 0; i < nPrimIni; i++) { // generator primaries are stored as is
-    mRemap[i] = nkeep++;
+  auto mcHeader = mStack->getEventHeader();
+  auto& genHeaders = mcHeader->getGenHeaders();
+  int nGenHeaders = genHeaders.size();
+  std::vector<int> family;
+  if (nGenHeaders) {
+    for (int ig = 0; ig < (int)genHeaders.size(); ig++) {
+      auto& genh = genHeaders[ig];
+      if (genh.getPrimariesOffset() != nkeep || genh.getPrimariesOffset() + genh.getNPrimaries() > nPrimIni) {
+        LOGP(fatal, "Processing primaries of generator {} expected in [{}:{}) range, but we are at offset {} of total {} primaries, check generators",
+             ig, genh.getPrimariesOffset(), genh.getPrimariesOffset() + genh.getNPrimaries(), nkeep, nPrimIni);
+      }
+      for (int i = 0; i < genh.getNPrimaries(); i++) {
+        mRemap[nkeep++] = ig; // register generator id at the moment
+      }
+      genh.setPrimariesOffset(-1);
+      genh.setSecondariesOffset(-1);
+    }
+  } else {
+    for (int i = 0; i < nPrimIni; i++) { // generator primaries are stored as is
+      mRemap[i] = 0;
+    }
   }
+  nkeep = 0;
   for (int i = nPrimIni; i < ntrIni; i++) {
     const auto* part = mStack->GetParticle(i);
     if (NA6PModule::testActiveIDBits(*part)) { // has hits
-      mRemap[i] = 0;
+      if (mRemap[i] >= 0) {                    // was already accounted
+        continue;
+      }
+      family.push_back(i); // we store temporarily IDs of particles to store
       int mothID;
       LOGP(debug, "will save contributor {}, mother {}({})", i, part->GetFirstMother(), part->GetFirstMother() >= 0 ? mRemap[part->GetFirstMother()] : -1);
       while ((mothID = part->GetFirstMother()) >= 0 && mRemap[mothID] < 0) {
-        mRemap[mothID] = 0;
+        family.push_back(mothID);
         part = mStack->GetParticle(mothID);
         LOGP(debug, "will save mother {}, its mother {}({})", mothID, part->GetFirstMother(), part->GetFirstMother() >= 0 ? mRemap[part->GetFirstMother()] : -1);
+      }
+      // we reached mother or already accounted secondary
+      if (mothID < 0 || mRemap[mothID] < 0) {
+        LOGP(fatal, "While processing a secondary {} enountered unregistered secondary {}", i, mStack->getParticleIndex(part));
+      }
+      for (int j = (int)family.size(); j--;) {
+        mRemap[family[j]] = mRemap[mothID]; // generator ID
       }
     }
   }
   // enumerate mRemapped indices
-  for (int i = nPrimIni; i < ntrIni; i++) {
-    if (mRemap[i] == 0) {
+  for (int i = 0; i < ntrIni; i++) {
+    if (mRemap[i] >= 0) {
+      auto& gh = genHeaders[mRemap[i]];
+      if (mRemap[i] < nGenHeaders) {
+        if (i < nPrimIni) {
+          if (gh.getPrimariesOffset() == -1) {
+            gh.setPrimariesOffset(nkeep); // set 1st entry of
+          }
+        } else { // these are secondaries
+          if (gh.getSecondariesOffset() == -1) {
+            gh.setSecondariesOffset(nkeep);
+          }
+          gh.incNSecondaries();
+        }
+      }
       mRemap[i] = nkeep++;
     }
   }
   // update headers
-  auto mcHeader = mStack->getEventHeader();
   mcHeader->setNTracks(nkeep);
   mcHeader->setNPrimaries(nPrimIni);
   mcHeader->setEventID(mEvCount);

@@ -58,6 +58,7 @@ class NA6PMCStack : public TVirtualMCStack
     return current ? current->GetFirstMother() : -1;
   }
   TParticle* GetParticle(int id) const { return (TParticle*)mParticles->At(id); }
+  int getParticleIndex(const TParticle* p) const { return mParticles->IndexOf(p); }
 
   NA6PMCEventHeader* getEventHeader() { return &mMCHeader; }
 
