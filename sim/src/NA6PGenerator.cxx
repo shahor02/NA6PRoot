@@ -19,17 +19,21 @@ void NA6PGenerator::init()
 
 void NA6PGenerator::generatePrimaryVertex(int maxTrials)
 {
-  static NA6PTarget* tgt = (NA6PTarget*)NA6PDetector::instance().getModule("Target");
+  // will generate if not generated yet, otherwise, will set the origin from the MCHeader of the stack
+  auto mcH = mStack->getEventHeader();
   if (getStack()->isPVGenerated()) {
-    LOGP(warn, "The primary vertex was already generated, refusing!");
-    return;
+    setOrigin(mcH->getVX(), mcH->getVY(), mcH->getVZ());
+    if (mVerbosity) {
+      LOGP(warn, "{}: the primary vertex was already generated, refusing!", getName());
+      return;
+    }
   }
+  static NA6PTarget* tgt = (NA6PTarget*)NA6PDetector::instance().getModule("Target");
   float x, y, z;
   if (!tgt->generateVertex(x, y, z, maxTrials)) {
     LOGP(fatal, "Failed to generate primary vertex");
   }
   setOrigin(x, y, z);
-  auto mcH = mStack->getEventHeader();
   mcH->setVX(x);
   mcH->setVY(y);
   mcH->setVZ(z);

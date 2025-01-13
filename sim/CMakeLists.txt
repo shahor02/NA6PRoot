@@ -24,6 +24,8 @@ set(DICTIONARY_HEADERS
   NA6PMCEventHeader.h
   NA6PMCGenHeader.h
   NA6PGenBox.h
+  NA6PGenParam.h
+  NA6PGenCocktail.h
   NA6PBaseHit.h
   NA6PVerTelHit.h
   NA6PMuonSpecHit.h
