@@ -1,0 +1,29 @@
+**********************************
+*   Simulation cuts based on AliRoot/data/galice.cuts, optimised for enhancing tracking performance
+**********************************
+
+*   Med          GAM   ELEC  NHAD  CHAD  MUON  EBREM MUHAB EDEL  MUDEL MUPA ANNI BREM COMP DCAY DRAY HADR LOSS MULS PAIR PHOT RAYL STRA
+
+Air               3.e-5 3.e-5 3.e-5 3.e-5 1.e-3 3.e-5 3.e-5 3.e-5 3.e-5 -1.  -1   -1   -1   -1    1   -1   1    -1   -1   -1   -1   -1
+*
+Air_VerTel        3.e-5 3.e-5 3.e-5 3.e-5 1.e-3 3.e-5 3.e-5 3.e-5 3.e-5 -1.  -1   -1   -1   -1    1   -1   1    -1   -1   -1   -1   -1
+Silicon_VerTel    3.e-5 3.e-5 3.e-5 3.e-5 1.e-3 3.e-5 3.e-5 3.e-5 3.e-5 -1.  -1   -1   -1   -1    1   -1   1    -1   -1   -1   -1   -1
+CarbonFoam_VerTel 3.e-5 3.e-5 3.e-5 3.e-5 1.e-3 3.e-5 3.e-5 3.e-5 3.e-5 -1.  -1   -1   -1   -1    1   -1   1    -1   -1   -1   -1   -1
+*
+Lead_Target       1.e-3 1.e-3 1.e-3 1.e-3 1.e-3 1.e-3 1.e-3
+*
+Air_MuonSpec      3.e-5 3.e-5 3.e-5 3.e-5 1.e-3 3.e-5 3.e-5 3.e-5 3.e-5 -1.  -1   -1   -1   -1    1   -1   1    -1   -1   -1   -1   -1
+Silicon_MuonSpec  3.e-5 3.e-5 3.e-5 3.e-5 1.e-3 3.e-5 3.e-5 3.e-5 3.e-5 -1.  -1   -1   -1   -1    1   -1   1    -1   -1   -1   -1   -1
+*
+Air_DipoleVT      3.e-5 3.e-5 3.e-5 3.e-5 1.e-3 3.e-5 3.e-5 3.e-5 3.e-5 -1.  -1   -1   -1   -1    1   -1   1    -1   -1   -1   -1   -1
+Iron_DipoleVT     1.e-3 1.e-3 1.e-3 1.e-3 1.e-3 1.e-3 1.e-3 -1.    -1.  -1.  -1   -1   -1   -1   -1   -1   -1   -1   -1   -1   -1   -1
+Copper_DipoleVT   1.e-3 1.e-3 1.e-3 1.e-3 1.e-3 1.e-3 1.e-3 -1.    -1.  -1.  -1   -1   -1   -1   -1   -1   -1   -1   -1   -1   -1   -1
+*
+Air_DipoleMS      3.e-5 3.e-5 3.e-5 3.e-5 1.e-3 3.e-5 3.e-5 3.e-5 3.e-5 -1.  -1   -1   -1   -1    1   -1   1    -1   -1   -1   -1   -1
+Iron_DipoleMS     1.e-3 1.e-3 1.e-3 1.e-3 1.e-3 1.e-3 1.e-3 -1.    -1.  -1.  -1   -1   -1   -1   -1   -1   -1   -1   -1   -1   -1   -1
+Copper_DipoleMS   1.e-3 1.e-3 1.e-3 1.e-3 1.e-3 1.e-3 1.e-3 -1.    -1.  -1.  -1   -1   -1   -1   -1   -1   -1   -1   -1   -1   -1   -1
+*
+Iron_Absorber     1.e-3 1.e-3 1.e-3 1.e-3 1.e-3 1.e-3 1.e-3 -1.    -1.  -1.  -1   -1   -1   -1   -1   -1   -1   -1   -1   -1   -1   -1
+Copper_Absorber   1.e-3 1.e-3 1.e-3 1.e-3 1.e-3 1.e-3 1.e-3 -1.    -1.  -1.  -1   -1   -1   -1   -1   -1   -1   -1   -1   -1   -1   -1
+Graphite_Absorber 1.e-3 1.e-3 1.e-3 1.e-3 1.e-3 1.e-3 1.e-3 -1.    -1.  -1.  -1   -1   -1   -1   -1   -1   -1   -1   -1   -1   -1   -1
+Tungsten_Absorber 1.e-3 1.e-3 1.e-3 1.e-3 1.e-3 1.e-3 1.e-3 -1.    -1.  -1.  -1   -1   -1   -1   -1   -1   -1   -1   -1   -1   -1   -1

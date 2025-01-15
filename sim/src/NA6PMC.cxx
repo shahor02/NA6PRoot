@@ -8,7 +8,9 @@
 #include "StringUtils.h"
 #include "MiscUtils.h"
 #include "KeyValParam.h"
-
+#include "NA6PLayoutParam.h"
+#include "NA6PTGeoHelper.h"
+#include <TSystem.h>
 #include <TGeoManager.h>
 #include <TVirtualMC.h>
 #include <TMCManager.h>
@@ -46,7 +48,10 @@ void NA6PMC::ConstructGeometry()
 
 void NA6PMC::InitGeometry()
 {
-  LOGP(info, "Init geometry...");
+  const auto& param = NA6PLayoutParam::Instance();
+  if (!param.materialsCutsFile.empty()) {
+    NA6PTGeoHelper::instance().loadCutsAndProcessesFromFile(gSystem->ExpandPathName(param.materialsCutsFile.c_str()));
+  }
 }
 
 void NA6PMC::ConstructOpGeometry()

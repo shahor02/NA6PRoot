@@ -12,6 +12,39 @@
 class NA6PTGeoHelper
 {
  public:
+  enum class EProc {
+    kPAIR = 0,
+    kCOMP,
+    kPHOT,
+    kPFIS,
+    kDRAY,
+    kANNI,
+    kBREM,
+    kHADR,
+    kMUNU,
+    kDCAY,
+    kLOSS,
+    kMULS,
+    kCKOV,
+    kLABS,
+    kRAYL
+  };
+
+  /// cuts available
+  enum class ECut {
+    kCUTGAM = 0,
+    kCUTELE,
+    kCUTNEU,
+    kCUTHAD,
+    kCUTMUO,
+    kBCUTE,
+    kBCUTM,
+    kDCUTE,
+    kDCUTM,
+    kPPCUTM,
+    kTOFMAX
+  };
+
   static NA6PTGeoHelper& instance()
   {
     static NA6PTGeoHelper inst;
@@ -20,10 +53,13 @@ class NA6PTGeoHelper
 
   auto& getMatPool() { return mMatPool; }
   auto& getMedPool() { return mMedPool; }
+  const char* getMediumCutName(ECut cut) const;
+  const char* getPhysicsProcessName(EProc process) const;
 
+  void loadCutsAndProcessesFromFile(const std::string& fname);
   void addMedium(const std::string& medName, const std::string& matName = "", Color_t col = kGray);
-  TGeoMedium* getMedium(const std::string& medName) const;
-  Color_t getMediumColor(const std::string& medName) const;
+  TGeoMedium* getMedium(const std::string& medName, bool fatalIfMissing = true) const;
+  Color_t getMediumColor(const std::string& medName, bool fatalIfMissing = true) const;
   static TGeoRotation* rotAroundVector(float uX, float uY, float uZ, float ddelta);
 
  private:
@@ -33,6 +69,11 @@ class NA6PTGeoHelper
   std::unordered_map<std::string, TGeoMaterial*> mMatPool;
   std::unordered_map<std::string, TGeoMedium*> mMedPool;
   std::unordered_map<std::string, Color_t> mColorPool;
+
+  /// fixed names of cuts
+  const static std::unordered_map<ECut, const char*> CutIDToName;
+  /// fixed names of processes
+  const static std::unordered_map<EProc, const char*> ProcessIDToName;
 };
 
 #endif

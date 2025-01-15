@@ -64,6 +64,8 @@ struct NA6PLayoutParam : public na6p::conf::ConfigurableParamHelper<NA6PLayoutPa
   std::string medAbsorber[MaxAbsorberSlices] = {"BeO", "BeO", "BeO", "BeO", "Graphite", "Graphite", "Graphite", /*wall*/ "Graphite", "Graphite", "Graphite"};
   std::string medAbsorberPlug[MaxAbsorberSlices] = {"Tungsten", "Tungsten", "Tungsten", "Tungsten", "Tungsten", "Tungsten", ""};
 
+  std::string materialsCutsFile = "$(NA6PROOT_ROOT)/share/data/simcuts.dat";
+
   NA6PParamDef(NA6PLayoutParam, "layout");
 };
 
