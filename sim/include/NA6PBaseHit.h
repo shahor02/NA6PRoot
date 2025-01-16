@@ -50,6 +50,10 @@ class NA6PBaseHit
   auto getZOut() const { return mPosOut[2]; }
   auto* getPosOut() const { return mPosOut; }
 
+  auto getX() const { return 0.5 * (mPosIn[0] + mPosOut[0]); }
+  auto getY() const { return 0.5 * (mPosIn[1] + mPosOut[1]); }
+  auto getZ() const { return 0.5 * (mPosIn[2] + mPosOut[2]); }
+
   auto* getMomIn() const { return mMomIn; }
   auto getPX() const { return mMomIn[0]; }
   auto getPY() const { return mMomIn[1]; }
