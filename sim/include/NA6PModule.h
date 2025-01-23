@@ -22,6 +22,7 @@ class NA6PModule
   virtual void createGeometry(TGeoVolume* base) = 0;
   virtual bool stepManager(int); // called by NA6PMC Stepping, passing the volume copyID (from which sensID can be extracted using volID2SensID
   virtual size_t getNHits() const { return 0; }
+  virtual void setAlignableEntries() {}
 
   auto isActive() const { return mActiveID >= 0; }
   auto getActiveID() const { return mActiveID; }

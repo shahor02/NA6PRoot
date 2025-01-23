@@ -23,7 +23,7 @@ class NA6PVerTel : public NA6PModule
   void createHitsOutput(const std::string& outDir) override;
   void closeHitsOutput() override;
   void writeHits(const std::vector<int>& remapping) override;
-
+  void setAlignableEntries() override;
   void clearHits() override { mHits.clear(); }
 
   const auto& getHits() const { return mHits; }

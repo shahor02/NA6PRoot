@@ -7,6 +7,7 @@
 #include "NA6PMCStack.h"
 
 #include <TVirtualMC.h>
+#include <TGeoManager.h>
 #include <TGeoVolume.h>
 #include <TGeoVolume.h>
 #include <TGeoBBox.h>
@@ -70,6 +71,20 @@ void NA6PMuonSpec::createGeometry(TGeoVolume* world)
     // put physical station into dummy envelope to avoid precision problems with stepping (very thin objects are not well recognised with large steps)
     stationSensVolEnv->AddNode(stationSensVol, composeSensorVolID(ist));
     world->AddNode(stationSensVolEnv, composeNonSensorVolID(ist), new TGeoTranslation(param.shiftMS[0] + param.posMSPlaneX[ist], param.shiftMS[1] + param.posMSPlaneY[ist], param.shiftMS[2] + param.posMSPlaneZ[ist]));
+  }
+}
+
+void NA6PMuonSpec::setAlignableEntries()
+{
+  const auto& param = NA6PLayoutParam::Instance();
+  int svolCnt = 0;
+  for (int ll = 0; ll < param.nMSPlanes; ++ll) {
+    int id = getActiveID() * 100 + svolCnt;
+    std::string nm = fmt::format("MS_Lr{}_Sens{}", ll, 0);
+    std::string path = fmt::format("/World_1/MS{}Env_{}/MS{}_{}", ll, composeNonSensorVolID(ll), ll, composeSensorVolID(ll));
+    gGeoManager->SetAlignableEntry(nm.c_str(), path.c_str(), id);
+    LOGP(info, "Adding {} {} as alignable sensor {}", nm, path, id);
+    svolCnt++;
   }
 }
 

@@ -75,7 +75,9 @@ void NA6PDetector::createGeometry(const std::string& name)
 
   // Close the geometry
   geom->CloseGeometry();
-
+  for (auto m : mModulesVec) {
+    m->setAlignableEntries();
+  }
   // Export to file
   geom->Export("geometry.root");
 }

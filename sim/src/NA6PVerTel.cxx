@@ -8,12 +8,13 @@
 
 #include <TVirtualMC.h>
 #include <TGeoVolume.h>
-#include <TGeoVolume.h>
+#include <TGeoNode.h>
 #include <TGeoBBox.h>
 #include <TGeoTube.h>
 #include <TGeoParaboloid.h>
 #include <TGeoTrd1.h>
 #include <TGeoTrd2.h>
+#include <TGeoManager.h>
 #include <TGeoCompositeShape.h>
 #include <TGeoBoolNode.h>
 #include <TColor.h>
@@ -86,7 +87,6 @@ void NA6PVerTel::createGeometry(TGeoVolume* world)
                                          param.shiftVerTel[2] + (param.posVerTelPlaneZ[0] + boxDZ / 2 - boxDZMargin),
                                          NA6PTGeoHelper::rotAroundVector(0.0, 0.0, 0.0, 0.0));
   world->AddNode(vtContainer, composeNonSensorVolID(0), vtTransform);
-
   // pixel station Frame with holes (box with subtracted holes)
   auto* pixStFrameBox = new TGeoBBox("PixStFrameBox", frameDX / 2, frameDY / 2, frameDZ / 2);
   auto* beamPipeHole = new TGeoTube("PixStFrameBoxBPHole", 0, frameHoleR, frameDZ);
@@ -124,6 +124,22 @@ void NA6PVerTel::createGeometry(TGeoVolume* world)
     auto* frameTransform = new TGeoCombiTrans(param.posVerTelPlaneX[ll], param.posVerTelPlaneY[ll], param.posVerTelPlaneZ[ll] + 0.5 * (frameDZ + pixChipDz) - zoffs,
                                               NA6PTGeoHelper::rotAroundVector(0, 0.0, 0.0, 0.0));
     vtContainer->AddNode(pixStFrame, composeNonSensorVolID(ll + 20), frameTransform);
+  }
+}
+
+void NA6PVerTel::setAlignableEntries()
+{
+  const auto& param = NA6PLayoutParam::Instance();
+  int svolCnt = 0;
+  for (int ll = 0; ll < param.nVerTelPlanes; ++ll) {
+    for (int ii = 0; ii < 4; ++ii) {
+      int id = getActiveID() * 100 + svolCnt;
+      std::string nm = fmt::format("VT_Lr{}_Sens{}", ll, ii);
+      std::string path = fmt::format("/World_1/VTContainer_{}/PixelStationVol_{}/PixelSensor_{}", composeNonSensorVolID(0), composeNonSensorVolID(ll), composeSensorVolID(ii));
+      gGeoManager->SetAlignableEntry(nm.c_str(), path.c_str(), id);
+      LOGP(info, "Adding {} {} as alignable sensor {}", nm, path, id);
+      svolCnt++;
+    }
   }
 }
 
