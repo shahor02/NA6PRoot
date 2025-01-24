@@ -7,13 +7,13 @@ NA6P framework for detector geometry definition, VMC-based simulation (and simul
 ## Installation (to be completed)
 
 Currently, it is assumed that the needed third-party packages (see `find_package` directives in the top level [CMakeLists.txt](CMakeLists.txt) for the list of these packages)
-are installed e.g. via [O2](https://github.com/AliceO2Group/AliceO2) framework.
+are installed e.g. via [O2](https://github.com/AliceO2Group/AliceO2) framework and one has `ALIBUILD_WORK_DIR` environmnet variable pointing to the ALICE `<...>/sw` directory.
 
 After the installation of these packages some paths have to be initialized, e.g. by running (in case of installation via O2, bash shell is assumed)
 ```
 myarch=$(aliBuild architecture)
 alienv load O2/latest
-export WORK_DIR=$ALICE_WORK_DIR
+export WORK_DIR=$ALIBUILD_WORK_DIR
 source $WORK_DIR/$myarch/O2/latest/etc/profile.d/init.sh
 ```
 
