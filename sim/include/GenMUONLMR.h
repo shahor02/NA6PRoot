@@ -1,3 +1,4 @@
+// clang-format off
 #ifndef GenMUONLMR_h
 #define GenMUONLMR_h
 
@@ -59,3 +60,4 @@ class GenMUONLMR  {
 }; 
 
 #endif
+// clang-format on

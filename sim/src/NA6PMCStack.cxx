@@ -92,8 +92,9 @@ void NA6PMCStack::PushTrack(int toBeDone, int parent, int pdg,
 
   TClonesArray& particlesRef = *mParticles;
   int trackId = GetNtrack();
-  TParticle* particle = new (particlesRef[trackId]) TParticle(pdg, is, parent,
-                                                              trackId, kFirstDaughter, kLastDaughter, px, py, pz, e, vx, vy, vz, tof);
+  TParticle* particle = new (particlesRef[trackId]) TParticle(pdg, is, parent, trackId,
+                                                              kFirstDaughter, kLastDaughter,
+                                                              px, py, pz, e, vx, vy, vz, tof);
 
   particle->SetPolarisation(polx, poly, polz);
   particle->SetWeight(weight);

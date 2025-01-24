@@ -29,3 +29,13 @@ void NA6PBeamParam::generate(TParticle& part, float zpos) const
   part.SetMomentum(ptot * beam.getSlopeX() * normI, ptot * beam.getSlopeY() * normI, ptot * normI, etot);
   part.SetProductionVertex(beam.getX(zpos), beam.getY(zpos), zpos, 0.);
 }
+
+double NA6PBeamParam::getSqrtS() const
+{
+  return std::sqrt(energyPerNucleon * 2. * NucleonMass + 2 * NucleonMass * NucleonMass);
+}
+
+double NA6PBeamParam::getYCM() const
+{
+  return std::log(getSqrtS() / NucleonMass);
+}

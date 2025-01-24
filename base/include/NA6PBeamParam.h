@@ -10,6 +10,7 @@ class NA6PBeam;
 class TParticle;
 
 struct NA6PBeamParam : public na6p::conf::ConfigurableParamHelper<NA6PBeamParam> {
+  static constexpr float NucleonMass = 0.938272089;
   std::string particle = "Lead";
   float A = 208.f;
   float Z = 82.f;
@@ -30,6 +31,8 @@ struct NA6PBeamParam : public na6p::conf::ConfigurableParamHelper<NA6PBeamParam>
 
   void generate(NA6PBeam& beam) const;
   void generate(TParticle& part, float z = 0.f) const;
+  double getSqrtS() const;
+  double getYCM() const;
 
   NA6PParamDef(NA6PBeamParam, "beam");
 };

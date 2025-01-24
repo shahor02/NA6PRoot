@@ -1,3 +1,4 @@
+// clang-format off
 // #include <TClonesArray.h>
 
 #include "iostream"
@@ -954,3 +955,4 @@ Double_t GenMUONLMR::RhoLineShapeNew(Double_t *x, Double_t *para)
 
   return r;
 }
+// clang-format on

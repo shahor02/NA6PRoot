@@ -25,3 +25,15 @@ na6psim <options> --load-ini <user-file.ini> --configKeyValues "<semicolon separ
 Note that even in this case, one can still modify some parameters via `--configKeyValues ...` settings: the priority is given to the value provided from the command line, then loaded from the ini file (if any), and then to the class default setting.
 
 Writing of the ini file can be disable by the option `--disable-write-ini`.
+
+
+## Available generators
+
+### GenBox
+
+### GenParam
+
+Allows to generate single type of particle with its transverse (pt or Mt) and longitudinal (Y or eta) distributions provided via string which are converted to TFormula.
+The number of particles to generate per event is either provided explicitly (`setNTracks`) or estimated from provided `setdNdY` (or `setdNdEta`). This number is treated as
+as Poisson mean in `setPoisson` was called.
+See an example [test/genParamPi.C](../test/genParamPi.C).

@@ -35,4 +35,6 @@
 
 #pragma link C++ class std::vector < TParticle> + ;
 
+#pragma link C++ class GenMUONLMR + ;
+
 #endif

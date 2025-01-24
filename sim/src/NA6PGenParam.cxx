@@ -1,6 +1,7 @@
 // NA6PCCopyright
 
 #include "NA6PGenParam.h"
+#include "NA6PBeamParam.h"
 #include "NA6PGenCutParam.h"
 #include "NA6PMCStack.h"
 #include <TDatabasePDG.h>
@@ -9,13 +10,13 @@
 #include <cmath>
 
 NA6PGenParam::NA6PGenParam(const std::string& name, int pdg, float mult, const std::string& parTrans, const std::string& parLong,
-                           float ptmin, float ptmax, int npartr, float lmin, float lmax, int nparl, bool istransPt, bool islongY, bool isPoisson) : NA6PGenerator(name), mPDGCode(pdg), mMult(mult), mPoisson(isPoisson), mTransIsPt(istransPt), mLongIsY(islongY)
+                           float ptmin, float ptmax, float lmin, float lmax, bool istransPt, bool islongY, bool isPoisson) : NA6PGenerator(name), mPDGCode(pdg), mMult(mult), mPoisson(isPoisson), mTransIsPt(istransPt), mLongIsY(islongY)
 {
-  setFunTrans(parTrans, ptmin, ptmax, npartr);
-  setFunLong(parLong, lmin, lmax, nparl);
+  setFunTrans(parTrans, ptmin, ptmax);
+  setFunLong(parLong, lmin, lmax);
 }
 
-void NA6PGenParam::setFunTrans(const std::string& fnameTrans, float ptmin, float ptmax, int npartr)
+void NA6PGenParam::setFunTrans(const std::string& fnameTrans, float ptmin, float ptmax)
 {
   // requires name of interpreted function
   if (!mTransIsPt) { // convert to Mt
@@ -26,33 +27,13 @@ void NA6PGenParam::setFunTrans(const std::string& fnameTrans, float ptmin, float
     ptmin = std::sqrt(m * m + ptmin * ptmin);
     ptmax = std::sqrt(m * m + ptmax * ptmax);
   }
-  mFunTrans = std::make_unique<TF1>(fnameTrans.c_str(), ptmin, ptmax, npartr);
+  mFunTrans = std::make_unique<TF1>(fnameTrans.c_str(), fnameTrans.c_str(), ptmin, ptmax);
 }
 
-void NA6PGenParam::setFunLong(const std::string& fnameLong, float lmin, float lmax, int nparl)
+void NA6PGenParam::setFunLong(const std::string& fnameLong, float lmin, float lmax)
 {
   // requires name of interpreted function
-  mFunLong = std::make_unique<TF1>(fnameLong.c_str(), lmin, lmax, nparl);
-}
-
-void NA6PGenParam::setFunTrans(const std::string& fname, const std::string& formulaTrans, float ptmin, float ptmax)
-{
-  // requires formula!
-  if (!mTransIsPt) { // convert to Mt
-    if (!TDatabasePDG::Instance()->GetParticle(mPDGCode)) {
-      LOGP(fatal, "Particle PDG={} is not defined", mPDGCode);
-    }
-    auto m = TDatabasePDG::Instance()->GetParticle(mPDGCode)->Mass();
-    ptmin = std::sqrt(m * m + ptmin * ptmin);
-    ptmax = std::sqrt(m * m + ptmax * ptmax);
-  }
-  mFunTrans = std::make_unique<TF1>(fname.c_str(), formulaTrans.c_str(), ptmin, ptmax);
-}
-
-void NA6PGenParam::setFunLong(const std::string& fname, const std::string& formulaLong, float lmin, float lmax)
-{
-  // requires formula!
-  mFunLong = std::make_unique<TF1>(fname.c_str(), formulaLong.c_str(), lmin, lmax);
+  mFunLong = std::make_unique<TF1>(fnameLong.c_str(), fnameLong.c_str(), lmin, lmax);
 }
 
 void NA6PGenParam::init()
@@ -62,9 +43,6 @@ void NA6PGenParam::init()
   }
   if (!TDatabasePDG::Instance()->GetParticle(mPDGCode)) {
     LOGP(fatal, "Particle PDG={} is not defined", mPDGCode);
-  }
-  if (mMult <= 0) {
-    LOGP(fatal, "Multiplicity for particle PDG={} is {}", mPDGCode, mMult);
   }
   auto getLbl = [this](int i) { return i == 0 ? (mTransIsPt ? "Pt" : "Mt") : (mLongIsY ? "Y" : "Eta"); };
   TF1* ff[2] = {mFunTrans.get(), mFunLong.get()};
@@ -76,7 +54,55 @@ void NA6PGenParam::init()
     if (f->GetNpar() > 0 && !f->TestBit(ParamsSetBit)) {
       LOGP(fatal, "{}-parametrization {} for PDG={} needs {} parameters which are not set", getLbl(i), f->GetName(), mPDGCode, f->GetNpar());
     }
+    if (!f->IsValid()) {
+      LOGP(fatal, "{}-parametrization {} for PDG={} is not valid", getLbl(i), f->GetName(), mPDGCode);
+    }
   }
+  if (mdNdLong > 0) { // dneta or dndy at was provided, calculate multiplicity to generate
+    const auto& beamParam = NA6PBeamParam::Instance();
+    auto ycm = beamParam.getYCM();
+    // 1st check which fraction of pTs we generate
+    double scalePt = 1., scaleLong = 1.;
+    {
+      auto tmin = mFunTrans->GetXmin(), tmax = mFunTrans->GetXmax();
+      double tmin0 = 0, tmax0 = 20.;
+      if (!mTransIsPt) { // convert to Mt
+        auto m = TDatabasePDG::Instance()->GetParticle(mPDGCode)->Mass();
+        tmin0 = std::sqrt(m * m + tmin0 * tmin0);
+        tmax0 = std::sqrt(m * m + tmax0 * tmax0);
+      }
+      mFunTrans->SetRange(tmin0, tmax0);
+      mFunTrans->SetNpx(std::max(100, int(100 * (tmax0 - tmin0))));
+      auto integTransTot = mFunTrans->Integral(tmin0, tmax0);
+      auto integTransRange = mFunTrans->Integral(tmin, tmax);
+      mFunTrans->SetRange(tmin, tmax);
+      scalePt = integTransRange / integTransTot;
+    }
+    // check which fraction of mid-rapidity we generate
+    {
+      auto tmin = mFunLong->GetXmin(), tmax = mFunLong->GetXmax();
+      double tmin0 = ycm - 0.5, tmax0 = ycm + 0.5;
+      mFunLong->SetRange(tmin0, tmax0);
+      mFunLong->SetNpx(100);
+      auto integLongMid = mFunLong->Integral(tmin0, tmax0);
+      auto integLongRange = mFunLong->Integral(tmin, tmax);
+      mFunLong->SetRange(tmin, tmax);
+      scaleLong = integLongRange / integLongMid;
+    }
+    mMult = mdNdLong * scalePt * scaleLong;
+    LOGP(info, "Renormalizing dN/d{} = {:.2f} to mean multiplicity {} in requested phase space (factors {:.2f} and {:.2f} from transverse and longitudinal distributions)",
+         mLongIsY ? "Y" : "Eta", mdNdLong, mMult, scalePt, scaleLong);
+  }
+  if (mMult <= 0) {
+    LOGP(fatal, "Multiplicity for particle PDG={} is {}", mPDGCode, mMult);
+  }
+  mFunTrans->SetNpx(std::max(100, int(100 * (mFunTrans->GetXmax() - mFunTrans->GetXmin()))));
+  mFunLong->SetNpx(std::max(100, int(100 * (mFunLong->GetXmax() - mFunLong->GetXmin()))));
+  LOGP(info, "Initialized generator {} for PDG={}, {} ({}) particles in the requested phase-space", getName(), mPDGCode, mMult, isPoisson() ? "Poisson" : "fixed");
+  LOGP(info, "Transverse distribution in {:.2f}<{}<{:.2f}", mFunTrans->GetXmin(), isTransPt() ? "Pt" : "Mt", mFunTrans->GetXmax());
+  mFunTrans->Print();
+  LOGP(info, "Longitudinal distribution in {:.2f}<{}<{:.2f}", mFunLong->GetXmin(), isLongY() ? "Y" : "Eta", mFunLong->GetXmax());
+  mFunLong->Print();
 
   NA6PGenerator::init();
 }
@@ -130,7 +156,6 @@ void NA6PGenParam::generate()
           mt2 += m * m;
           mt = std::sqrt(mt2);
         }
-        double pZ = 0.;
         if (mLongIsY) {
           pZ = mt * std::sinh(vLong);
         } else { // eta
@@ -156,4 +181,38 @@ void NA6PGenParam::generate()
   auto mcHead = getStack()->getEventHeader();
   static std::string info = fmt::format("{}_pdg{}x{}", getName(), mPDGCode, nPart);
   mcHead->getGenHeaders().emplace_back(nPart, 0, mcHead->getNPrimaries(), 0, info);
+}
+
+void NA6PGenParam::setdNdY(float v)
+{
+  if (v <= 0.) {
+    LOGP(fatal, "dNY cannot be negative, {} requested", v);
+  }
+  mdNdLong = v;
+  setLongIsY(true);
+}
+
+void NA6PGenParam::setdNdEta(float v)
+{
+  if (v <= 0.) {
+    LOGP(fatal, "dNdeta cannot be negative, {} requested", v);
+  }
+  mdNdLong = v;
+  setLongIsY(false);
+}
+
+void NA6PGenParam::setLongIsY(bool v)
+{
+  if (mFunLong) {
+    LOGP(fatal, "setLongIsY(..) must be called before setting the longitudinal parametrization");
+  }
+  mLongIsY = v;
+}
+
+void NA6PGenParam::setTransIsPt(bool v)
+{
+  if (mFunTrans) {
+    LOGP(fatal, "setTransIsPt(..) must be called before setting the transverse parametrization");
+  }
+  mTransIsPt = v;
 }

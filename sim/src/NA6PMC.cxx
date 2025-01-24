@@ -20,6 +20,7 @@
 #include <TInterpreter.h>
 #include <TFile.h>
 #include <TTree.h>
+#include <TMath.h>
 #include <fairlogger/Logger.h>
 #include <filesystem>
 
