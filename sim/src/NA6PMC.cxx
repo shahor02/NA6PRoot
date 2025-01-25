@@ -264,7 +264,7 @@ void NA6PMC::selectTracksToSave()
     for (int ig = 0; ig < (int)genHeaders.size(); ig++) {
       auto& genh = genHeaders[ig];
       if (genh.getPrimariesOffset() != nkeep || genh.getPrimariesOffset() + genh.getNPrimaries() > nPrimIni) {
-        LOGP(fatal, "Processing primaries of generator {} expected in [{}:{}) range, but we are at offset {} of total {} primaries, check generators",
+        LOGP(fatal, "Processing primaries of generator {} expected in the [{}:{}) range, but we are at offset {} of total {} primaries, check generators",
              ig, genh.getPrimariesOffset(), genh.getPrimariesOffset() + genh.getNPrimaries(), nkeep, nPrimIni);
       }
       for (int i = 0; i < genh.getNPrimaries(); i++) {

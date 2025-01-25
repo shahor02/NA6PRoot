@@ -19,6 +19,14 @@ void NA6PGenCocktail::init()
   }
 }
 
+void NA6PGenCocktail::setStack(NA6PMCStack* stack)
+{
+  NA6PGenerator::setStack(stack);
+  for (auto g : mGenerators) {
+    ((NA6PGenerator*)g)->setStack(stack);
+  }
+}
+
 void NA6PGenCocktail::generate()
 {
   generatePrimaryVertex(); // will generate if not generated yet, otherwise, will set the origin from the MCHeader of the stack.

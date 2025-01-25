@@ -53,4 +53,5 @@ void NA6PGenBox::generate()
   auto mcHead = getStack()->getEventHeader();
   static std::string info = fmt::format("{}_pdg{}x{}", getName(), mPDGCode, mNTracks);
   mcHead->getGenHeaders().emplace_back(mNTracks, 0, mcHead->getNPrimaries(), 0, info);
+  mcHead->incNPrimaries(mNTracks);
 }

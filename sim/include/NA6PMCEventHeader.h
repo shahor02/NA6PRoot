@@ -30,6 +30,7 @@ class NA6PMCEventHeader
   void setVZ(float vz) { mVZ = vz; }
   void setNTracks(uint32_t nTrack) { mNTracks = nTrack; }
   void setNPrimaries(uint32_t nPrimaries) { mNPrimaries = nPrimaries; }
+  void incNPrimaries(uint32_t increment = 1) { mNPrimaries += increment; }
   void setGenHeaders(const std::vector<NA6PMCGenHeader>& genHeaders) { mGenHeaders = genHeaders; }
   void addGenHeader(const NA6PMCGenHeader& h) { mGenHeaders.push_back(h); }
 

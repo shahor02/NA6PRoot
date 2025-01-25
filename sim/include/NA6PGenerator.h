@@ -17,7 +17,7 @@ class NA6PGenerator : public TObject
   NA6PGenerator() = default;
   virtual ~NA6PGenerator() = default;
 
-  void setStack(NA6PMCStack* stack) { mStack = stack; }
+  virtual void setStack(NA6PMCStack* stack) { mStack = stack; }
   auto getStack() { return mStack; }
   auto getStack() const { return mStack; }
 

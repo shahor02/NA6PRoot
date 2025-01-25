@@ -179,17 +179,17 @@ void NA6PGenParam::generate()
   }
   // register generatot header in the MCHeader
   auto mcHead = getStack()->getEventHeader();
-  static std::string info = fmt::format("{}_pdg{}x{}", getName(), mPDGCode, nPart);
+  static std::string info = fmt::format("{}_pdg{}x{}", getName(), mPDGCode, getMultiplicity());
   mcHead->getGenHeaders().emplace_back(nPart, 0, mcHead->getNPrimaries(), 0, info);
+  mcHead->incNPrimaries(nPart);
 }
 
 void NA6PGenParam::setdNdY(float v)
 {
   if (v <= 0.) {
-    LOGP(fatal, "dNY cannot be negative, {} requested", v);
+    LOGP(fatal, "dNdY cannot be negative, {} requested", v);
   }
   mdNdLong = v;
-  setLongIsY(true);
 }
 
 void NA6PGenParam::setdNdEta(float v)
@@ -198,7 +198,6 @@ void NA6PGenParam::setdNdEta(float v)
     LOGP(fatal, "dNdeta cannot be negative, {} requested", v);
   }
   mdNdLong = v;
-  setLongIsY(false);
 }
 
 void NA6PGenParam::setLongIsY(bool v)

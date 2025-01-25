@@ -4,13 +4,13 @@
 
 # Simulation
 
-Use executable 
+Use executable
 ```
 na6psim <options> --configKeyValues "<semicolon separated configurable params>"
 ```
 
 ### Layout definition
-The detector layout is defined by the ConfigurableParam-based [NA6PLayoutParam](../base/include/NA6PLayoutParam.h) class. Any parameter defined in this class can be modified from the command line. For instance, 
+The detector layout is defined by the ConfigurableParam-based [NA6PLayoutParam](../base/include/NA6PLayoutParam.h) class. Any parameter defined in this class can be modified from the command line. For instance,
 to set the `Z` of the 1-st VerTel station to `8.0` cm instead of its default value and then to move the whole VerTel in X and Z globally by `0.1` and `-0.2` cm respectively and change the 2nd target material to Iron (make sure that
 corresponding material and medium are defined in the `createMaterials()` method) one can pass an option:
 ```
@@ -37,3 +37,4 @@ Allows to generate single type of particle with its transverse (pt or Mt) and lo
 The number of particles to generate per event is either provided explicitly (`setNTracks`) or estimated from provided `setdNdY` (or `setdNdEta`). This number is treated as
 as Poisson mean in `setPoisson` was called.
 See an example [test/genParamPi.C](../test/genParamPi.C).
+The [test/genBgEvent.C](../test/genBgEvent.C) shows an example of CockTail generator production PbPb hadronic (pi, K, p) event for specific SPS energies.
