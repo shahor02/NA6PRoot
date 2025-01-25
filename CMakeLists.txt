@@ -12,45 +12,12 @@ if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   set(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/install" CACHE PATH "Default installation directory" FORCE)
 endif()
 
-#----------------------------------------------------------------------------
-# Find Geant4 package, activating all available UI and Vis drivers by default
-# You can set WITH_GEANT4_UIVIS to OFF via the command line or ccmake/cmake-gui
-# to build a batch mode only executable
-#
-option(WITH_GEANT4_UIVIS "Build example with Geant4 UI and Vis drivers" ON)
-if(WITH_GEANT4_UIVIS)
-  find_package(Geant4 REQUIRED ui_all vis_all)
-else()
-  find_package(Geant4 REQUIRED)
-endif()
-
-#----------------------------------------------------------------------------
-# Setup Geant4 include directories and compile definitions
-#
-include(${Geant4_USE_FILE})
-
-#----------------------------------------------------------------------------
-find_package(HDF5 REQUIRED COMPONENTS C CXX HL)
-find_package(ROOT REQUIRED COMPONENTS Core RIO Tree)
-find_package(Boost REQUIRED COMPONENTS program_options)
-find_package(fmt REQUIRED)
-find_package(FairLogger REQUIRED)
-find_package(VMC REQUIRED)
-find_package(Geant4VMC REQUIRED)
-find_package(VGM REQUIRED)
-find_package(HepMC3 REQUIRED)
+include(dependencies/CMakeLists.txt)
 
 # Locate sources and headers for this project
 #
 # Define include and source directories
 include_directories(${PROJECT_SOURCE_DIR}/include)
-include_directories(${Geant4_INCLUDE_DIR})
-include_directories(${HDF5_INCLUDE_DIR})
-include_directories(${ROOT_INCLUDE_DIRS})
-include_directories(${Boost_INCLUDE_DIRS})
-include_directories(${VMC_INCLUDE_DIRS})
-include_directories(${Geant4VMC_INCLUDE_DIRS})
-include_directories($${VGM_INCLUDE_DIRS})
 
 # Add subdirectories for each module and prepare paths to its headers
 add_subdirectory(utils) # must stay before others
