@@ -44,6 +44,7 @@ class NA6PMC : public TVirtualMCApplication
   void createKineOutput(const std::string& outDir);
   void closeKineOutput();
   void writeKine();
+  void forceCharmHadronicDecays();
 
  private:
   void clearHits();
@@ -54,6 +55,8 @@ class NA6PMC : public TVirtualMCApplication
 
   std::vector<TParticle> mMCTracks, *mMCTracksPtr = &mMCTracks;
   std::vector<int> mRemap; // tmp vector for selected tracks remapping
+  std::vector<int> mSavID; // tmp vector for selected tracks original indices
+  std::vector<std::pair<int, int>> mDtList;
   int mVerbosity = 0;
   ULong64_t mRandomSeed = 0;
   size_t mEvCount = 0;

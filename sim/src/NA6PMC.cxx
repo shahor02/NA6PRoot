@@ -67,6 +67,22 @@ void NA6PMC::AddParticles()
   }
   //
   addSpecialParticles(); // copied from O2
+  forceCharmHadronicDecays();
+}
+
+void NA6PMC::forceCharmHadronicDecays()
+{
+  int D0_decay_mode[6][3] = {{0}};
+  float D0_BR[6] = {100.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+  D0_decay_mode[0][0] = -321; // K-
+  D0_decay_mode[0][1] = 211;  // pi+
+  TVirtualMC::GetMC()->SetDecayMode(421, D0_BR, D0_decay_mode);
+  int Dp_decay_mode[6][3] = {{0}};
+  float Dp_BR[6] = {100.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+  Dp_decay_mode[0][0] = -321; // K-
+  Dp_decay_mode[0][1] = 211;  // pi+
+  Dp_decay_mode[0][2] = 211;  // pi+
+  TVirtualMC::GetMC()->SetDecayMode(411, Dp_BR, Dp_decay_mode);
 }
 
 void NA6PMC::GeneratePrimaries()
@@ -252,8 +268,27 @@ void NA6PMC::writeKine()
 void NA6PMC::selectTracksToSave()
 {
   // store track if primary or if it has hits (then store all ancestors)
+
+  auto resetMD = [](TParticle& p) {
+    p.SetFirstDaughter(-1);
+    p.SetLastDaughter(-1);
+    p.SetFirstMother(-1);
+    p.SetLastMother(-1);
+  };
+
+  auto resetMothers = [](TParticle& p) {
+    p.SetFirstMother(-1);
+    p.SetLastMother(-1);
+  };
+  auto resetDaughters = [](TParticle& p) {
+    p.SetFirstDaughter(-1);
+    p.SetLastDaughter(-1);
+  };
+
   int ntrIni = mStack->GetNtrack(), nPrimIni = mStack->GetNprimary();
   mRemap.clear();
+  mSavID.clear();
+  mDtList.clear();
   mRemap.resize(mStack->GetNtrack(), -1);
   int nkeep = 0;
   auto mcHeader = mStack->getEventHeader();
@@ -267,87 +302,111 @@ void NA6PMC::selectTracksToSave()
         LOGP(fatal, "Processing primaries of generator {} expected in the [{}:{}) range, but we are at offset {} of total {} primaries, check generators",
              ig, genh.getPrimariesOffset(), genh.getPrimariesOffset() + genh.getNPrimaries(), nkeep, nPrimIni);
       }
+      genh.setPrimariesOffset(nkeep);
       for (int i = 0; i < genh.getNPrimaries(); i++) {
+        mSavID.push_back(nkeep);
         mRemap[nkeep++] = ig; // register generator id at the moment
       }
-      genh.setPrimariesOffset(-1);
       genh.setSecondariesOffset(-1);
     }
   } else {
     for (int i = 0; i < nPrimIni; i++) { // generator primaries are stored as is
+      mSavID.push_back(i);
       mRemap[i] = 0;
     }
   }
-  nkeep = 0;
   for (int i = nPrimIni; i < ntrIni; i++) {
-    const auto* part = mStack->GetParticle(i);
+    auto* part = mStack->GetParticle(i);
     if (NA6PModule::testActiveIDBits(*part)) { // has hits
       if (mRemap[i] >= 0) {                    // was already accounted
         continue;
       }
+      family.clear();
       family.push_back(i); // we store temporarily IDs of particles to store
       int mothID;
       LOGP(debug, "will save contributor {}, mother {}({})", i, part->GetFirstMother(), part->GetFirstMother() >= 0 ? mRemap[part->GetFirstMother()] : -1);
-      while ((mothID = part->GetFirstMother()) >= 0 && mRemap[mothID] < 0) {
-        family.push_back(mothID);
+      while ((mothID = part->GetFirstMother()) >= 0) {
+        // store tmp daughter index
         part = mStack->GetParticle(mothID);
+        int entry0 = mDtList.size(), idd = part->GetFirstDaughter();
+        auto& ref = mDtList.emplace_back(i, idd); // if idd>=0 then some daughters are already added and this was the entry of the last accounted daughter
+        part->SetFirstDaughter(entry0);
+        part->SetLastDaughter(idd < 0 ? 1 : part->GetLastDaughter() + 1); // here we temporarily accumulate number of daughters
+        if (mRemap[mothID] >= 0) {
+          break;
+        }
+        family.push_back(mothID);
         LOGP(debug, "will save mother {}, its mother {}({})", mothID, part->GetFirstMother(), part->GetFirstMother() >= 0 ? mRemap[part->GetFirstMother()] : -1);
       }
       // we reached mother or already accounted secondary
       if (mothID < 0 || mRemap[mothID] < 0) {
-        LOGP(fatal, "While processing a secondary {} enountered unregistered secondary {}", i, mStack->getParticleIndex(part));
+        LOGP(fatal, "While processing a secondary {} encountered unregistered secondary {}", i, mStack->getParticleIndex(part));
       }
       for (int j = (int)family.size(); j--;) {
+        mSavID.push_back(family[j]);
         mRemap[family[j]] = mRemap[mothID]; // generator ID
       }
     }
   }
-  // enumerate mRemapped indices
-  for (int i = 0; i < ntrIni; i++) {
-    if (mRemap[i] >= 0) {
-      auto& gh = genHeaders[mRemap[i]];
-      if (mRemap[i] < nGenHeaders) {
-        if (i < nPrimIni) {
-          if (gh.getPrimariesOffset() == -1) {
-            gh.setPrimariesOffset(nkeep); // set 1st entry of
-          }
-        } else { // these are secondaries
-          if (gh.getSecondariesOffset() == -1) {
-            gh.setSecondariesOffset(nkeep);
-          }
-          gh.incNSecondaries();
-        }
-      }
-      mRemap[i] = nkeep++;
-    }
-  }
   // update headers
-  mcHeader->setNTracks(nkeep);
+  mcHeader->setNTracks(mSavID.size());
   mcHeader->setNPrimaries(nPrimIni);
   mcHeader->setEventID(mEvCount);
-
-  // record selected tracks, mRemapping mother/daughter indices
-  for (int i = 0; i < ntrIni; i++) {
-    if (mRemap[i] >= 0) {
-      auto* part = mStack->GetParticle(i);
-      mMCTracks.push_back(*part);
-      auto& partN = mMCTracks.back();
-      partN.SetLastMother(-1);
-      int mothID = partN.GetFirstMother();
-      if (mothID >= 0) {
-        if (mRemap[mothID] < 0) {
-          LOGP(debug, "Mother {} of {} should have been spared but it is not!", mothID, i);
-        }
-        partN.SetFirstMother(mRemap[mothID]);
-        auto& moth = mMCTracks[mRemap[mothID]]; // set daughters
-        if (moth.GetFirstDaughter() < 0) {
-          moth.SetFirstDaughter(mRemap[i]);
-        }
-        moth.SetLastDaughter(mRemap[i]);
+  // register secondaries offsets and store primaries
+  nkeep = 0;
+  for (int i : mSavID) {
+    if (i >= nPrimIni) {
+      auto& gh = genHeaders[mRemap[i]];
+      if (gh.getSecondariesOffset() == -1) {
+        gh.setSecondariesOffset(nkeep);
+        gh.setNSecondaries(0);
       }
+      gh.incNSecondaries();
+    } else {
+      auto* part = mStack->GetParticle(i); // store primary
+      mMCTracks.push_back(*part);
+      //      resetMD(mMCTracks.back());
+    }
+    mRemap[i] = -1; // reset remapping
+    nkeep++;
+  }
+  for (int i : mSavID) {
+    if (mRemap[i] >= 0) {
+      continue; // already stored
+    }
+    int mothID = i;
+    if (i > nPrimIni) {                    // store new parent
+      auto* part = mStack->GetParticle(i); // store primary
+      mothID = mMCTracks.size();
+      mMCTracks.push_back(*part);
+      resetMothers(mMCTracks.back());
+      mRemap[i] = mothID;
+    } else {
+      mRemap[i] = i; // primaries preserve their ID since they are all saved
+    }
+    auto& mother = mMCTracks[mothID];
+    int entry = mother.GetFirstDaughter(); // collect IDs of all direct daughters for saving
+    family.clear();
+    while (entry >= 0) {
+      const auto& dtentry = mDtList[entry];
+      family.push_back(dtentry.first); // by construction, we accumulate from last to 1st daughter
+      entry = dtentry.second;
+    }
+    if (family.size()) { // there are daughters to register
+      mother.SetFirstDaughter(mMCTracks.size());
+      mother.SetLastDaughter(mMCTracks.size() + family.size() - 1);
+    } else {
+      resetDaughters(mother);
+    }
+    for (unsigned int idd = family.size(); idd--;) { // MUST go in reverse order
+      auto* daughter = mStack->GetParticle(family[idd]);
+      mRemap[family[idd]] = mMCTracks.size();
+      mMCTracks.push_back(*daughter);
+      resetDaughters(mMCTracks.back());
+      mMCTracks.back().SetFirstMother(mothID);
+      mMCTracks.back().SetLastMother(mothID);
     }
   }
-
   LOGP(info, "Will save {} tracks out of {}", mMCTracks.size(), mRemap.size());
 }
 
