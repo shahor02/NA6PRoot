@@ -323,20 +323,22 @@ void NA6PMC::selectTracksToSave()
       }
       family.clear();
       family.push_back(i); // we store temporarily IDs of particles to store
-      int mothID;
-      LOGP(debug, "will save contributor {}, mother {}({})", i, part->GetFirstMother(), part->GetFirstMother() >= 0 ? mRemap[part->GetFirstMother()] : -1);
+      int mothID, daughID = i;
+      LOGP(debug, "will save contributor {}(pdg{}), mother {}({}), Z={} | Dt: {} {}", i, part->GetPdgCode(), part->GetFirstMother(), part->GetFirstMother() >= 0 ? mRemap[part->GetFirstMother()] : -1, part->Vz(), part->GetFirstDaughter(), part->GetLastDaughter());
       while ((mothID = part->GetFirstMother()) >= 0) {
         // store tmp daughter index
         part = mStack->GetParticle(mothID);
         int entry0 = mDtList.size(), idd = part->GetFirstDaughter();
-        auto& ref = mDtList.emplace_back(i, idd); // if idd>=0 then some daughters are already added and this was the entry of the last accounted daughter
+        auto& ref = mDtList.emplace_back(daughID, idd); // if idd>=0 then some daughters are already added and this was the entry of the last accounted daughter
         part->SetFirstDaughter(entry0);
         part->SetLastDaughter(idd < 0 ? 1 : part->GetLastDaughter() + 1); // here we temporarily accumulate number of daughters
         if (mRemap[mothID] >= 0) {
+          LOGP(debug, "stop while on mothID={}", mothID);
           break;
         }
         family.push_back(mothID);
-        LOGP(debug, "will save mother {}, its mother {}({})", mothID, part->GetFirstMother(), part->GetFirstMother() >= 0 ? mRemap[part->GetFirstMother()] : -1);
+        LOGP(debug, "will save mother {}(pdg{}), its mother {}({}) Z={} | Dt: {} {}", mothID, part->GetPdgCode(), part->GetFirstMother(), part->GetFirstMother() >= 0 ? mRemap[part->GetFirstMother()] : -1, part->Vz(), part->GetFirstDaughter(), part->GetLastDaughter());
+        daughID = mothID;
       }
       // we reached mother or already accounted secondary
       if (mothID < 0 || mRemap[mothID] < 0) {
@@ -362,27 +364,40 @@ void NA6PMC::selectTracksToSave()
         gh.setNSecondaries(0);
       }
       gh.incNSecondaries();
+      mRemap[i] = -1; // reset remapping
     } else {
       auto* part = mStack->GetParticle(i); // store primary
+      mRemap[i] = mMCTracks.size();
       mMCTracks.push_back(*part);
       //      resetMD(mMCTracks.back());
     }
-    mRemap[i] = -1; // reset remapping
     nkeep++;
+    /*
+    // check M->D
+    auto* part = mStack->GetParticle(i);
+    int de = part->GetFirstDaughter(), nd = part->GetLastDaughter();
+    if (de>=0) {
+      LOGP(info, "Daughters of {} pdg:{} Vz:{:.2f} Nd={} | de0 entry: {}", i, part->GetPdgCode(), part->Vz(), nd, de);
+      int idn = 0;
+      while (de>=0) {
+  auto ref = mDtList[de];
+  part = mStack->GetParticle(ref.first);
+  LOGP(info, " -> Dt {}/{} pdg:{} Vz:{:.2f} | {} / {}", idn++,nd, part->GetPdgCode(), part->Vz(), ref.first, ref.second);
+  de = ref.second;
+      }
+    }
+    */
   }
   for (int i : mSavID) {
-    if (mRemap[i] >= 0) {
-      continue; // already stored
-    }
     int mothID = i;
-    if (i > nPrimIni) {                    // store new parent
+    if (mRemap[i] < 0) {                   // need to store
       auto* part = mStack->GetParticle(i); // store primary
       mothID = mMCTracks.size();
       mMCTracks.push_back(*part);
       resetMothers(mMCTracks.back());
       mRemap[i] = mothID;
     } else {
-      mRemap[i] = i; // primaries preserve their ID since they are all saved
+      mothID = mRemap[i]; // particle was already added, just store its direct daughters and fix duaghter indices
     }
     auto& mother = mMCTracks[mothID];
     int entry = mother.GetFirstDaughter(); // collect IDs of all direct daughters for saving
@@ -399,12 +414,14 @@ void NA6PMC::selectTracksToSave()
       resetDaughters(mother);
     }
     for (unsigned int idd = family.size(); idd--;) { // MUST go in reverse order
+      if (mRemap[family[idd]] >= 0) {
+        LOGP(fatal, "Daughter {} was already stored as {} !!!", family[idd], mRemap[family[idd]]);
+      }
       auto* daughter = mStack->GetParticle(family[idd]);
       mRemap[family[idd]] = mMCTracks.size();
       mMCTracks.push_back(*daughter);
-      resetDaughters(mMCTracks.back());
       mMCTracks.back().SetFirstMother(mothID);
-      mMCTracks.back().SetLastMother(mothID);
+      mMCTracks.back().SetLastMother(family[idd]); // orig particle ID
     }
   }
   LOGP(info, "Will save {} tracks out of {}", mMCTracks.size(), mRemap.size());

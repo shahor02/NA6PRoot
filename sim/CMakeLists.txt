@@ -4,6 +4,8 @@ set(THIS_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(MOD_NAME "sim")
 set(LIB_NAME "${MOD_NAME}Lib")
 
+#add_compile_options(-O0 -g -fPIC)
+
 # Include directoroes
 include_directories(${THIS_INCLUDE_DIR})
 include_directories(${UTILS_INCLUDE_DIR})
