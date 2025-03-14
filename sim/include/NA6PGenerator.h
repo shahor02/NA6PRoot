@@ -24,11 +24,16 @@ class NA6PGenerator : public TObject
   virtual void generate() = 0;
   virtual void init();
   virtual void generatePrimaryVertex(int maxTrials = 1000000);
-  virtual void setOrigin(const std::array<double, 3>& v) { mOrigin = v; }
+  virtual void setOrigin(const std::array<double, 3>& v)
+  {
+    mOrigin = v;
+    mOriginSet = true;
+  }
   template <typename T>
   void setOrigin(T x, T y, T z)
   {
     mOrigin = {x, y, z};
+    mOriginSet = true;
   }
   auto& getOrigin() { return mOrigin; }
   auto& getOrigin() const { return mOrigin; }
@@ -54,8 +59,9 @@ class NA6PGenerator : public TObject
   ULong64_t mRandomSeed = 0;       //  random seed (used if non-0)
   int mVerbosity = 0;              //!
   bool mInitDone = false;
+  bool mOriginSet = false;
 
-  ClassDef(NA6PGenerator, 1);
+  ClassDef(NA6PGenerator, 2);
 };
 
 #endif
