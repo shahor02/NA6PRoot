@@ -20,6 +20,25 @@
 TChain* loadUserChain(const char* inpData, const char* chName, bool recursive = false);
 void addRootFileDirectory(TChain* chain, const char* flName, const char* chName, bool recursive = false);
 
+uint64_t getACTSgeomID(uint64_t layer, uint64_t sensitive)
+{
+  // layer numbered as 1, 2, 3 ...
+  // sensitive numbered as 1,2,3,4 for VT, 1 for MS
+  uint64_t volume = 1;
+  uint64_t boundar = 0;
+  uint64_t approach = 0;
+  uint64_t channel = 0;
+  uint64_t id = 0;
+  layer *= 2;
+  id += volume << 56;
+  id += boundar << 48;
+  id += layer << 36;
+  id += approach << 28;
+  id += sensitive << 8;
+  id += channel;
+  return id;
+}
+
 void convert2ACTS(int iev,
                   const std::vector<TParticle>& mcParts,
                   const std::vector<NA6PVerTelHit>& vtHits,
@@ -142,19 +161,26 @@ void convert2ACTS(int iev,
                   const std::vector<NA6PMuonSpecHit>& msHits)
 {
   std::string eventFileName = fmt::format("event{:09}-particles.csv", iev);
+  std::string primFileName = fmt::format("event{:09}-primaries.csv", iev);
   std::string hitsFileName = fmt::format("event{:09}-hits.csv", iev);
   std::FILE* fpcsvKin = std::fopen(eventFileName.c_str(), "w");
+  std::FILE* fpcsvPrim = std::fopen(primFileName.c_str(), "w");
 
   fprintf(fpcsvKin, "particle_id,particle_type,process,vx,vy,vz,vt,px,py,pz,m,q\n");
-  int partCount = 0;
+  fprintf(fpcsvPrim, "particle_id,particle_type,process,vx,vy,vz,vt,px,py,pz,m,q\n");
+  int decCount = 0;
   std::vector<uint64_t> doneBC;
   doneBC.resize(mcParts.size());
+  std::vector<uint64_t> secV;
+  secV.resize(mcParts.size());
+  printf("Loop on %d particles\n", (int)mcParts.size());
   for (int ipartTop = 0; ipartTop < (int)mcParts.size(); ipartTop++) {
     // clang-format off
     auto getBarCode = [&iev, &ipartTop](int gen, int sub, int isv)
     {
       uint64_t b =
 	( (uint64_t(iev+1)    & ((0x1<<12)-1)) << ( 12 + 16 + 8 + 16 ) ) |
+	( (uint64_t(isv)      & ((0x1<<12)-1)) << (      16 + 8 + 16 ) ) |
 	( (uint64_t(ipartTop) & ((0x1<<16)-1)) << (           8 + 16 ) ) |
 	( (uint64_t(gen)      & ((0x1<<8)-1))  << (               16 ) ) |
 	uint64_t(sub);
@@ -162,34 +188,44 @@ void convert2ACTS(int iev,
     };
     // clang-format on
 
-    auto storePart = [iev, ipartTop, fpcsvKin, &doneBC, &mcParts, getBarCode](int ip, int gen, int sub, const auto& self) -> void {
+    auto storePart = [iev, ipartTop, fpcsvKin, fpcsvPrim, &doneBC, &secV, &decCount, &mcParts, getBarCode](int ip, int gen, int sub, int imoth, const auto& self) -> void {
       if (doneBC[ip]) {
+        //	printf("Particle %d already stored\n",ip);
         return;
       }
       const auto& part = mcParts[ip];
       const auto pdgPart = part.GetPDG();
+      double fcmtomm = 10.f;
       if (!pdgPart) {
         LOGP(info, "Skipping unknown particle {}", part.GetPdgCode());
         return;
       }
-      doneBC[ip] = getBarCode(gen, sub, 0);
+      doneBC[ip] = getBarCode(gen, sub, imoth);
 
       fprintf(fpcsvKin, "%lu,%d,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", doneBC[ip], std::abs(part.GetPdgCode()), 0,
-              part.Vx(), part.Vy(), part.Vz(), part.T(),
+              part.Vx() * fcmtomm, part.Vy() * fcmtomm, part.Vz() * fcmtomm, part.T(),
               part.Px(), part.Py(), part.Pz(), part.GetCalcMass(), pdgPart->Charge() / 3);
+      if (part.IsPrimary()) {
+        fprintf(fpcsvPrim, "%lu,%d,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", doneBC[ip], std::abs(part.GetPdgCode()), 0,
+                part.Vx() * fcmtomm, part.Vy() * fcmtomm, part.Vz() * fcmtomm, part.T(),
+                part.Px(), part.Py(), part.Pz(), part.GetCalcMass(), pdgPart->Charge() / 3);
+      }
       int dtF = part.GetFirstDaughter();
       int dtL = part.GetLastDaughter();
       if (dtF > -1) {
         gen++;
+        decCount++;
+        secV[ip] = decCount;
         int subG = 0;
         for (int i = dtF; i <= dtL; i++) {
-          self(i, gen, subG++, self);
+          self(i, gen, subG++, secV[ip], self);
         }
       }
     };
-    storePart(ipartTop, 0, 0, storePart);
+    storePart(ipartTop, 0, 0, 0, storePart);
   }
   std::fclose(fpcsvKin);
+  std::fclose(fpcsvPrim);
 
   std::FILE* fpcsvHits = std::fopen(hitsFileName.c_str(), "w");
   fprintf(fpcsvHits, "particle_id,geometry_id,tx,ty,tz,tt,tpx,tpy,tpz,te,deltapx,deltapy,deltapz,deltae,index\n");
@@ -199,14 +235,36 @@ void convert2ACTS(int iev,
     uint64_t b = 0;
     return b;
   };
+  double fcmtomm = 10.f;
   for (const auto& hit : vtHits) {
     int det = hit.getDetectorID();
     double m = mcParts[hit.getTrackID()].GetCalcMass();
     double en = std::sqrt(hit.getPX() * hit.getPX() + hit.getPY() * hit.getPY() + hit.getPZ() * hit.getPZ() + m * m);
     auto particle_id = doneBC[hit.getTrackID()];
-    uint64_t geometry_id = getGeomID(det);
+    if (particle_id == 0) {
+      int idP = hit.getTrackID();
+      const auto& part = mcParts[idP];
+      const auto pdgPart = part.GetPDG();
+      printf("Hit w/o particle: %lu %d pdgPart=%x, pdgcode=%d\n", particle_id, hit.getTrackID(), pdgPart, part.GetPdgCode());
+    }
+    int layer = det / 4 + 1; // layer from 1 to 5
+    int sens = det % 4 + 1;  // sens from 1 to 4
+    uint64_t geometry_id = getACTSgeomID(layer, sens);
     fprintf(fpcsvHits, "%lu,%lu,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%i\n", particle_id, geometry_id,
-            hit.getX(), hit.getY(), hit.getZ(), hit.getTime(),
+            hit.getX() * fcmtomm, hit.getY() * fcmtomm, hit.getZ() * fcmtomm, hit.getTime(),
+            hit.getPX(), hit.getPY(), hit.getPZ(), en,
+            0., 0., 0., 0., 0);
+  }
+  for (const auto& hit : msHits) {
+    int det = hit.getDetectorID();
+    double m = mcParts[hit.getTrackID()].GetCalcMass();
+    double en = std::sqrt(hit.getPX() * hit.getPX() + hit.getPY() * hit.getPY() + hit.getPZ() * hit.getPZ() + m * m);
+    auto particle_id = doneBC[hit.getTrackID()];
+    int layer = det + NA6PLayoutParam::Instance().nVerTelPlanes + 1;
+    int sens = 1;
+    uint64_t geometry_id = getACTSgeomID(layer, sens);
+    fprintf(fpcsvHits, "%lu,%lu,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%i\n", particle_id, geometry_id,
+            hit.getX() * fcmtomm, hit.getY() * fcmtomm, hit.getZ() * fcmtomm, hit.getTime(),
             hit.getPX(), hit.getPY(), hit.getPZ(), en,
             0., 0., 0., 0., 0);
   }

@@ -83,6 +83,29 @@ void NA6PMC::forceCharmHadronicDecays()
   Dp_decay_mode[0][1] = 211;  // pi+
   Dp_decay_mode[0][2] = 211;  // pi+
   TVirtualMC::GetMC()->SetDecayMode(411, Dp_BR, Dp_decay_mode);
+  int Ds_decay_mode[6][3] = {{0}};
+  float Ds_BR[6] = {90.f, 10.f, 0.f, 0.f, 0.f, 0.f};
+  Ds_decay_mode[0][0] = 333;  // phi
+  Ds_decay_mode[0][1] = 211;  // pi+
+  Ds_decay_mode[1][0] = -313; // K*0bar
+  Ds_decay_mode[1][1] = 321;  // K
+  TVirtualMC::GetMC()->SetDecayMode(431, Ds_BR, Ds_decay_mode);
+  int Kstar_decay_mode[6][3] = {{0}};
+  float Kstar_BR[6] = {100.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+  Kstar_decay_mode[0][0] = 321;  // K+
+  Kstar_decay_mode[0][1] = -211; // pi-
+  TVirtualMC::GetMC()->SetDecayMode(313, Kstar_BR, Kstar_decay_mode);
+  int Phi_decay_mode[6][3] = {{0}};
+  float Phi_BR[6] = {100.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+  Phi_decay_mode[0][0] = 321;  // K+
+  Phi_decay_mode[0][1] = -321; // K-
+  TVirtualMC::GetMC()->SetDecayMode(333, Phi_BR, Phi_decay_mode);
+  int Lc_decay_mode[6][3] = {{0}};
+  float Lc_BR[6] = {100.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+  Lc_decay_mode[0][0] = -321; // K-
+  Lc_decay_mode[0][1] = 2212; // p
+  Lc_decay_mode[0][2] = 211;  // pi+
+  TVirtualMC::GetMC()->SetDecayMode(4122, Lc_BR, Lc_decay_mode);
 }
 
 void NA6PMC::GeneratePrimaries()
@@ -317,7 +340,25 @@ void NA6PMC::selectTracksToSave()
   }
   for (int i = nPrimIni; i < ntrIni; i++) {
     auto* part = mStack->GetParticle(i);
-    if (NA6PModule::testActiveIDBits(*part)) { // has hits
+    bool isFromHFDecay = false;
+    int idMoth = part->GetFirstMother();
+    int mothPdg = -1;
+    while (idMoth >= 0) {
+      auto* currMoth = mStack->GetParticle(idMoth);
+      int absPdg = std::abs(currMoth->GetPdgCode());
+      if (absPdg == 11 || absPdg == 22 || absPdg == 211 || absPdg == 130 || absPdg == 321 || absPdg == 2212 || absPdg == 2112) {
+        // stop if a "stable" particle is found in the ancestors
+        isFromHFDecay = false;
+        break;
+      }
+      if ((absPdg > 400 && absPdg < 600) || (absPdg > 4000 && absPdg < 6000) || absPdg == 100443 || absPdg == 20443) {
+        isFromHFDecay = true;
+        mothPdg = absPdg;
+        break;
+      }
+      idMoth = currMoth->GetFirstMother();
+    }
+    if (NA6PModule::testActiveIDBits(*part) || isFromHFDecay) { // has hits
       if (mRemap[i] >= 0) {                    // was already accounted
         continue;
       }
