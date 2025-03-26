@@ -22,7 +22,7 @@ struct NA6PLayoutParam : public na6p::conf::ConfigurableParamHelper<NA6PLayoutPa
 
   // Target
   int nTargets = 5;
-  float shiftTargets[3] = {0.f, 0.f, 0.f}; // Targer box global shift, added to posTargetX,Y,Z
+  float shiftTargets[3] = {0.f, 0.f, 0.f}; // Target box global shift, added to posTargetX,Y,Z
   float posTargetX[MaxTargets] = {};
   float posTargetY[MaxTargets] = {};
   float posTargetZ[MaxTargets] = {-2.f, -1.f, 0.f, 1.f, 2.f};
