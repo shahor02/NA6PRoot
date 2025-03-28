@@ -32,6 +32,7 @@ set(DICTIONARY_HEADERS
   NA6PVerTelHit.h
   NA6PMuonSpecHit.h
   GenMUONLMR.h
+  NA6PSimMisc.h
   ) # Add all class headers requiring dictionary
 
 MESSAGE(CHECK_START "CMAKE_CURRENT_SOURCE_DIR = ${CMAKE_CURRENT_SOURCE_DIR}")

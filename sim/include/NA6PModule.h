@@ -4,6 +4,7 @@
 
 #include <string>
 #include "TLorentzVector.h" // for TLorentzVector
+#include "NA6PSimMisc.h"    // for TLorentzVector
 
 class TGeoVolume;
 
@@ -12,7 +13,7 @@ class TGeoVolume;
 class NA6PModule
 {
  public:
-  static constexpr int MaxActiveID = 10;   // max number of active modules
+  static constexpr int MaxActiveID = 9;    // max number of active modules
   static constexpr int MaxNonSensID = 100; // non-sensors can be assigned mVolIDOffset <= volID < mVolIDOffset + MaxNonSensID
   static constexpr int MaxVolID = 1000;    // sensor can be assigne mVolIDOffset + MaxNonSensID <= volID < MaxVolID
 
@@ -47,6 +48,7 @@ class NA6PModule
 
   static int getActiveIDBit(int id) { return 0x1 << (id + 14); } // convert ActiveID to TObject user bit
   static int testActiveIDBits(const TObject& obj) { return obj.TestBits(((0x1 << MaxActiveID) - 1) << 14) >> 14; }
+  static int testActiveIDOrKeepBits(const TObject& obj) { return obj.TestBits((((0x1 << MaxActiveID) - 1) << 14) | UserHook::KeepParticleBit) >> 14; }
 
   bool testActiveIDBit(const TObject& obj) const { return mActiveID >= 0 ? (testActiveIDBits(obj) & (0x1 << mActiveID)) != 0 : false; }
   int getActiveIDBit() const { return mActiveID >= 0 ? getActiveIDBit(mActiveID) : 0; }

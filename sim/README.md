@@ -26,8 +26,10 @@ Note that even in this case, one can still modify some parameters via `--configK
 
 Writing of the ini file can be disable by the option `--disable-write-ini`.
 
-
 ## Available generators
+
+Generators should be configured in root compilable macros with the generator producer function name being the same as the macro name.
+The function signature should be `NA6PGenerator* <name>()`. The macro file name must be passed as `na6psim -g <macro_file_name>+ ...`
 
 ### GenBox
 
@@ -38,3 +40,56 @@ The number of particles to generate per event is either provided explicitly (`se
 as Poisson mean in `setPoisson` was called.
 See an example [test/genParamPi.C](../test/genParamPi.C).
 The [test/genBgEvent.C](../test/genBgEvent.C) shows an example of CockTail generator production PbPb hadronic (pi, K, p) event for specific SPS energies.
+
+## User hooks
+
+User can provide a macro with the function which is executed at each entry and exit of certain methods, e.g. `NA60PMC::AddParticles` (which allows to modify know particle table and their decays)
+or `NA60PMC::selectTracksToSave` (which defines which particles will be saved). In the latter case the function e.g. may get the stack and enforce storing some particles.
+The signature of the function must be `int <name>(int entryPoint, bool entering_or_exiting)`. The negative returned value signals a fatal error. E.g. macro `testHooks.C` below can be passed as
+`na6psim -u testHooks.C+`:
+
+```
+#include <fairlogger/Logger.h>
+#include <TVirtualMC.h>
+#include "NA6PMCStack.h"
+#include "NA6PMC.h"
+#include "NA6PSimMisc.h"
+
+int testHooks(int arg, bool inout)
+{
+  if (arg == UserHook::ADDParticles) {
+    LOGP(info, "Calling user hook from {} of the AddParticles method", inout ? "entry":"exit");
+  } else if (arg == UserHook::SelectParticles) {
+    if (!inout) {
+      return 0; // do nothing
+    }
+    LOGP(info, "Calling user hook from selectTracksToSave method entrance");
+    auto mc = (NA6PMC*)TVirtualMC::GetMC();
+    auto stack = mc->getMCStack();
+    int ntr = stack->GetNtrack(), nPrim = stack->GetNprimary();
+    for (int i = nPrim; i < ntr; i++) {
+      auto* part = stack->GetParticle(i);
+      int idMoth = part->GetFirstMother();
+      int mothPdg = -1;
+      while (idMoth >= 0) {
+	auto* currMoth = stack->GetParticle(idMoth);
+	int absPdg = std::abs(currMoth->GetPdgCode());
+	if (absPdg == 11 || absPdg == 22 || absPdg == 211 || absPdg == 130 || absPdg == 321 || absPdg == 2212 || absPdg == 2112) {  // stop if a "stable" particle is found in the ancestors
+	  break;
+	}
+	if ((absPdg > 400 && absPdg < 600) || (absPdg > 4000 && absPdg < 6000) || absPdg == 100443 || absPdg == 20443) {
+	  part->SetBit(UserHook::KeepParticleBit); // force saving particle i (and its ancestors)
+	  break;
+	}
+	idMoth = currMoth->GetFirstMother();
+      }
+    }
+  } else {
+    LOGP(error, "Unknown hook ID {}", arg);
+    return -1;
+  }
+  return 0;
+}
+```
+
+
