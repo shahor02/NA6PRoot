@@ -1,6 +1,7 @@
 // NA6PCCopyright
 
 #include "NA6PMC.h"
+#include "NA6PSimMisc.h"
 #include "NA6PDetector.h"
 #include "NA6PModule.h"
 #include "NA6PGenerator.h"
@@ -21,8 +22,10 @@
 #include <TFile.h>
 #include <TTree.h>
 #include <TMath.h>
+#include <TMethodCall.h>
 #include <fairlogger/Logger.h>
 #include <filesystem>
+#include <regex>
 
 using Str = na6p::utils::Str;
 
@@ -60,14 +63,29 @@ void NA6PMC::ConstructOpGeometry()
   LOGP(info, "Constructing optional geometry...");
 }
 
+int NA6PMC::callUserHook(int hookID, bool inout)
+{
+  int ret = 0;
+  if (mUsrHooksMethod) {
+    const void* args[2] = {&hookID, &inout};
+    mUsrHooksMethod->Execute(nullptr, args, 2, &ret);
+    if (ret < 0) {
+      LOGP(fatal, "Execution of user hook method {}({},{}) failed with {}", mUserHookName, hookID, inout, ret);
+    }
+  }
+  return ret;
+}
+
 void NA6PMC::AddParticles()
 {
   if (mVerbosity > 0) {
     LOGP(info, "Adding particles to the simulation");
   }
+  callUserHook(UserHook::ADDParticles, true); // call at entry
   //
   addSpecialParticles(); // copied from O2
   forceCharmHadronicDecays();
+  callUserHook(UserHook::ADDParticles, false); // call at entry
 }
 
 void NA6PMC::forceCharmHadronicDecays()
@@ -203,6 +221,31 @@ bool NA6PMC::setupGenerator(const std::string& s)
   return mGenerator != nullptr;
 }
 
+void NA6PMC::setupUserHooks(const std::string& s)
+{
+  LOGP(info, "Setting up user hooks macro {}", s);
+  TInterpreter::EErrorCode errCode = TInterpreter::EErrorCode::kNoError;
+  std::string sfname{}, sCmd{};
+  if (Str::endsWith(s, ".C+") || Str::endsWith(s, ".C++") || Str::endsWith(s, ".C+g") || Str::endsWith(s, ".C++g")) {
+    static const std::regex pattern(R"((\+\+g|\+g|\+\+|\+)$)");
+    sfname = std::regex_replace(s, pattern, "");
+    sCmd = s;
+  } else if (Str::endsWith(s, ".C")) {
+    sfname = s;
+    sCmd = s + "+"; // always compile
+  } else {
+    LOGP(fatal, "User hooks macro {} extention differs from .C, .C+, .C++, .C+g or .C++g", s);
+  }
+  TInterpreter::Instance()->LoadMacro(sCmd.c_str(), &errCode);
+  if (errCode != TInterpreter::EErrorCode::kNoError) {
+    LOGP(fatal, "Failed to compile and load user hooks macro {}, error TInterpreter::EErrorCode={}", sCmd, int(errCode));
+  }
+  std::filesystem::path mpth(sfname);
+  mUserHookName = mpth.stem().string();
+  mUsrHooksMethod = std::make_unique<TMethodCall>();
+  mUsrHooksMethod->InitWithPrototype(mUserHookName.c_str(), "int, bool");
+}
+
 void NA6PMC::setRandomSeed(Long64_t r)
 {
   if (r < 0) {
@@ -307,7 +350,7 @@ void NA6PMC::selectTracksToSave()
     p.SetFirstDaughter(-1);
     p.SetLastDaughter(-1);
   };
-
+  callUserHook(UserHook::SelectParticles, true); // call at entry
   int ntrIni = mStack->GetNtrack(), nPrimIni = mStack->GetNprimary();
   mRemap.clear();
   mSavID.clear();
@@ -358,7 +401,7 @@ void NA6PMC::selectTracksToSave()
       }
       idMoth = currMoth->GetFirstMother();
     }
-    if (NA6PModule::testActiveIDBits(*part) || isFromHFDecay) { // has hits
+    if (NA6PModule::testActiveIDOrKeepBits(*part) || isFromHFDecay) { // has hits
       if (mRemap[i] >= 0) {                    // was already accounted
         continue;
       }
@@ -465,6 +508,7 @@ void NA6PMC::selectTracksToSave()
       mMCTracks.back().SetLastMother(family[idd]); // orig particle ID
     }
   }
+  callUserHook(UserHook::SelectParticles, false); // call at exit
   LOGP(info, "Will save {} tracks out of {}", mMCTracks.size(), mRemap.size());
 }
 

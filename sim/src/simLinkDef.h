@@ -37,4 +37,6 @@
 
 #pragma link C++ class GenMUONLMR + ;
 
+#pragma link C++ class UserHook + ;
+
 #endif

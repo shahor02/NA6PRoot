@@ -34,6 +34,7 @@ int main(int argc, char** argv)
     add_option("disable-write-ini", bpo::value<bool>()->default_value(false)->implicit_value(true), "do not write ini file");
     add_option("nevents,n", bpo::value<uint32_t>()->default_value(1), "number of events to generate");
     add_option("generator,g", bpo::value<std::string>()->default_value(""), "generator defintion root C macro, must return NA6PGenerator pointer");
+    add_option("user-hooks,u", bpo::value<std::string>()->default_value(""), "root macro C macro with user hooks for initialization");
     add_option("rnd-seed,r", bpo::value<int64_t>()->default_value(-1), "random number seed, 0 - do not set, <0: generate from time");
     opt_all.add(opt_general).add(opt_hidden);
     bpo::store(bpo::command_line_parser(argc, argv).options(opt_all).positional(opt_pos).run(), vm);
@@ -64,6 +65,9 @@ int main(int argc, char** argv)
   auto mc = new NA6PMC("NA6PMCApp", "NA6P Virtual Monte Carlo Application");
   mc->setVerbosity(vm["verbosity"].as<int>());
   mc->setRandomSeed(vm["rnd-seed"].as<int64_t>());
+  if (!vm["user-hooks"].as<std::string>().empty()) {
+    mc->setupUserHooks(vm["user-hooks"].as<std::string>());
+  }
   // mag field definition
   auto magField = new MagneticField();
   magField->loadFlukaField();

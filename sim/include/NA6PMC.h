@@ -9,6 +9,7 @@ class NA6PMCStack;
 class NA6PGenerator;
 class TFile;
 class TTree;
+class TMethodCall;
 
 class NA6PMC : public TVirtualMCApplication
 {
@@ -29,6 +30,9 @@ class NA6PMC : public TVirtualMCApplication
   void PreTrack() override {}
   void PostTrack() override {}
 
+  void setupUserHooks(const std::string& s);
+  int callUserHook(int hookID, bool inout);
+
   bool setupGenerator(const std::string& s);
   auto getGenerator() const { return mGenerator.get(); }
 
@@ -46,12 +50,16 @@ class NA6PMC : public TVirtualMCApplication
   void writeKine();
   void forceCharmHadronicDecays();
 
+  NA6PMCStack* getMCStack() { return mStack.get(); }
+
  private:
   void clearHits();
   void addSpecialParticles();
 
   std::unique_ptr<NA6PMCStack> mStack{};
   std::unique_ptr<NA6PGenerator> mGenerator{};
+  std::unique_ptr<TMethodCall> mUsrHooksMethod;
+  std::string mUserHookName{};
 
   std::vector<TParticle> mMCTracks, *mMCTracksPtr = &mMCTracks;
   std::vector<int> mRemap; // tmp vector for selected tracks remapping
