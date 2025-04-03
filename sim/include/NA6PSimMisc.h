@@ -2,6 +2,7 @@
 #ifndef NA6P_SIM_MISC_H_
 #define NA6P_SIM_MISC_H_
 
+#include <Rtypes.h>
 // misc definitions for simulation
 
 struct UserHook {
