@@ -26,7 +26,8 @@ class MagneticField : public TVirtualMagField
   bool getField(const T* xyz, T* bxbybz) const
   {
     bxbybz[0] = bxbybz[1] = bxbybz[2] = 0;
-    auto res = mDipoleVT.getField(xyz, bxbybz) || mDipoleMS.getField(xyz, bxbybz); // we know that the fields are not overlapping
+    auto res = mDipoleVT.addField(xyz, bxbybz);
+    res |= mDipoleMS.addField(xyz, bxbybz);
     if (res && mScale2Unit) {
       for (int i = 0; i < 3; i++) {
         bxbybz[i] *= mScale2Unit;

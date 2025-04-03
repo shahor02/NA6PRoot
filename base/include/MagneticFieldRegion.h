@@ -44,9 +44,34 @@ class MagneticFieldRegion
       return false;
     }
     // Find the indices of the surrounding grid points
-    int i = findGridIndex(xyz[0], mXMin, mDXI, mNX1);
-    int j = findGridIndex(xyz[1], mYMin, mDYI, mNY1);
-    int k = findGridIndex(xyz[2], mZMin, mDZI, mNZ1);
+    int i = findGridIndex(x, mXMin, mDXI, mNX1);
+    int j = findGridIndex(y, mYMin, mDYI, mNY1);
+    int k = findGridIndex(z, mZMin, mDZI, mNZ1);
+
+    // Perform second-degree interpolation
+    interpolateField(i, j, k, x, y, z, bxbybz);
+    return true;
+  }
+
+  template <typename T = float>
+  bool addField(const T* xyz, T* bxbybz) const
+  {
+    float z = xyz[2] - mRefPos[2];
+    if (z < mZMin || z > mZMax) {
+      return false;
+    }
+    float y = xyz[1] - mRefPos[1];
+    if (y < mYMin || y > mYMax) {
+      return false;
+    }
+    float x = xyz[0] - mRefPos[0];
+    if (x < mXMin || x > mXMax) {
+      return false;
+    }
+    // Find the indices of the surrounding grid points
+    int i = findGridIndex(x, mXMin, mDXI, mNX1);
+    int j = findGridIndex(y, mYMin, mDYI, mNY1);
+    int k = findGridIndex(z, mZMin, mDZI, mNZ1);
 
     // Perform second-degree interpolation
     interpolateField(i, j, k, x, y, z, bxbybz);
@@ -59,6 +84,7 @@ class MagneticFieldRegion
  private:
   void cacheValues(const std::string& line, std::vector<float>& cachev);
   void interpolateField(int i, int j, int k, float x, float y, float z, double* bxbybz) const;
+  void interpolateFieldAdd(int i, int j, int k, float x, float y, float z, double* bxbybz) const;
   float getFieldComponent(int i, int j, int k, int dim) const
   {
     //    int index = i * ny * nz + j * nz + k;
