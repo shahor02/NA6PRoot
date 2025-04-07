@@ -79,11 +79,9 @@ void NA6PVerTel::createGeometry(TGeoVolume* world)
   float pixChipOffsX = 0.29f;
   float pixChipOffsY = 0.31f;
 
-  float carbonPlateDX = pixChipDX;
-  float carbonPlateDY = pixChipDY;
+  float carbonPlateDX = 2 * pixChipDX + 2 * pixChipOffsX;
+  float carbonPlateDY = 2 * pixChipDY + 2 * pixChipOffsY;
   float carbonPlateDz = 400e-4f;
-  float carbonPlateOffsX = pixChipOffsX;
-  float carbonPlateOffsY = pixChipOffsY;
 
   float boxDZMargin = pixChipContainerDz + 0.5f;
   float boxDZ = param.posVerTelPlaneZ[param.nVerTelPlanes - 1] - param.posVerTelPlaneZ[0] + 2 * boxDZMargin;
@@ -119,8 +117,13 @@ void NA6PVerTel::createGeometry(TGeoVolume* world)
   auto* pixelStationVol = new TGeoVolume("PixelStationVol", pixelStationShape, NA6PTGeoHelper::instance().getMedium(addName("Air")));
   TGeoVolume* pixelSensor = new TGeoVolume("PixelSensor", sensorShape, NA6PTGeoHelper::instance().getMedium(addName("Silicon")));
   pixelSensor->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName("Silicon")));
-  auto* carbonplateShape = new TGeoBBox("CarbonPlateShape", carbonPlateDX / 2, carbonPlateDY / 2, carbonPlateDz / 2);
-  TGeoVolume* cbPlate = new TGeoVolume("CarbonPlate", carbonplateShape, NA6PTGeoHelper::instance().getMedium(addName("CarbonFiber")));
+
+  // Carbon fiber plate, with central hole for the beam
+  auto* carbonplateFullShape = new TGeoBBox("CarbonPlateFullShape", carbonPlateDX / 2, carbonPlateDY / 2, carbonPlateDz / 2);
+  auto* beamHole = new TGeoBBox("CarbonPlateBeamHole", pixChipOffsX, pixChipOffsY, carbonPlateDz );
+  auto* holeRemoval = new TGeoSubtraction(carbonplateFullShape, beamHole);
+  auto* cbPlateWithHoleShape = new TGeoCompositeShape("CarbonPlateWithHoleShape", holeRemoval);
+  TGeoVolume* cbPlate = new TGeoVolume("CarbonPlateWithHole", cbPlateWithHoleShape, NA6PTGeoHelper::instance().getMedium(addName("CarbonFiber")));
   cbPlate->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName("CarbonFiber")));
 
   // place sensors to station
@@ -129,11 +132,6 @@ void NA6PVerTel::createGeometry(TGeoVolume* world)
   for (size_t ii = 0; ii < alpdx.size(); ++ii) {
     auto* sensorTransform = new TGeoTranslation(alpdx[ii], alpdy[ii], 0);
     pixelStationVol->AddNode(pixelSensor, composeSensorVolID(ii), sensorTransform);
-    int nns = pixelStationVol->GetNodes()->GetEntries() - 1;
-    auto* cbTransform = new TGeoTranslation(alpdx[ii], alpdy[ii], pixChipDz / 2 + carbonPlateDz / 2);
-    pixelStationVol->AddNode(cbPlate, composeNonSensorVolID(ii + 40), cbTransform);
-    int nnc = pixelStationVol->GetNodes()->GetEntries() - 1;
-    LOGP(info, "Adding nodes {} and {} to {}, n. nodes = {}", pixelStationVol->GetNode(nns)->GetName(), pixelStationVol->GetNode(nnc)->GetName(), pixelStationVol->GetName(), pixelStationVol->GetNodes()->GetEntries());
   }
   // place frames + sensor stations
   float zoffs = param.posVerTelPlaneZ[0] + boxDZ / 2 - boxDZMargin; // offset to be added due to the placement of stations to the VT box
@@ -141,6 +139,8 @@ void NA6PVerTel::createGeometry(TGeoVolume* world)
     auto* stationTransform = new TGeoCombiTrans(param.posVerTelPlaneX[ll], param.posVerTelPlaneY[ll], param.posVerTelPlaneZ[ll] - zoffs,
                                                 NA6PTGeoHelper::rotAroundVector(0.0, 0.0, 0.0, 0.0));
     vtContainer->AddNode(pixelStationVol, composeNonSensorVolID(ll), stationTransform);
+    auto* cbTransform = new TGeoCombiTrans(param.posVerTelPlaneX[ll], param.posVerTelPlaneY[ll], param.posVerTelPlaneZ[ll] + pixChipDz / 2 + carbonPlateDz / 2 - zoffs, NA6PTGeoHelper::rotAroundVector(0, 0.0, 0.0, 0.0));
+    vtContainer->AddNode(cbPlate,composeNonSensorVolID(ll + 20), cbTransform);
     //    auto* frameTransform = new TGeoCombiTrans(param.posVerTelPlaneX[ll], param.posVerTelPlaneY[ll], param.posVerTelPlaneZ[ll] + 0.5 * (frameDZ + pixChipDz) - zoffs,
     //                                              NA6PTGeoHelper::rotAroundVector(0, 0.0, 0.0, 0.0));
     //    vtContainer->AddNode(pixStFrame, composeNonSensorVolID(ll + 20), frameTransform);
