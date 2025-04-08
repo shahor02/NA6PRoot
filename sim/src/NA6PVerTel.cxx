@@ -97,19 +97,21 @@ void NA6PVerTel::createGeometry(TGeoVolume* world)
                                          param.shiftVerTel[2] + (param.posVerTelPlaneZ[0] + boxDZ / 2 - boxDZMargin),
                                          NA6PTGeoHelper::rotAroundVector(0.0, 0.0, 0.0, 0.0));
   world->AddNode(vtContainer, composeNonSensorVolID(0), vtTransform);
+
   // pixel station Frame with holes (box with subtracted holes)
-  auto* pixStFrameBox = new TGeoBBox("PixStFrameBox", frameDX / 2, frameDY / 2, frameDZ / 2);
-  auto* beamPipeHole = new TGeoTube("PixStFrameBoxBPHole", 0, frameHoleR, frameDZ);
-  auto* frameSubtraction = new TGeoSubtraction(pixStFrameBox, beamPipeHole);
-  auto* pixStFrameShape = new TGeoCompositeShape("PixStFrameBoxHole0", frameSubtraction);
-  for (size_t ii = 0; ii < chipHoleX.size(); ++ii) {
-    auto* pixChipHole = new TGeoBBox("PixChipHole", pixChipHoleDX / 2, pixChipHoleDY / 2, frameDZ);
-    auto* holeTransform = new TGeoTranslation(chipHoleX[ii], chipHoleY[ii], 0);
-    frameSubtraction = new TGeoSubtraction(pixStFrameShape, pixChipHole, nullptr, holeTransform);
-    pixStFrameShape = new TGeoCompositeShape(Form("PixStFrameBoxHole0%zu", ii), frameSubtraction);
-  }
-  TGeoVolume* pixStFrame = new TGeoVolume("PixStFrame", pixStFrameShape, NA6PTGeoHelper::instance().getMedium(addName("CarbonFoam")));
-  pixStFrame->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName("CarbonFoam")));
+  // COMMENTED OUT: to be replaced with the new Al frame
+  // auto* pixStFrameBox = new TGeoBBox("PixStFrameBox", frameDX / 2, frameDY / 2, frameDZ / 2);
+  // auto* beamPipeHole = new TGeoTube("PixStFrameBoxBPHole", 0, frameHoleR, frameDZ);
+  // auto* frameSubtraction = new TGeoSubtraction(pixStFrameBox, beamPipeHole);
+  // auto* pixStFrameShape = new TGeoCompositeShape("PixStFrameBoxHole0", frameSubtraction);
+  // for (size_t ii = 0; ii < chipHoleX.size(); ++ii) {
+  //   auto* pixChipHole = new TGeoBBox("PixChipHole", pixChipHoleDX / 2, pixChipHoleDY / 2, frameDZ);
+  //   auto* holeTransform = new TGeoTranslation(chipHoleX[ii], chipHoleY[ii], 0);
+  //   frameSubtraction = new TGeoSubtraction(pixStFrameShape, pixChipHole, nullptr, holeTransform);
+  //   pixStFrameShape = new TGeoCompositeShape(Form("PixStFrameBoxHole0%zu", ii), frameSubtraction);
+  // }
+  // TGeoVolume* pixStFrame = new TGeoVolume("PixStFrame", pixStFrameShape, NA6PTGeoHelper::instance().getMedium(addName("CarbonFoam")));
+  // pixStFrame->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName("CarbonFoam")));
 
   // Silicon Tracker Station
   auto* pixelStationShape = new TGeoBBox("PixelStationShape", pixChipContainerDX / 2, pixChipContainerDY / 2, pixChipContainerDz / 2);
