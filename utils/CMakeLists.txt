@@ -21,7 +21,8 @@ set(DICTIONARY_HEADERS
   KeyValParam.h
   MiscUtils.h
   NA6PTreeStream.h
-  ) # Add all class headers requiring dictionary
+  NA6PTreeStreamRedirector.h
+) # Add all class headers requiring dictionary
 
 set(DICTIONARY_LINKDEF ${THIS_SRC_DIR}/${MOD_NAME}LinkDef.h)
 set(DICTIONARY_OUTPUT ${LIB_NAME}Dict)

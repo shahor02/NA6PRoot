@@ -12,7 +12,6 @@
 #pragma link C++ class na6p::conf::ConfigurableParamHelper < na6p::conf::KeyValParam> + ;
 
 #pragma link C++ class NA6PTreeStream + ;
-#pragma link C++ class NA6PTreeSRedirector + ;
-#pragma link C++ class NA6PTreeDataElement + ;
+#pragma link C++ class NA6PTreeStreamRedirector + ;
 
 #endif

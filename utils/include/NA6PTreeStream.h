@@ -1,208 +1,216 @@
 // NA6PCCopyright
+
+// Based on:
+// Copyright 2019-2020 CERN and copyright holders of ALICE O2.
+// See https://alice-o2.web.cern.ch/copyright for details of the copyright holders.
+// All rights not expressly granted are reserved.
 //
-// based on
-//  marian.ivanov@cern.ch
+// This software is distributed under the terms of the GNU General Public
+// License v3 (GPL Version 3), copied verbatim in the file "COPYING".
 //
-//  ------------------------------------------------------------------------------------------------
-//  TreeStream
-//  Standard stream (cout) like input for the tree
-//  Run and see TreeStreamer::Test() - to see TreeStreamer functionality
-//  ------------------------------------------------------------------------------------------------
-//
-//  -------------------------------------------------------------------------------------------------
-//  TreeSRedirector
-//  Redirect file to  different TreeStreams
-//  Run and see   TreeSRedirector::Test() as an example of TreeSRedirector functionality
-//
-/**************************************************************************
- * Copyright(c) 1998-1999, ALICE Experiment at CERN, All rights reserved. *
- *                                                                        *
- * Author: The ALICE Off-line Project.                                    *
- * Contributors are mentioned in the code where appropriate.              *
- *                                                                        *
- * Permission to use, copy, modify and distribute this software and its   *
- * documentation strictly for non-commercial purposes is hereby granted   *
- * without fee, provided that the above copyright notice appears in all   *
- * copies and that both the copyright notice and this permission notice   *
- * appear in the supporting documentation. The authors make no claims     *
- * about the suitability of this software for any purpose. It is          *
- * provided "as is" without express or implied warranty.                  *
- **************************************************************************/
-//
+// In applying this license CERN does not waive the privileges and immunities
+// granted to it by virtue of its status as an Intergovernmental Organization
+// or submit itself to any jurisdiction.
+
+/// @brief Class for creating debug root trees with std::cout like intervace
+/// @author Marian Ivanov, marian.ivanov@cern.ch (original code in AliRoot)
+///         Ruben Shahoyan, ruben.shahoyan@cern.ch (porting to O2).
+
 #ifndef NA6P_TREESTREAM_H
 #define NA6P_TREESTREAM_H
 
-#include <TObject.h>
 #include <TString.h>
 #include <TTree.h>
-#include <TDirectory.h>
-#include <TFile.h>
-class TObjArray;
+#include <vector>
+#include <type_traits>
+#include <concepts>
+
+class TBranch;
+class TClass;
 class TDataType;
 
-class NA6PTreeDataElement : public TNamed
+/// The NA6PTreeStream class allows creating a root tree of any objects having root
+/// dictionary, using operator<< interface, and w/o prior tree declaration.
+/// The format is:
+/// treeStream << "branchName0="<<objPtr
+///            <<"branchName1="<<objRed
+///            <<"branchName2="
+///            <<elementaryTypeVar<<"\n"
+///
+///
+namespace details
 {
-  friend class NA6PTreeStream;
-
- public:
-  NA6PTreeDataElement(Char_t type);
-  NA6PTreeDataElement(TDataType* type);
-  NA6PTreeDataElement(TClass* cl);
-  void SetPointer(void* pointer) { fPointer = pointer; }
-  Char_t GetType() const { return fType; }
-
- protected:
-  NA6PTreeDataElement(const NA6PTreeDataElement& tde);
-  NA6PTreeDataElement& operator=(const NA6PTreeDataElement& tde);
-
-  Char_t fType;      // type of data element
-  TDataType* fDType; // data type pointer
-  TClass* fClass;    // data type pointer
-  void* fPointer;    // pointer to element
-
-  ClassDef(NA6PTreeDataElement, 1);
+template <typename T>
+struct IsTrivialRootType {
+  static constexpr bool value =
+    std::is_same_v<T, Float_t> ||                                                        // Float_t
+    std::is_same_v<T, Double_t> ||                                                       // Double_t
+    std::is_same_v<T, ULong64_t> || std::is_same_v<T, ULong_t> ||                        // ULong64_t or ULong_t
+    std::is_same_v<T, Long64_t> || std::is_same_v<T, Long_t> ||                          // Long64_t or Long_t
+    std::is_same_v<T, UInt_t> ||                                                         // UInt_t
+    std::is_same_v<T, Int_t> ||                                                          // Int_t
+    std::is_same_v<T, UShort_t> ||                                                       // UShort_t
+    std::is_same_v<T, Short_t> ||                                                        // Short_t
+    std::is_same_v<T, UChar_t> ||                                                        // UChar_t
+    std::is_same_v<T, Char_t> || std::is_same_v<T, int8_t> || std::is_same_v<T, Bool_t>; // Char_t, int8_t, or Bool_t
 };
 
-class NA6PTreeStream : public TNamed
-{
-  friend class NA6PTreeSRedirector;
+template <typename T>
+struct IsTrivialRootType<T[]> {
+  static constexpr bool value = IsTrivialRootType<T>::value;
+};
 
+template <typename T, std::size_t N>
+struct IsTrivialRootType<T[N]> {
+  static constexpr bool value = IsTrivialRootType<T>::value;
+};
+
+template <typename T>
+concept TrivialRootType = IsTrivialRootType<T>::value;
+
+template <typename T>
+concept ComplexRootType = !IsTrivialRootType<T>::value;
+
+template <TrivialRootType T>
+static constexpr char getRootTypeCode()
+{
+  if constexpr (std::is_array_v<T>) {
+    return getRootTypeCode<std::remove_all_extents_t<T>>();
+  } else if constexpr (std::is_same_v<T, Float_t>) {
+    return 'F';
+  } else if constexpr (std::is_same_v<T, Double_t>) {
+    return 'D';
+  } else if constexpr (std::is_same_v<T, ULong64_t> ||
+                       std::is_same_v<T, ULong_t>) {
+    return 'l';
+  } else if constexpr (std::is_same_v<T, Long64_t> ||
+                       std::is_same_v<T, Long_t>) {
+    return 'L';
+  } else if constexpr (std::is_same_v<T, UInt_t>) {
+    return 'i';
+  } else if constexpr (std::is_same_v<T, Int_t>) {
+    return 'I';
+  } else if constexpr (std::is_same_v<T, UShort_t>) {
+    return 's';
+  } else if constexpr (std::is_same_v<T, Short_t>) {
+    return 'S';
+  } else if constexpr (std::is_same_v<T, UChar_t>) {
+    return 'b';
+  } else if constexpr (std::is_same_v<T, Char_t> ||
+                       std::is_same_v<T, int8_t> ||
+                       std::is_same_v<T, Bool_t>) {
+    return 'B';
+  } else {
+    static_assert(false, "unsupported type!");
+  }
+}
+} // namespace details
+
+class NA6PTreeStream
+{
  public:
-  NA6PTreeStream(const char* treename, TTree* externalTree = NULL);
-  ~NA6PTreeStream();
-  void Close();
-  static void Test();
-  Int_t CheckIn(Char_t type, void* pointer);
-  // Int_t CheckIn(const char *type, void *pointer);
-  Int_t CheckIn(TObject* o);
+  struct TreeDataElement {
+    int arsize = 1;              ///< size of array
+    char type = 0;               ///< type of data element
+    const TClass* cls = nullptr; ///< data type pointer
+    const void* ptr = nullptr;   ///< pointer to element
+    std::string name;            ///< name of the element
+  };
+
+  NA6PTreeStream(const char* treename);
+  NA6PTreeStream() = default;
+  virtual ~NA6PTreeStream() = default;
+  void Close() { mTree.Write(); }
+  Int_t CheckIn(Char_t type, const void* pointer);
   void BuildTree();
   void Fill();
-  Double_t GetSize() { return fTree->GetZipBytes(); }
+  Double_t getSize() { return mTree.GetZipBytes(); }
   NA6PTreeStream& Endl();
-  //
-  NA6PTreeStream& operator<<(Bool_t& b)
+
+  TTree& getTree() { return mTree; }
+  const char* getName() const { return mTree.GetName(); }
+  void setID(int id) { mID = id; }
+  int getID() const { return mID; }
+
+  template <details::TrivialRootType T>
+  NA6PTreeStream& operator<<(const T& t)
   {
-    CheckIn('B', &b);
+    CheckIn(details::getRootTypeCode<T>(), &t);
     return *this;
   }
-  NA6PTreeStream& operator<<(Char_t& c)
-  {
-    CheckIn('B', &c);
-    return *this;
-  }
-  NA6PTreeStream& operator<<(UChar_t& c)
-  {
-    CheckIn('b', &c);
-    return *this;
-  }
-  NA6PTreeStream& operator<<(Short_t& h)
-  {
-    CheckIn('S', &h);
-    return *this;
-  }
-  NA6PTreeStream& operator<<(UShort_t& h)
-  {
-    CheckIn('s', &h);
-    return *this;
-  }
-  NA6PTreeStream& operator<<(Int_t& i)
-  {
-    CheckIn('I', &i);
-    return *this;
-  }
-  NA6PTreeStream& operator<<(UInt_t& i)
-  {
-    CheckIn('i', &i);
-    return *this;
-  }
-  NA6PTreeStream& operator<<(Long_t& l)
-  {
-    CheckIn('L', &l);
-    return *this;
-  }
-  NA6PTreeStream& operator<<(ULong_t& l)
-  {
-    CheckIn('l', &l);
-    return *this;
-  }
-  NA6PTreeStream& operator<<(Long64_t& l)
-  {
-    CheckIn('L', &l);
-    return *this;
-  }
-  NA6PTreeStream& operator<<(ULong64_t& l)
-  {
-    CheckIn('l', &l);
-    return *this;
-  }
-  NA6PTreeStream& operator<<(Float_t& f)
-  {
-    CheckIn('F', &f);
-    return *this;
-  }
-  NA6PTreeStream& operator<<(Double_t& d)
-  {
-    CheckIn('D', &d);
-    return *this;
-  }
-  NA6PTreeStream& operator<<(TObject* o)
-  {
-    CheckIn(o);
-    return *this;
-  }
+
   NA6PTreeStream& operator<<(const Char_t* name);
-  TTree* GetTree() const { return fTree; }
 
- protected:
-  //
+  template <class T>
+  NA6PTreeStream& operator<<(const T* obj)
+  {
+    CheckIn(obj);
+    return *this;
+  }
 
-  NA6PTreeStream(const NA6PTreeStream& ts);
-  NA6PTreeStream& operator=(const NA6PTreeStream& ts);
+  template <details::ComplexRootType T, typename std::enable_if<!std::is_pointer<T>::value, bool>::type* = nullptr>
+  NA6PTreeStream& operator<<(const T& obj)
+  {
+    CheckIn(&obj);
+    return *this;
+  }
 
-  TObjArray* fElements;   // array of elements
-  TObjArray* fBranches;   // pointers to branches
-  TTree* fTree;           // data storage
-  Int_t fCurrentIndex;    // index of current element
-  Int_t fId;              // identifier of layout
-  TString fNextName;      // name for next entry
-  Int_t fNextNameCounter; // next name counter
-  Int_t fStatus;          // status of the layout
-
-  ClassDef(NA6PTreeStream, 1);
-};
-
-class NA6PTreeSRedirector : public TObject
-{
- public:
-  NA6PTreeSRedirector(const char* fname = "", const char* option = "update");
-  virtual ~NA6PTreeSRedirector();
-  void Close();
-  static void Test();
-  static void Test2();
-  static void UnitTestSparse(Double_t scale, Int_t testEntries);
-  static void UnitTest(Int_t testEntries = 5000);
-  void StoreObject(TObject* object);
-  TFile* GetFile() { return fDirectory->GetFile(); }
-  TDirectory* GetDirectory() { return fDirectory; }
-  virtual NA6PTreeStream& operator<<(Int_t id);
-  virtual NA6PTreeStream& operator<<(const char* name);
-  void SetDirectory(TDirectory* sfile);
-  void SetFile(TFile* sfile) { SetDirectory(sfile); }
-  void SetExternalTree(const char* name, TTree* externalTree);
-  static void SetDisabled(Bool_t b = kTRUE) { fgDisabled = b; }
-  static Bool_t IsDisabled() { return fgDisabled; }
-  static void FixLeafNameBug(TTree* tree);
+  template <class T>
+  Int_t CheckIn(const T* obj);
 
  private:
-  NA6PTreeSRedirector(const NA6PTreeSRedirector& tsr);
-  NA6PTreeSRedirector& operator=(const NA6PTreeSRedirector& tsr);
+  //
+  std::vector<TreeDataElement> mElements;
+  std::vector<TBranch*> mBranches; ///< pointers to branches
+  TTree mTree;                     ///< data storage
+  int mCurrentIndex = 0;           ///< index of current element
+  int mID = -1;                    ///< identifier of layout
+  int mNextNameCounter = 0;        ///< next name counter
+  int mNextArraySize = 0;          ///< next array size
+  int mStatus = 0;                 ///< status of the layout
+  TString mNextName;               ///< name for next entry
 
-  TDirectory* fDirectory;   // file
-  Bool_t fDirectoryOwner;   // do we own the directory?
-  TObjArray* fDataLayouts;  // array of data layouts
-  static Bool_t fgDisabled; // disable - do not open any files
-
-  ClassDef(NA6PTreeSRedirector, 1);
+  ClassDefNV(NA6PTreeStream, 0);
 };
+
+template <class T>
+Int_t NA6PTreeStream::CheckIn(const T* obj)
+{
+  // check in arbitrary class having dictionary
+  TClass* pClass = nullptr;
+  if (obj) {
+    pClass = TClass::GetClass(typeid(*obj));
+  }
+
+  if (mCurrentIndex >= static_cast<int>(mElements.size())) {
+    auto& element = mElements.emplace_back();
+    element.cls = pClass;
+    TString name = mNextName;
+    if (name.Length()) {
+      if (mNextNameCounter > 0) {
+        name += mNextNameCounter;
+      }
+    } else {
+      name = TString::Format("B%d", static_cast<int>(mElements.size()));
+    }
+    element.name = name.Data();
+    element.ptr = obj;
+    element.arsize = mNextArraySize;
+    mNextArraySize = 1; // reset
+  } else {
+    auto& element = mElements[mCurrentIndex];
+    if (!element.cls) {
+      element.cls = pClass;
+    } else {
+      if (element.cls != pClass && pClass) {
+        mStatus++;
+        return 1; // mismatched data element
+      }
+    }
+    element.ptr = obj;
+  }
+  mCurrentIndex++;
+  return 0;
+}
 
 #endif

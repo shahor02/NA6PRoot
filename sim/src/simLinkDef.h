@@ -35,6 +35,13 @@
 
 #pragma link C++ class std::vector < TParticle> + ;
 
+#pragma link C++ class std::vector < TLorentzVector> + ;
+#pragma link C++ class std::vector < ROOT::Math::XYZTVector> + ;
+#pragma link C++ class std::vector < ROOT::Math::XYZTVectorF> + ;
+#pragma link C++ class std::vector < ROOT::Math::PtEtaPhiEVector> + ;
+#pragma link C++ class std::vector < ROOT::Math::PtEtaPhiMVector > + ;
+#pragma link C++ class std::vector < ROOT::Math::PxPyPzMVector > + ;
+
 #pragma link C++ class GenMUONLMR + ;
 
 #pragma link C++ class UserHook + ;
