@@ -71,7 +71,7 @@ void NA6PVerTel::createGeometry(TGeoVolume* world)
 
   float pixChipContainerDX = frameDX;
   float pixChipContainerDY = frameDY;
-  float pixChipContainerDz = 0.05f;
+  float pixChipContainerDz = 0.1f;
 
   float pixChipDX = 14.69f;
   float pixChipDY = 14.69f;
@@ -129,20 +129,20 @@ void NA6PVerTel::createGeometry(TGeoVolume* world)
   cbPlate->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName("CarbonFiber")));
 
   // place sensors to station
-  std::vector<float> alpdx{pixChipDX / 2 + pixChipOffsX, -pixChipDX / 2 + pixChipOffsY, -pixChipDX / 2 - pixChipOffsX, pixChipDX / 2 - pixChipOffsY};
-  std::vector<float> alpdy{pixChipDY / 2 - pixChipOffsY, pixChipDY / 2 + pixChipOffsX, -pixChipDY / 2 + pixChipOffsY, -pixChipDY / 2 - pixChipOffsX};
+  std::vector<float> alpdx{pixChipDX / 2 + pixChipOffsX, -pixChipDX / 2 + pixChipOffsX, -pixChipDX / 2 - pixChipOffsX, pixChipDX / 2 - pixChipOffsX};
+  std::vector<float> alpdy{pixChipDY / 2 - pixChipOffsY, pixChipDY / 2 + pixChipOffsY, -pixChipDY / 2 + pixChipOffsY, -pixChipDY / 2 - pixChipOffsY};
   for (size_t ii = 0; ii < alpdx.size(); ++ii) {
     auto* sensorTransform = new TGeoTranslation(alpdx[ii], alpdy[ii], 0);
     pixelStationVol->AddNode(pixelSensor, composeSensorVolID(ii), sensorTransform);
   }
+  auto* cbTransform = new TGeoCombiTrans(0., 0., pixChipDz / 2 + carbonPlateDz / 2, NA6PTGeoHelper::rotAroundVector(0, 0.0, 0.0, 0.0));
+  pixelStationVol->AddNode(cbPlate,composeNonSensorVolID(20),cbTransform);
   // place frames + sensor stations
   float zoffs = param.posVerTelPlaneZ[0] + boxDZ / 2 - boxDZMargin; // offset to be added due to the placement of stations to the VT box
   for (int ll = 0; ll < param.nVerTelPlanes; ++ll) {
     auto* stationTransform = new TGeoCombiTrans(param.posVerTelPlaneX[ll], param.posVerTelPlaneY[ll], param.posVerTelPlaneZ[ll] - zoffs,
                                                 NA6PTGeoHelper::rotAroundVector(0.0, 0.0, 0.0, 0.0));
     vtContainer->AddNode(pixelStationVol, composeNonSensorVolID(ll), stationTransform);
-    auto* cbTransform = new TGeoCombiTrans(param.posVerTelPlaneX[ll], param.posVerTelPlaneY[ll], param.posVerTelPlaneZ[ll] + pixChipDz / 2 + carbonPlateDz / 2 - zoffs, NA6PTGeoHelper::rotAroundVector(0, 0.0, 0.0, 0.0));
-    vtContainer->AddNode(cbPlate,composeNonSensorVolID(ll + 20), cbTransform);
     //    auto* frameTransform = new TGeoCombiTrans(param.posVerTelPlaneX[ll], param.posVerTelPlaneY[ll], param.posVerTelPlaneZ[ll] + 0.5 * (frameDZ + pixChipDz) - zoffs,
     //                                              NA6PTGeoHelper::rotAroundVector(0, 0.0, 0.0, 0.0));
     //    vtContainer->AddNode(pixStFrame, composeNonSensorVolID(ll + 20), frameTransform);
