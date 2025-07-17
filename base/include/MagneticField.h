@@ -18,6 +18,13 @@ class MagneticField : public TVirtualMagField
 
   auto isInitDone() const { return mInitDone; }
   void loadFlukaField();
+  void dumpMagFieldMap(double xmin, double xmax, 
+                       double ymin, double ymax, 
+                       double zmin, double zmax, 
+                       double step, std::string fieldMapFile,
+                       std::string rotatedFieldMapFile);
+  void dumpMagFieldFromConfig();
+
 
   void setScale2Unit(float v) { mScale2Unit = v; }
   auto getScale2Unit() const { return mScale2Unit; }

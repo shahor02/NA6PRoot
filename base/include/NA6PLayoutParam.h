@@ -12,12 +12,23 @@ struct NA6PLayoutParam : public na6p::conf::ConfigurableParamHelper<NA6PLayoutPa
   static constexpr int MaxTargets = 5;
   static constexpr int MaxAbsorberSlices = 10;
 
+  // Magnetic field parameters for dumping
+  float xMinFieldDump = -200.f; // min X of the magnetic field in cm
+  float xMaxFieldDump = 200.f;  // max X of the magnetic field in cm
+  float yMinFieldDump = -200.f; // min Y of the magnetic field in cm
+  float yMaxFieldDump = 200.f;  // max Y of the magnetic field in cm
+  float zMinFieldDump = -10.f; // min Z of the magnetic field in cm
+  float zMaxFieldDump = 900.f;  // max Z of the magnetic field in cm
+  float stepFieldDump = 5.f;    // step in cm for the magnetic field map
+  std::string fieldMap = "field_map.txt";
+  std::string rotatedFieldMap = "field_map_rotated.txt";
+
   // VerTel Dipole
   float posDipIP[3] = {0.f, 0.f, 0.f}; // Vertex dipole position
   std::string flukaInpDipVT = "$(NA6PROOT_ROOT)/share/data/MEP48_field_map.inp";
 
   // MS Dipole
-  float posDipMS[3] = {0.f, 0.f, 430.f}; // Vertex dipole position
+  float posDipMS[3] = {0.f, 0.f, 430.f}; // MS dipole position
   std::string flukaInpDipMS = "$(NA6PROOT_ROOT)/share/data/MNP33_field_map.inp";
 
   // Target

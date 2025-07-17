@@ -36,6 +36,7 @@ int main(int argc, char** argv)
     add_option("generator,g", bpo::value<std::string>()->default_value(""), "generator defintion root C macro, must return NA6PGenerator pointer");
     add_option("user-hooks,u", bpo::value<std::string>()->default_value(""), "root macro C macro with user hooks for initialization");
     add_option("rnd-seed,r", bpo::value<int64_t>()->default_value(-1), "random number seed, 0 - do not set, <0: generate from time");
+    add_option("save-bfield,b", bpo::value<bool>()->default_value(false)->implicit_value(true), "Save magnetic field to file");
     opt_all.add(opt_general).add(opt_hidden);
     bpo::store(bpo::command_line_parser(argc, argv).options(opt_all).positional(opt_pos).run(), vm);
 
@@ -72,11 +73,15 @@ int main(int argc, char** argv)
   auto magField = new MagneticField();
   magField->loadFlukaField();
   magField->setAsGlobalField();
+  if (vm["save-bfield"].as<bool>()){
+    LOGP(info, "Dumping the magnetic field map");
+    magField->dumpMagFieldFromConfig();
+  }
 
   auto runConfig = new TG4RunConfiguration("geomRoot", "FTFP_BERT");
   auto geant4 = new TGeant4("TGeant4", "Geant4 Monte Carlo Engine", runConfig, argc, argv);
 
-  TVirtualMC::GetMC()->SetMagField(TGeoGlobalMagField::Instance()->GetField());
+  // TVirtualMC::GetMC()->SetMagField(TGeoGlobalMagField::Instance()->GetField());
   //
   if (!vm["generator"].as<std::string>().empty()) {
     mc->setupGenerator(vm["generator"].as<std::string>());
