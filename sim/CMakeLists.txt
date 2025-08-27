@@ -31,6 +31,7 @@ set(DICTIONARY_HEADERS
   NA6PBaseHit.h
   NA6PVerTelHit.h
   NA6PMuonSpecHit.h
+  NA6PMuonSpecModularHit.h
   GenMUONLMR.h
   NA6PSimMisc.h
   ) # Add all class headers requiring dictionary
