@@ -93,7 +93,6 @@ void NA6PMuonSpecModular::createGeometry(TGeoVolume* world)
   for (int ist = 0; ist < param.nMSPlanes; ist++) {
     auto stnm = fmt::format("MS{}", ist);
 
-    //auto* station = new TGeoBBox((stnm + "SH").c_str(), param.dimXMSPlane[ist] / 2, param.dimYMSPlane[ist] / 2, param.thicknessMSPlane[ist] / 2);
     auto* station = new TGeoBBox((stnm + "SH").c_str(), param.dimXMSPlane[ist] / 2 + EnvelopDXH, param.dimYMSPlane[ist] / 2 + EnvelopDYH, param.thicknessMSPlane[ist] / 2 + EnvelopDZH);
     auto stationSensVol = new TGeoVolume(stnm.c_str(), station, NA6PTGeoHelper::instance().getMedium(addName(param.medMSPlane[ist])));
 
@@ -102,9 +101,7 @@ void NA6PMuonSpecModular::createGeometry(TGeoVolume* world)
     LOGP(info, "N={} DX={} DY={}", nModulesPerSide, pixChipDX, pixChipDY);
     placeSensors(nModulesPerSide, pixChipDX, pixChipDY, param.dimXMSPlaneHole[ist], param.dimYMSPlaneHole[ist], stationSensVol, pixelSensor);
 
-    //stationSensVol->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName(param.medMSPlane[ist])));
     auto stationSensVolEnv = new TGeoVolume((stnm + "Env").c_str(), station, NA6PTGeoHelper::instance().getMedium(addName("Air")));
-    // put physical station into dummy envelope to avoid precision problems with stepping (very thin objects are not well recognised with large steps)
     stationSensVolEnv->AddNode(stationSensVol, composeSensorVolID(ist));
     world->AddNode(stationSensVolEnv, composeNonSensorVolID(ist), new TGeoTranslation(param.shiftMS[0] + param.posMSPlaneX[ist], param.shiftMS[1] + param.posMSPlaneY[ist], param.shiftMS[2] + param.posMSPlaneZ[ist]));
   }
