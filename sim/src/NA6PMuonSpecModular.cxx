@@ -87,7 +87,7 @@ void NA6PMuonSpecModular::createGeometry(TGeoVolume* world)
   createMaterials();
 
   auto* sensorShape = new TGeoBBox("SensorShape", pixChipDX / 2, pixChipDY / 2, pixChipDz / 2);
-  TGeoVolume* pixelSensor = new TGeoVolume("PixelSensor", sensorShape, NA6PTGeoHelper::instance().getMedium(addName("Silicon")));
+  TGeoVolume* MSSensor = new TGeoVolume("MSSensor", sensorShape, NA6PTGeoHelper::instance().getMedium(addName("Silicon")));
   pixelSensor->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName("Silicon")));
 
   for (int ist = 0; ist < param.nMSPlanes; ist++) {
@@ -99,7 +99,7 @@ void NA6PMuonSpecModular::createGeometry(TGeoVolume* world)
     LOGP(info, "Creating MS station {} with dimensions: X={} Y={} Z={}", stnm, param.dimXMSPlane[ist], param.dimYMSPlane[ist], param.thicknessMSPlane[ist]);
     int nModulesPerSide = int(param.dimXMSPlane[ist] / (pixChipDX));
     LOGP(info, "N={} DX={} DY={}", nModulesPerSide, pixChipDX, pixChipDY);
-    placeSensors(nModulesPerSide, pixChipDX, pixChipDY, param.dimXMSPlaneHole[ist], param.dimYMSPlaneHole[ist], stationSensVol, pixelSensor);
+    placeSensors(nModulesPerSide, pixChipDX, pixChipDY, param.dimXMSPlaneHole[ist], param.dimYMSPlaneHole[ist], stationSensVol, MSSensor);
 
     auto stationSensVolEnv = new TGeoVolume((stnm + "Env").c_str(), station, NA6PTGeoHelper::instance().getMedium(addName("Air")));
     stationSensVolEnv->AddNode(stationSensVol, composeSensorVolID(ist));
