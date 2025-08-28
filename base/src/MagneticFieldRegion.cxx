@@ -10,7 +10,7 @@
 #include "fairlogger/Logger.h"
 #include "MagneticFieldRegion.h"
 
-void MagneticFieldRegion::loadFlukaField(const std::string& filename)
+void MagneticFieldRegion::loadFlukaField(const std::string& filename, bool flipSign)
 {
   // read field provided by MGNCREAT / MGNDATA fluka cards
   if (mName.empty()) {
@@ -54,7 +54,7 @@ void MagneticFieldRegion::loadFlukaField(const std::string& filename)
           LOGP(fatal, "MGNCREAT collected only {} values", MGNCREATcache.size());
         }
       }
-      cacheValues(line, mFieldData);
+      cacheValues(line, mFieldData, flipSign);
     }
   }
   file.close();
@@ -63,7 +63,7 @@ void MagneticFieldRegion::loadFlukaField(const std::string& filename)
   }
 }
 
-void MagneticFieldRegion::loadOPERA3DField(const std::string& filename)
+void MagneticFieldRegion::loadOPERA3DField(const std::string& filename, bool flipSign)
 {
     if (mName.empty()) {
         mName = filename;
@@ -131,6 +131,7 @@ void MagneticFieldRegion::loadOPERA3DField(const std::string& filename)
     // Read field data
     int lineCount = 0;
     int parsedCount = 0;
+    int sign = flipSign ? -1 : 1;
     while (std::getline(file, line)) {
         lineCount++;
         if (line.empty() || line[0] == '!') continue;
@@ -140,20 +141,10 @@ void MagneticFieldRegion::loadOPERA3DField(const std::string& filename)
         
         if (iss >> x >> y >> z >> fx >> fy >> fz) {
             // Store field components (Fx, Fy, Fz)
-            mFieldData.push_back(static_cast<float>(fx));
-            mFieldData.push_back(static_cast<float>(fy));
-            mFieldData.push_back(static_cast<float>(fz));
+            mFieldData.push_back(static_cast<float>(sign*fx));
+            mFieldData.push_back(static_cast<float>(sign*fy));
+            mFieldData.push_back(static_cast<float>(sign*fz));
             parsedCount++;
-        } else {
-            // Try alternative parsing - maybe the line has different format
-            std::string trimmed = line;
-            // Remove leading/trailing whitespace
-            trimmed.erase(0, trimmed.find_first_not_of(" \t\r\n"));
-            trimmed.erase(trimmed.find_last_not_of(" \t\r\n") + 1);
-            
-            if (!trimmed.empty()) {
-                LOGP(warning, "Failed to parse line {}: '{}' (length: {})", lineCount, trimmed, trimmed.length());
-            }
         }
     }
     
@@ -167,22 +158,22 @@ void MagneticFieldRegion::loadOPERA3DField(const std::string& filename)
     size_t actualPoints = mFieldData.size() / 3;
     
     if (mFieldData.size() != expectedSize) {
-        LOGP(fatal, "Expected {} data points ({}x{}x{} = {}), but got {} points. Missing {} points ({} field values)", 
-             expectedPoints, mNX, mNY, mNZ, expectedPoints, actualPoints, 
-             expectedPoints - actualPoints, expectedSize - mFieldData.size());
+        LOGP(fatal, "Expected {} data points ({}x{}x{} = {}), but got {} points.", 
+             expectedPoints, mNX, mNY, mNZ, expectedPoints, actualPoints);
     }
     
     LOGP(info, "Loaded generic field from {} with {}x{}x{} grid points", 
          filename, mNX, mNY, mNZ);
 }
 
-void MagneticFieldRegion::cacheValues(const std::string& line, std::vector<float>& cachev)
+void MagneticFieldRegion::cacheValues(const std::string& line, std::vector<float>& cachev, bool flipSign)
 {
   std::istringstream iss(line);
   auto vstr = na6p::utils::Str::tokenize(line, ',', true, false);
   for (auto& s : vstr) {
     try {
-      cachev.push_back(std::stof(s));
+      int sign = flipSign ? -1 : 1;
+      cachev.push_back(sign*std::stof(s));
     } catch (...) {
       // ignore
     }
