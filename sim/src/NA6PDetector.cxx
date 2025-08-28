@@ -8,6 +8,7 @@
 #include "NA6PVerTel.h"
 #include "NA6PAbsorber.h"
 #include "NA6PMuonSpec.h"
+#include "NA6PMuonSpecModular.h"
 #include "NA6PLayoutParam.h"
 #include "StringUtils.h"
 #include <TGeoManager.h>
@@ -21,7 +22,8 @@ NA6PDetector::NA6PDetector()
   addModule(new NA6PVerTel());
   addModule(new NA6PAbsorber());
   addModule(new NA6PDipoleMS());
-  addModule(new NA6PMuonSpec());
+  //addModule(new NA6PMuonSpec());
+  addModule(new NA6PMuonSpecModular());
 }
 
 void NA6PDetector::createCommonMaterials()

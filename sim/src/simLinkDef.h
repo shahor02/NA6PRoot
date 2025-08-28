@@ -21,6 +21,9 @@
 #pragma link C++ class NA6PMuonSpecHit + ;
 #pragma link C++ class std::vector < NA6PMuonSpecHit> + ;
 
+#pragma link C++ class NA6PMuonSpecModularHit + ;
+#pragma link C++ class std::vector < NA6PMuonSpecModularHit> + ;
+
 #pragma link C++ class std::unordered_map < std::string, float> + ;
 
 #pragma link C++ class NA6PMCEventHeader + ;
