@@ -17,19 +17,19 @@ MagneticField::~MagneticField()
 void MagneticField::loadField()
 {
     const auto& param = NA6PLayoutParam::Instance();
-    auto loadOne = [](auto& dipole, const std::string& path, const float pos[3]) {
+    auto loadOne = [](auto& dipole, const std::string& path, const float pos[3], bool flipSign) {
         std::string fname = gSystem->ExpandPathName(path.c_str());
         if (fname.find(".inp") != std::string::npos) {
             // FLUKA format
-            dipole.loadFlukaField(fname);
+            dipole.loadFlukaField(fname, flipSign);
         } else {
             // Alternative format: OPERA3D or Ansys 
-            dipole.loadOPERA3DField(fname);
+            dipole.loadOPERA3DField(fname, flipSign);
         }
         dipole.setRefPosition(pos[0], pos[1], pos[2]);
     };
-    loadOne(mDipoleVT, param.flukaInpDipVT, param.posDipIP);
-    loadOne(mDipoleMS, param.flukaInpDipMS, param.posDipMS);
+    loadOne(mDipoleVT, param.flukaInpDipVT, param.posDipIP, param.flipSignVT);
+    loadOne(mDipoleMS, param.flukaInpDipMS, param.posDipMS, param.flipSignMS);
     mInitDone = true;
 }
 
