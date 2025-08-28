@@ -32,7 +32,7 @@ class NA6PMuonSpecModular : public NA6PModule
                           float endTime, float eLoss, unsigned char startStatus, unsigned char endStatus);
 
  private:
-  void placeSensors(int modulesPerSide, float pixChipDX, float pixChipDY, float pixChipOffsX, float pixChipOffsY, TGeoVolume* pixelStationVol, TGeoVolume* pixelSensor);
+  void placeSensors(float sideX, float sideY, float chipDX, float chipDY, float pixChipOffsX, float pixChipOffsY, TGeoVolume* pixelStationVol, TGeoVolume* pixelSensor);
   std::vector<NA6PMuonSpecModularHit> mHits, *hHitsPtr = &mHits;
   TFile* mHitsFile = nullptr;
   TTree* mHitsTree = nullptr;

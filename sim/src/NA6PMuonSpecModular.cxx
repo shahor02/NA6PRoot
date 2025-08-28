@@ -20,34 +20,37 @@
 #include <TTree.h>
 
 // place sensors to station - generalized for n modules per side
-void NA6PMuonSpecModular::placeSensors(int modulesPerSide, float pixChipDX, float pixChipDY, float pixChipOffsX, float pixChipOffsY, TGeoVolume* pixelStationVol, TGeoVolume* pixelSensor) {
+void NA6PMuonSpecModular::placeSensors(float sideX, float sideY, float chipDX, float chipDY, float pixChipOffsX, float pixChipOffsY, TGeoVolume* pixelStationVol, TGeoVolume* pixelSensor) {
     
-    std::vector<float> alpdx, alpdy;
-    
-    // Generate positions for n x n grid
-    float baseStartX = -(modulesPerSide - 1) * pixChipDX / 2.0f;
-    float baseStartY = -(modulesPerSide - 1) * pixChipDY / 2.0f;
-    int midPoint = modulesPerSide / 2;
+    std::vector<float> moduleCenterX, moduleCenterY;
+    int modulesPerSideX = static_cast<int>(sideX / chipDX);
+    int modulesPerSideY = static_cast<int>(sideX / chipDX);
 
-    for (int row = 0; row < modulesPerSide; ++row) {
-        for (int col = 0; col < modulesPerSide; ++col) {
+    // Generate positions for n x n grid
+    float baseStartX = -(modulesPerSideX - 1) * chipDX / 2.0f;
+    float baseStartY = -(modulesPerSideY - 1) * chipDY / 2.0f;
+    int midPointX = modulesPerSideX / 2;
+    int midPointY = modulesPerSideY / 2;
+
+    for (int row = 0; row < modulesPerSideY; ++row) {
+        for (int col = 0; col < modulesPerSideX; ++col) {
             // Determine offset signs based on quadrant
-            float offsetX = (row + 1 > midPoint) ? pixChipOffsX / 2.0f : -pixChipOffsX / 2.0f;
-            float offsetY = (col + 1 > midPoint) ? -pixChipOffsY / 2.0f : pixChipOffsY / 2.0f;
+            float offsetX = (row + 1 > midPointX) ? pixChipOffsX / 2.0f : -pixChipOffsX / 2.0f;
+            float offsetY = (col + 1 > midPointY) ? -pixChipOffsY / 2.0f : pixChipOffsY / 2.0f;
             
             // Calculate position
-            float x = baseStartX + offsetX + col * pixChipDX;
-            float y = baseStartY + offsetY + row * pixChipDY;
+            float x = baseStartX + offsetX + col * chipDX;
+            float y = baseStartY + offsetY + row * chipDY;
             
-            alpdx.push_back(x);
-            alpdy.push_back(y);
+            moduleCenterX.push_back(x);
+            moduleCenterY.push_back(y);
             LOGP(info, "Row {} Col {}: sensor at ({}, {})", row, col, x, y);
         }
     }
     
     // Place the sensors
-    for (size_t ii = 0; ii < alpdx.size(); ++ii) {
-        auto* sensorTransform = new TGeoTranslation(alpdx[ii], alpdy[ii], 0);
+    for (size_t ii = 0; ii < moduleCenterX.size(); ++ii) {
+        auto* sensorTransform = new TGeoTranslation(moduleCenterX[ii], moduleCenterY[ii], 0);
         pixelStationVol->AddNode(pixelSensor, composeSensorVolID(ii), sensorTransform);
     }
 }
@@ -76,9 +79,6 @@ void NA6PMuonSpecModular::createGeometry(TGeoVolume* world)
 {
   const auto& param = NA6PLayoutParam::Instance();
 
-  float pixChipDX = 20.f;
-  float pixChipDY = 20.f;
-
   const float EnvelopDXH = 1;
   const float EnvelopDYH = 1;
   const float EnvelopDZH = 1;
@@ -86,20 +86,18 @@ void NA6PMuonSpecModular::createGeometry(TGeoVolume* world)
 
   createMaterials();
 
-  auto* sensorShape = new TGeoBBox("SensorShape", pixChipDX / 2, pixChipDY / 2, pixChipDz / 2);
-  TGeoVolume* MSSensor = new TGeoVolume("MSSensor", sensorShape, NA6PTGeoHelper::instance().getMedium(addName("Silicon")));
-  pixelSensor->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName("Silicon")));
-
   for (int ist = 0; ist < param.nMSPlanes; ist++) {
+    auto* sensorShape = new TGeoBBox("SensorShape", param.msChipDX[ist] / 2.0f, param.msChipDY[ist] / 2.0f, pixChipDz / 2.0f);
+    TGeoVolume* MSSensor = new TGeoVolume("MSSensor", sensorShape, NA6PTGeoHelper::instance().getMedium(addName("Silicon")));
+    MSSensor->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName("Silicon")));
+
     auto stnm = fmt::format("MS{}", ist);
 
-    auto* station = new TGeoBBox((stnm + "SH").c_str(), param.dimXMSPlane[ist] / 2 + EnvelopDXH, param.dimYMSPlane[ist] / 2 + EnvelopDYH, param.thicknessMSPlane[ist] / 2 + EnvelopDZH);
+    auto* station = new TGeoBBox((stnm + "SH").c_str(), param.dimXMSPlane[ist] / 2.0f + EnvelopDXH, param.dimYMSPlane[ist] / 2.0f + EnvelopDYH, pixChipDz / 2.0f + EnvelopDZH);
     auto stationSensVol = new TGeoVolume(stnm.c_str(), station, NA6PTGeoHelper::instance().getMedium(addName(param.medMSPlane[ist])));
 
-    LOGP(info, "Creating MS station {} with dimensions: X={} Y={} Z={}", stnm, param.dimXMSPlane[ist], param.dimYMSPlane[ist], param.thicknessMSPlane[ist]);
-    int nModulesPerSide = int(param.dimXMSPlane[ist] / (pixChipDX));
-    LOGP(info, "N={} DX={} DY={}", nModulesPerSide, pixChipDX, pixChipDY);
-    placeSensors(nModulesPerSide, pixChipDX, pixChipDY, param.dimXMSPlaneHole[ist], param.dimYMSPlaneHole[ist], stationSensVol, MSSensor);
+    LOGP(info, "Creating MS station {} with dimensions: X={} Y={} Z={}", stnm, param.dimXMSPlane[ist], param.dimYMSPlane[ist], pixChipDz);
+    placeSensors(param.dimXMSPlane[ist], param.dimYMSPlane[ist], param.msChipDX[ist], param.msChipDY[ist], param.dimXMSPlaneHole[ist], param.dimYMSPlaneHole[ist], stationSensVol, MSSensor);
 
     auto stationSensVolEnv = new TGeoVolume((stnm + "Env").c_str(), station, NA6PTGeoHelper::instance().getMedium(addName("Air")));
     stationSensVolEnv->AddNode(stationSensVol, composeSensorVolID(ist));
