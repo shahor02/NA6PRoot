@@ -14,14 +14,23 @@ MagneticField::~MagneticField()
   }
 }
 
-void MagneticField::loadFlukaField()
+void MagneticField::loadField()
 {
-  const auto& param = NA6PLayoutParam::Instance();
-  mDipoleVT.loadFlukaField(gSystem->ExpandPathName(param.flukaInpDipVT.c_str()));
-  mDipoleMS.loadFlukaField(gSystem->ExpandPathName(param.flukaInpDipMS.c_str()));
-  mDipoleVT.setRefPosition(param.posDipIP[0], param.posDipIP[1], param.posDipIP[2]);
-  mDipoleMS.setRefPosition(param.posDipMS[0], param.posDipMS[1], param.posDipMS[2]);
-  mInitDone = true;
+    const auto& param = NA6PLayoutParam::Instance();
+    auto loadOne = [](auto& dipole, const std::string& path, const float pos[3]) {
+        std::string fname = gSystem->ExpandPathName(path.c_str());
+        if (fname.find(".inp") != std::string::npos) {
+            // FLUKA format
+            dipole.loadFlukaField(fname);
+        } else {
+            // Alternative format: OPERA3D or Ansys 
+            dipole.loadOPERA3DField(fname);
+        }
+        dipole.setRefPosition(pos[0], pos[1], pos[2]);
+    };
+    loadOne(mDipoleVT, param.flukaInpDipVT, param.posDipIP);
+    loadOne(mDipoleMS, param.flukaInpDipMS, param.posDipMS);
+    mInitDone = true;
 }
 
 void MagneticField::setAsGlobalField()

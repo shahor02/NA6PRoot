@@ -63,6 +63,119 @@ void MagneticFieldRegion::loadFlukaField(const std::string& filename)
   }
 }
 
+void MagneticFieldRegion::loadOPERA3DField(const std::string& filename)
+{
+    if (mName.empty()) {
+        mName = filename;
+    }
+    
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        throw std::runtime_error("Cannot open file: " + filename);
+    }
+    
+    std::string line;
+    
+    // Read header parameters
+    while (std::getline(file, line)) {
+        // Skip empty lines and comments (but don't break on them)
+        if (line.empty() || line[0] == '!') {
+            continue;
+        }
+        
+        // Try to parse as parameter line first
+        size_t pos = line.find('>');
+        if (pos != std::string::npos) {
+            std::string param = line.substr(0, pos);
+            std::string value = line.substr(pos + 1);
+            
+            // Trim whitespace
+            param.erase(0, param.find_first_not_of(" \t"));
+            param.erase(param.find_last_not_of(" \t") + 1);
+            value.erase(0, value.find_first_not_of(" \t"));
+            value.erase(value.find_last_not_of(" \t") + 1);
+            
+            if (param == "xmin") mXMin = std::stod(value);
+            else if (param == "xmax") mXMax = std::stod(value);
+            else if (param == "ymin") mYMin = std::stod(value);
+            else if (param == "ymax") mYMax = std::stod(value);
+            else if (param == "zmin") mZMin = std::stod(value);
+            else if (param == "zmax") mZMax = std::stod(value);
+            else if (param == "nx") mNX = std::stoi(value);
+            else if (param == "ny") mNY = std::stoi(value);
+            else if (param == "nz") mNZ = std::stoi(value);
+        } else {
+            // This line doesn't contain '>', so it's likely the first data line
+            // Reset the file position to re-read this line in the data section
+            std::streampos currentPos = file.tellg();
+            file.seekg(currentPos - static_cast<std::streamoff>(line.length() + 1));
+            break;
+        }
+    }
+    
+    // Calculate derived parameters
+    mNX1 = mNX - 1;
+    mNY1 = mNY - 1;
+    mNZ1 = mNZ - 1;
+    mDX = (mXMax - mXMin) / mNX1;
+    mDY = (mYMax - mYMin) / mNY1;
+    mDZ = (mZMax - mZMin) / mNZ1;
+    mDXI = 1. / mDX;
+    mDYI = 1. / mDY;
+    mDZI = 1. / mDZ;
+    
+    // Reserve space for field data
+    mFieldData.clear();
+    mFieldData.reserve(3 * mNX * mNY * mNZ);
+    
+    // Read field data
+    int lineCount = 0;
+    int parsedCount = 0;
+    while (std::getline(file, line)) {
+        lineCount++;
+        if (line.empty() || line[0] == '!') continue;
+        
+        std::istringstream iss(line);
+        double x, y, z, fx, fy, fz;
+        
+        if (iss >> x >> y >> z >> fx >> fy >> fz) {
+            // Store field components (Fx, Fy, Fz)
+            mFieldData.push_back(static_cast<float>(fx));
+            mFieldData.push_back(static_cast<float>(fy));
+            mFieldData.push_back(static_cast<float>(fz));
+            parsedCount++;
+        } else {
+            // Try alternative parsing - maybe the line has different format
+            std::string trimmed = line;
+            // Remove leading/trailing whitespace
+            trimmed.erase(0, trimmed.find_first_not_of(" \t\r\n"));
+            trimmed.erase(trimmed.find_last_not_of(" \t\r\n") + 1);
+            
+            if (!trimmed.empty()) {
+                LOGP(warning, "Failed to parse line {}: '{}' (length: {})", lineCount, trimmed, trimmed.length());
+            }
+        }
+    }
+    
+    LOGP(info, "Processed {} lines, successfully parsed {} data points", lineCount, parsedCount);
+    
+    file.close();
+    
+    // Verify we got the expected amount of data
+    size_t expectedPoints = mNX * mNY * mNZ;
+    size_t expectedSize = 3 * expectedPoints;
+    size_t actualPoints = mFieldData.size() / 3;
+    
+    if (mFieldData.size() != expectedSize) {
+        LOGP(fatal, "Expected {} data points ({}x{}x{} = {}), but got {} points. Missing {} points ({} field values)", 
+             expectedPoints, mNX, mNY, mNZ, expectedPoints, actualPoints, 
+             expectedPoints - actualPoints, expectedSize - mFieldData.size());
+    }
+    
+    LOGP(info, "Loaded generic field from {} with {}x{}x{} grid points", 
+         filename, mNX, mNY, mNZ);
+}
+
 void MagneticFieldRegion::cacheValues(const std::string& line, std::vector<float>& cachev)
 {
   std::istringstream iss(line);

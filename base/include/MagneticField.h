@@ -17,7 +17,7 @@ class MagneticField : public TVirtualMagField
   }
 
   auto isInitDone() const { return mInitDone; }
-  void loadFlukaField();
+  void loadField();
   void dumpMagFieldMap(double xmin, double xmax, 
                        double ymin, double ymax, 
                        double zmin, double zmax, 

@@ -71,7 +71,7 @@ int main(int argc, char** argv)
   }
   // mag field definition
   auto magField = new MagneticField();
-  magField->loadFlukaField();
+  magField->loadField();
   magField->setAsGlobalField();
   if (vm["save-bfield"].as<bool>()){
     LOGP(info, "Dumping the magnetic field map");

@@ -29,7 +29,7 @@ struct NA6PLayoutParam : public na6p::conf::ConfigurableParamHelper<NA6PLayoutPa
 
   // MS Dipole
   float posDipMS[3] = {0.f, 0.f, 430.f}; // MS dipole position
-  std::string flukaInpDipMS = "$(NA6PROOT_ROOT)/share/data/MNP33_field_map.inp";
+  std::string flukaInpDipMS = "$(NA6PROOT_ROOT)/share/data/mnp33_fieldmap_5cm.dat";
 
   // Target
   int nTargets = 5;

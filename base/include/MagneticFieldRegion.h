@@ -19,6 +19,7 @@ class MagneticFieldRegion
   float getZMax() const { return mZMax; }
 
   void loadFlukaField(const std::string& filename);
+  void loadOPERA3DField(const std::string& filename);
 
   template <typename T = float>
   bool isInside(const T* xyz) const
