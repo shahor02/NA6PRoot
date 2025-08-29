@@ -12,9 +12,13 @@ This directory contains magnetic field maps for the NA60+/DiCE simulation.
 
 - **`mnp33_fieldmap_5cm.dat`**
   Field map of the MNP33 magnet obtained from **OPERA3D simulation**, binned with a 5 cm grid spacing. This map is defined only in for x,y,z > 0. In the other region the field has to be computed using the symmetry rules:
-  $$B_y(x,y,z) = B_y(-x,y,z) = B_y(x,-y,z) = B_y(x,y,-z)$$
-  $$B_x(x,y,z) = -B_x(-x,y,z) = B_x(x,-y,z) = B_x(x,y,-z)$$
-  $$B_z(x,y,z) = B_z(-x,y,z) = -B_z(x,-y,z) = -B_z(x,y,-z)$$
+  $$
+  \begin{align}
+  B_y(x,y,z) &= B_y(-x,y,z) = B_y(x,-y,z) = B_y(x,y,-z) \\
+  B_x(x,y,z) &= -B_x(-x,y,z) = B_x(x,-y,z) = B_x(x,y,-z) \\
+  B_z(x,y,z) &= B_z(-x,y,z) = -B_z(x,-y,z) = -B_z(x,y,-z)
+  \end{align}
+  $$
 
 ## Notes
 
