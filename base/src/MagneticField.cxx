@@ -24,12 +24,12 @@ void MagneticField::loadField()
             dipole.loadFlukaField(fname, flipSign);
         } else {
             // Alternative format: OPERA3D or Ansys 
-            dipole.loadOPERA3DField(fname, flipSign);
+            dipole.loadOpera3DField(fname, flipSign);
         }
         dipole.setRefPosition(pos[0], pos[1], pos[2]);
     };
-    loadOne(mDipoleVT, param.flukaInpDipVT, param.posDipIP, param.flipSignVT);
-    loadOne(mDipoleMS, param.flukaInpDipMS, param.posDipMS, param.flipSignMS);
+    loadOne(mDipoleVT, param.fieldMapDipVT, param.posDipIP, param.flipSignVT);
+    loadOne(mDipoleMS, param.fieldMapDipMS, param.posDipMS, param.flipSignMS);
     mInitDone = true;
 }
 
