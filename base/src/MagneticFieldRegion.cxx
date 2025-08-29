@@ -63,7 +63,7 @@ void MagneticFieldRegion::loadFlukaField(const std::string& filename, bool flipS
   }
 }
 
-void MagneticFieldRegion::loadOPERA3DField(const std::string& filename, bool flipSign)
+void MagneticFieldRegion::loadOpera3DField(const std::string& filename, bool flipSign)
 {
     if (mName.empty()) {
         mName = filename;
