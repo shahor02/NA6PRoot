@@ -10,7 +10,7 @@
 #include "fairlogger/Logger.h"
 #include "MagneticFieldRegion.h"
 
-void MagneticFieldRegion::loadFlukaField(const std::string& filename, bool flipSign)
+void MagneticFieldRegion::loadFlukaField(const std::string& filename)
 {
   // read field provided by MGNCREAT / MGNDATA fluka cards
   if (mName.empty()) {
@@ -54,7 +54,7 @@ void MagneticFieldRegion::loadFlukaField(const std::string& filename, bool flipS
           LOGP(fatal, "MGNCREAT collected only {} values", MGNCREATcache.size());
         }
       }
-      cacheValues(line, mFieldData, flipSign);
+      cacheValues(line, mFieldData);
     }
   }
   file.close();
@@ -63,7 +63,7 @@ void MagneticFieldRegion::loadFlukaField(const std::string& filename, bool flipS
   }
 }
 
-void MagneticFieldRegion::loadOpera3DField(const std::string& filename, bool flipSign)
+void MagneticFieldRegion::loadOpera3DField(const std::string& filename)
 {
     if (mName.empty()) {
         mName = filename;
@@ -122,11 +122,6 @@ void MagneticFieldRegion::loadOpera3DField(const std::string& filename, bool fli
         double x, y, z, fx, fy, fz;
         
         if (iss >> x >> y >> z >> fx >> fy >> fz) {
-            if (flipSign) {
-                fx = -fx;
-                fy = -fy;
-                fz = -fz;
-            }
             originalData.push_back({static_cast<float>(fx), static_cast<float>(fy), static_cast<float>(fz)});
         }
     }
@@ -222,14 +217,13 @@ void MagneticFieldRegion::loadOpera3DField(const std::string& filename, bool fli
          mXMin, mXMax, mYMin, mYMax, mZMin, mZMax);
 }
 
-void MagneticFieldRegion::cacheValues(const std::string& line, std::vector<float>& cachev, bool flipSign)
+void MagneticFieldRegion::cacheValues(const std::string& line, std::vector<float>& cachev)
 {
   std::istringstream iss(line);
   auto vstr = na6p::utils::Str::tokenize(line, ',', true, false);
   for (auto& s : vstr) {
     try {
-      int sign = flipSign ? -1 : 1;
-      cachev.push_back(sign*std::stof(s));
+      cachev.push_back(std::stof(s));
     } catch (...) {
       // ignore
     }
