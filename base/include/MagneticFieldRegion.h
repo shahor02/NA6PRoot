@@ -18,8 +18,8 @@ class MagneticFieldRegion
   float getYMax() const { return mYMax; }
   float getZMax() const { return mZMax; }
 
-  void loadFlukaField(const std::string& filename, bool flipSign);
-  void loadOpera3DField(const std::string& filename, bool flipSign);
+  void loadFlukaField(const std::string& filename);
+  void loadOpera3DField(const std::string& filename);
 
   template <typename T = float>
   bool isInside(const T* xyz) const
@@ -83,7 +83,7 @@ class MagneticFieldRegion
   void setName(const std::string& s) { mName = s; }
 
  private:
-  void cacheValues(const std::string& line, std::vector<float>& cachev, bool flipSign = false);
+  void cacheValues(const std::string& line, std::vector<float>& cachev);
   void interpolateField(int i, int j, int k, float x, float y, float z, double* bxbybz) const;
   void interpolateFieldAdd(int i, int j, int k, float x, float y, float z, double* bxbybz) const;
   float getFieldComponent(int i, int j, int k, int dim) const
