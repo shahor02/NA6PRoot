@@ -24,7 +24,7 @@ struct NA6PLayoutParam : public na6p::conf::ConfigurableParamHelper<NA6PLayoutPa
   std::string rotatedFieldMap = "field_map_rotated.txt";
 
   // VerTel Dipole
-  float posDipIP[3] = {0.f, 0.f, 0.f}; // Vertex dipole position
+  float posDipIP[3] = {0.f, 0.f, 32.5f}; // Vertex dipole position
   std::string flukaInpDipVT = "$(NA6PROOT_ROOT)/share/data/MEP48_field_map.inp";
 
   // MS Dipole
