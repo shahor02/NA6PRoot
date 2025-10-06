@@ -44,8 +44,7 @@ void MagneticField::setAsGlobalField()
 void MagneticField::dumpMagFieldMap(double xmin, double xmax,
                                     double ymin, double ymax,
                                     double zmin, double zmax,
-                                    double step, std::string fieldMapFile,
-                                    std::string rotatedFieldMapFile)
+                                    double step, std::string fieldMapFile)
 {
   std::ofstream fieldMap(fieldMapFile.c_str());
   std::ofstream rotatedFieldMap(rotatedFieldMapFile.c_str());
@@ -68,26 +67,7 @@ void MagneticField::dumpMagFieldMap(double xmin, double xmax,
       }
     }
   }
-
-
-  for (double ix = xmin; ix <= xmax; ix += step) {
-    for (double iz = ymin; iz <= ymax; iz += step) {
-      for (double iy = zmin; iy <= zmax; iy += step) {
-        x[0] = ix;
-        x[1] = iy;
-        x[2] = iz;
-
-        Field(x, b);
-        
-        // ACTS uses mm instead of cm
-        rotatedFieldMap << ix*10 << " " << iz*10 << " " << -iy*10 << " "
-            << b[0]/mScale2Unit << " " << b[1]/mScale2Unit << " " << b[2]/mScale2Unit << "\n";
-      }
-    }
-  }
-
   fieldMap.close();
-  rotatedFieldMap.close();
 }
 
 void MagneticField::dumpMagFieldFromConfig()
@@ -97,6 +77,5 @@ void MagneticField::dumpMagFieldFromConfig()
   dumpMagFieldMap(param.xMinFieldDump, param.xMaxFieldDump,
                   param.yMinFieldDump, param.yMaxFieldDump,
                   param.zMinFieldDump, param.zMaxFieldDump,
-                  param.stepFieldDump, param.fieldMap,
-                  param.rotatedFieldMap);
+                  param.stepFieldDump, param.fieldMap);
 }
