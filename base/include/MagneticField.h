@@ -21,8 +21,7 @@ class MagneticField : public TVirtualMagField
   void dumpMagFieldMap(double xmin, double xmax, 
                        double ymin, double ymax, 
                        double zmin, double zmax, 
-                       double step, std::string fieldMapFile,
-                       std::string rotatedFieldMapFile);
+                       double step, std::string fieldMapFile);
   void dumpMagFieldFromConfig();
 
 

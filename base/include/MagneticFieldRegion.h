@@ -75,7 +75,7 @@ class MagneticFieldRegion
     int k = findGridIndex(z, mZMin, mDZI, mNZ1);
 
     // Perform second-degree interpolation
-    interpolateField(i, j, k, x, y, z, bxbybz);
+    interpolateFieldAdd(i, j, k, x, y, z, bxbybz);
     return true;
   }
 
