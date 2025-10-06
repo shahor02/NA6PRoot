@@ -47,8 +47,7 @@ void MagneticField::dumpMagFieldMap(double xmin, double xmax,
                                     double step, std::string fieldMapFile)
 {
   std::ofstream fieldMap(fieldMapFile.c_str());
-  std::ofstream rotatedFieldMap(rotatedFieldMapFile.c_str());
-
+  
   Double_t x[3];
   Double_t b[3];
 
