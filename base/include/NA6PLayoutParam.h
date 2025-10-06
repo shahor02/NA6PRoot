@@ -21,7 +21,6 @@ struct NA6PLayoutParam : public na6p::conf::ConfigurableParamHelper<NA6PLayoutPa
   float zMaxFieldDump = 900.f;  // max Z of the magnetic field in cm
   float stepFieldDump = 5.f;    // step in cm for the magnetic field map
   std::string fieldMap = "field_map.txt";
-  std::string rotatedFieldMap = "field_map_rotated.txt";
 
   // VerTel Dipole
   float posDipIP[3] = {0.f, 0.f, 0.f}; // Vertex dipole position
