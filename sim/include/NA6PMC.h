@@ -49,6 +49,7 @@ class NA6PMC : public TVirtualMCApplication
   void closeKineOutput();
   void writeKine();
   void forceCharmHadronicDecays();
+  void forceJpsiDecays();
 
   NA6PMCStack* getMCStack() { return mStack.get(); }
 

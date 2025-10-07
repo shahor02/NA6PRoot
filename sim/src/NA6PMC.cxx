@@ -85,6 +85,7 @@ void NA6PMC::AddParticles()
   //
   addSpecialParticles(); // copied from O2
   forceCharmHadronicDecays();
+  forceJpsiDecays();
   callUserHook(UserHook::ADDParticles, false); // call at entry
 }
 
@@ -124,6 +125,16 @@ void NA6PMC::forceCharmHadronicDecays()
   Lc_decay_mode[0][1] = 2212; // p
   Lc_decay_mode[0][2] = 211;  // pi+
   TVirtualMC::GetMC()->SetDecayMode(4122, Lc_BR, Lc_decay_mode);
+}
+
+void NA6PMC::forceJpsiDecays()
+{
+  int Jpsi_decay_mode[6][3] = {{0}};
+  float Jpsi_BR[6] = {100.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+  Jpsi_decay_mode[0][0] = 13;  // mu-
+  Jpsi_decay_mode[0][1] = -13; // mu+
+  TVirtualMC::GetMC()->SetDecayMode(443, Jpsi_BR, Jpsi_decay_mode);
+
 }
 
 void NA6PMC::GeneratePrimaries()
