@@ -132,7 +132,7 @@ class NA6PBaseHit
   float mPosIn[3] = {};          // cartesian position of Hit at the entrance
   float mPosOut[3] = {};         // cartesian position of Hit at the exit
   float mMomIn[3] = {};          // momentum at entrance
-  float mMomOut[3] = {};          // momentum at exit
+  float mMomOut[3] = {};         // momentum at exit
   float mTime = 0.f;             // time of flight
   float mHitValue = 0.;          // hit value
   int mTrackID = 0;              // track_id
