@@ -138,11 +138,12 @@ bool NA6PMuonSpec::stepManager(int volID)
     mTrackData.mHitStarted = true;
   }
   if (stopHit) {
-    TLorentzVector positionStop;
+    TLorentzVector positionStop, momentumStop;
+    mc->TrackMomentum(momentumStop);
     mc->TrackPosition(positionStop);
     // Retrieve the indices with the volume path
     auto* p = addHit(stack->GetCurrentTrackNumber(), sensID, mTrackData.mPositionStart.Vect(), positionStop.Vect(),
-                     mTrackData.mMomentumStart.Vect(), positionStop.T(),
+                     mTrackData.mMomentumStart.Vect(), momentumStop.Vect(), positionStop.T(),
                      mTrackData.mEnergyLoss, mTrackData.mTrkStatusStart, status);
     if (mVerbosity > 0) {
       LOGP(info, "{} Tr{} {}", getName(), stack->GetCurrentTrackNumber(), p->asString());
@@ -154,10 +155,10 @@ bool NA6PMuonSpec::stepManager(int volID)
   return false;
 }
 
-NA6PMuonSpecHit* NA6PMuonSpec::addHit(int trackID, int detID, const TVector3& startPos, const TVector3& endPos, const TVector3& startMom,
+NA6PMuonSpecHit* NA6PMuonSpec::addHit(int trackID, int detID, const TVector3& startPos, const TVector3& endPos, const TVector3& startMom, const TVector3& endMom,
                                       float endTime, float eLoss, unsigned char startStatus, unsigned char endStatus)
 {
-  mHits.emplace_back(trackID, detID, startPos, endPos, startMom, endTime, eLoss, startStatus, endStatus);
+  mHits.emplace_back(trackID, detID, startPos, endPos, startMom, endMom, endTime, eLoss, startStatus, endStatus);
   return &(mHits.back());
 }
 
