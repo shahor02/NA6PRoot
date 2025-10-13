@@ -133,7 +133,7 @@ void convert2ACTS(const std::string& dirname = "./",
                   const std::string& fnameMCKin = "MCKine.root",
                   const std::string& fnameVTHits = "HitsVerTel.root",
                   const std::string& fnameMSHits = "HitsMuonSpecModular.root",
-                  const std::string& geometryFile = "/home/giacomo/acts_for_NA60+/ACTS-Analysis-Scripts/geometry/fullgeo/geometry-map.json",
+                  const std::string& geometryFile = "geometry-map.json",
                   const std::string& confOpts = "",
                   bool useModularSpec = true)
 {
