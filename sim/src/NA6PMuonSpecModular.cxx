@@ -93,18 +93,21 @@ void NA6PMuonSpecModular::createGeometry(TGeoVolume* world)
 
     auto stnm = fmt::format("MS{}", ist);
 
+    // Stazione NON sensibile (solo contenitore)
     auto* station = new TGeoBBox((stnm + "SH").c_str(), param.dimXMSPlane[ist] / 2.0f + EnvelopDXH, param.dimYMSPlane[ist] / 2.0f + EnvelopDYH, pixChipDz / 2.0f + EnvelopDZH);
     auto stationSensVol = new TGeoVolume(stnm.c_str(), station, NA6PTGeoHelper::instance().getMedium(addName(param.medMSPlane[ist])));
 
     LOGP(info, "Creating MS station {} with dimensions: X={} Y={} Z={}", stnm, param.dimXMSPlane[ist], param.dimYMSPlane[ist], pixChipDz);
     placeSensors(param.dimXMSPlane[ist], param.dimYMSPlane[ist], param.msChipDX[ist], param.msChipDY[ist], param.dimXMSPlaneHole[ist], param.dimYMSPlaneHole[ist], stationSensVol, MSSensor);
 
+    // Envelope NON sensibile
     auto stationSensVolEnv = new TGeoVolume((stnm + "Env").c_str(), station, NA6PTGeoHelper::instance().getMedium(addName("Air")));
-    stationSensVolEnv->AddNode(stationSensVol, composeSensorVolID(ist));
+    
+    // IMPORTANTE: usa composeNonSensorVolID per il contenitore
+    stationSensVolEnv->AddNode(stationSensVol, composeNonSensorVolID(ist));
     world->AddNode(stationSensVolEnv, composeNonSensorVolID(ist), new TGeoTranslation(param.shiftMS[0] + param.posMSPlaneX[ist], param.shiftMS[1] + param.posMSPlaneY[ist], param.shiftMS[2] + param.posMSPlaneZ[ist]));
   }
 }
-
 void NA6PMuonSpecModular::setAlignableEntries()
 {
   const auto& param = NA6PLayoutParam::Instance();
@@ -169,11 +172,12 @@ bool NA6PMuonSpecModular::stepManager(int volID)
     mTrackData.mHitStarted = true;
   }
   if (stopHit) {
-    TLorentzVector positionStop;
+    TLorentzVector positionStop, momentumStop;
+    mc->TrackMomentum(momentumStop);
     mc->TrackPosition(positionStop);
     // Retrieve the indices with the volume path
     auto* p = addHit(stack->GetCurrentTrackNumber(), sensID, mTrackData.mPositionStart.Vect(), positionStop.Vect(),
-                     mTrackData.mMomentumStart.Vect(), positionStop.T(),
+                     mTrackData.mMomentumStart.Vect(), momentumStop.Vect(), positionStop.T(),
                      mTrackData.mEnergyLoss, mTrackData.mTrkStatusStart, status);
     if (mVerbosity > 0) {
       LOGP(info, "{} Tr{} {}", getName(), stack->GetCurrentTrackNumber(), p->asString());
@@ -185,10 +189,10 @@ bool NA6PMuonSpecModular::stepManager(int volID)
   return false;
 }
 
-NA6PMuonSpecModularHit* NA6PMuonSpecModular::addHit(int trackID, int detID, const TVector3& startPos, const TVector3& endPos, const TVector3& startMom,
+NA6PMuonSpecModularHit* NA6PMuonSpecModular::addHit(int trackID, int detID, const TVector3& startPos, const TVector3& endPos, const TVector3& startMom, const TVector3& endMom,
                                       float endTime, float eLoss, unsigned char startStatus, unsigned char endStatus)
 {
-  mHits.emplace_back(trackID, detID, startPos, endPos, startMom, endTime, eLoss, startStatus, endStatus);
+  mHits.emplace_back(trackID, detID, startPos, endPos, startMom, endMom, endTime, eLoss, startStatus, endStatus);
   return &(mHits.back());
 }
 

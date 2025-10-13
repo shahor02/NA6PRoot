@@ -28,7 +28,7 @@ class NA6PVerTel : public NA6PModule
 
   const auto& getHits() const { return mHits; }
 
-  NA6PVerTelHit* addHit(int trackID, int detID, const TVector3& startPos, const TVector3& endPos, const TVector3& startMom,
+  NA6PVerTelHit* addHit(int trackID, int detID, const TVector3& startPos, const TVector3& endPos, const TVector3& startMom, const TVector3& endMom,
                         float endTime, float eLoss, unsigned char startStatus, unsigned char endStatus);
 
  private:

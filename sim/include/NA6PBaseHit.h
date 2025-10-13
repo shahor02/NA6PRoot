@@ -34,7 +34,7 @@ class NA6PBaseHit
   };
 
   NA6PBaseHit() = default;
-  NA6PBaseHit(int trackid, short did, const TVector3& xyzIn, const TVector3& xyzOut, const TVector3& momIn, float time, float val, uint8_t statusStart, uint8_t statusEnd);
+  NA6PBaseHit(int trackid, short did, const TVector3& xyzIn, const TVector3& xyzOut, const TVector3& momIn, const TVector3& momOut, float time, float val, uint8_t statusStart, uint8_t statusEnd);
 
   auto getTrackID() const { return mTrackID; }
   void setTrackID(int id) { mTrackID = id; }
@@ -55,9 +55,13 @@ class NA6PBaseHit
   auto getZ() const { return 0.5 * (mPosIn[2] + mPosOut[2]); }
 
   auto* getMomIn() const { return mMomIn; }
-  auto getPX() const { return mMomIn[0]; }
-  auto getPY() const { return mMomIn[1]; }
-  auto getPZ() const { return mMomIn[2]; }
+  auto* getMomOut() const { return mMomOut; }
+  auto getPXIn() const { return mMomIn[0]; }
+  auto getPYIn() const { return mMomIn[1]; }
+  auto getPZIn() const { return mMomIn[2]; }
+  auto getPXOut() const { return mMomOut[0]; }
+  auto getPYOut() const { return mMomOut[1]; }
+  auto getPZOut() const { return mMomOut[2]; }
 
   auto getHitValue() const { return mHitValue; }
   auto getTime() const { return mTime; }
@@ -114,6 +118,13 @@ class NA6PBaseHit
     mMomIn[2] = v.Z();
   }
 
+  void setMomOut(const TVector3& v)
+  {
+    mMomOut[0] = v.X();
+    mMomOut[1] = v.Y();
+    mMomOut[2] = v.Z();
+  }
+
   void print() const;
   std::string asString() const;
 
@@ -121,6 +132,7 @@ class NA6PBaseHit
   float mPosIn[3] = {};          // cartesian position of Hit at the entrance
   float mPosOut[3] = {};         // cartesian position of Hit at the exit
   float mMomIn[3] = {};          // momentum at entrance
+  float mMomOut[3] = {};          // momentum at entrance
   float mTime = 0.f;             // time of flight
   float mHitValue = 0.;          // hit value
   int mTrackID = 0;              // track_id
