@@ -38,3 +38,15 @@ void NA6PGenCocktail::generate()
     ((NA6PGenerator*)g)->generate();
   }
 }
+
+long NA6PGenCocktail::canGenerateMaxEvents() const
+{
+  long n = -1;
+  for (auto g : mGenerators) {
+    auto ng = ((NA6PGenerator*)g)->canGenerateMaxEvents();
+    if (ng >= 0 && (n < 0 || n > ng)) {
+      n = ng;
+    }
+  }
+  return n;
+}

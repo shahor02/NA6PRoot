@@ -12,6 +12,7 @@ include_directories(${UTILS_INCLUDE_DIR})
 include_directories(${BASE_INCLUDE_DIR})
 include_directories(${ROOT_INCLUDE_DIRS})
 include_directories(${VMC_INCLUDE_DIRS})
+include_directories(${HEPMC3_INCLUDE_DIR})
 
 file(GLOB THIS_SOURCES ${THIS_SRC_DIR}/*.cxx)
 file(GLOB THIS_HEADERS ${THIS_INCLUDE_DIR}/*.h)
@@ -27,6 +28,7 @@ set(DICTIONARY_HEADERS
   NA6PMCGenHeader.h
   NA6PGenBox.h
   NA6PGenParam.h
+  NA6PGenHepMC.h
   NA6PGenCocktail.h
   NA6PBaseHit.h
   NA6PVerTelHit.h
@@ -62,6 +64,7 @@ target_link_libraries(${LIB_NAME}
     ${VMC_LIBRARIES}
     baseLib
     utilsLib
+    HepMC3
 )
 
 # Installation instructions
