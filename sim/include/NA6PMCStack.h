@@ -34,6 +34,11 @@ class TClonesArray;
 class NA6PMCStack : public TVirtualMCStack
 {
  public:
+  enum ParticleStatus {
+    kToBeDone = BIT(16),
+    kPrimary = BIT(17)
+  };
+
   NA6PMCStack(int size);
   NA6PMCStack();
   ~NA6PMCStack() override;

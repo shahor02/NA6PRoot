@@ -68,7 +68,7 @@ void NA6PMCStack::PushTrack(int toBeDone, int parent, int pdg,
   /// adds it to the particles array (mParticles) and if not done to the
   /// stack (mStack).
   /// Use TParticle::fMother[1] to store Track ID.
-  /// \param toBeDone  1 if particles should go to tracking, 0 otherwise
+  /// \param toBeDone  +-1 if particles should go to tracking, 0 otherwise (-1 in case a short lived parent is provided)
   /// \param parent    number of the parent track, -1 if track is primary
   /// \param pdg       PDG encoding
   /// \param px        particle momentum - x component [GeV/c]
@@ -100,12 +100,14 @@ void NA6PMCStack::PushTrack(int toBeDone, int parent, int pdg,
   particle->SetWeight(weight);
   particle->SetUniqueID(mech);
 
-  if (parent < 0) {
+  if (mech == TMCProcess::kPPrimary) {
     mNPrimary++;
+    particle->SetBit(ParticleStatus::kPrimary);
   }
 
   if (toBeDone) {
     mStack.push(particle);
+    particle->SetBit(ParticleStatus::kToBeDone);
   }
 
   ntr = GetNtrack() - 1;
@@ -124,6 +126,9 @@ TParticle* NA6PMCStack::PopNextTrack(int& itrack)
 
   itrack = -1;
   if (mStack.empty()) {
+    if (mVerbosity > 1) {
+      LOGP(info, "PopNextTrack ret NULL | NParticles:{}, NPrimaries:{} StackSize:0", GetNtrack(), GetNprimary());
+    }
     return nullptr;
   }
 
@@ -148,13 +153,15 @@ TParticle* NA6PMCStack::PopPrimaryForTracking(int i)
   /// Return \em i -th particle in mParticles.
   /// \return   The popped primary particle object
   /// \param i  The index of primary particle to be popped
-  if (mVerbosity > 1) {
-    LOGP(info, "PopPrimaryForTracking {} | NParticles:{}, NPrimaries:{} StackSize:{}", i, GetNtrack(), GetNprimary(), mStack.size());
-  }
   if (i < 0 || i >= mNPrimary) {
     LOGP(fatal, "PopPrimaryForTracking: index {} out of range {}", i, mNPrimary);
   }
-  return (TParticle*)mParticles->At(i);
+  auto p = (TParticle*)mParticles->At(i);
+  if (mVerbosity > 1) {
+    LOGP(info, "PopPrimaryForTracking {}: {}OK to be tracked | NParticles:{}, NPrimaries:{} StackSize:{}",
+         i, p->TestBit(ParticleStatus::kToBeDone) ? "" : "NOT ", GetNtrack(), GetNprimary(), mStack.size());
+  }
+  return p->TestBit(ParticleStatus::kToBeDone) ? p : nullptr;
 }
 
 //_____________________________________________________________________________

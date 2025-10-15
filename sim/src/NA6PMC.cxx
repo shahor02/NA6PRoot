@@ -137,12 +137,17 @@ void NA6PMC::forceJpsiDecays()
 
 }
 
+long NA6PMC::canGenerateMaxEvents() const
+{
+  return mGenerator ? mGenerator->canGenerateMaxEvents() : 0;
+}
+
 void NA6PMC::GeneratePrimaries()
 {
   // Implement primary particle generation here
   mGenerator->generate();
   if (mVerbosity > 0) {
-    LOGP(info, "Generated {} primary particles with {}", mStack->GetNprimary(), mGenerator->getName());
+    LOGP(info, "{} primaries, {} tracks, generator: {}", mStack->GetNprimary(), mStack->GetNtrack(), mGenerator->getName());
     if (mVerbosity > 2) {
       mStack->Print();
     }
@@ -206,29 +211,49 @@ void NA6PMC::Stepping()
 
 bool NA6PMC::setupGenerator(const std::string& s)
 {
+  if (s.empty()) {
+    return false;
+  }
   TInterpreter::EErrorCode errCode = TInterpreter::EErrorCode::kNoError;
   NA6PGenerator* gen = nullptr;
-  if (Str::endsWith(s, ".C") || Str::endsWith(s, ".C+") || Str::endsWith(s, ".C++") || Str::endsWith(s, ".C+g") || Str::endsWith(s, ".cxx++g")) {
-    TInterpreter::Instance()->LoadMacro(s.c_str(), &errCode);
-    if (errCode != TInterpreter::EErrorCode::kNoError) {
-      LOGP(fatal, "Loading of generator macro {} leads to error TInterpreter::EErrorCode={}", s, int(errCode));
+  auto parseGen = [&]() {
+    const std::regex pattern(R"(^(\S+)((?:\.C|.C\+|\.C\+\+|\.C\+g|\.C\+\+g|\.cxx\+|\.cxx\+\+|\.cxx\+g|\.cxx\+\+g))(?:\(([^)]*)\))?$)");
+    std::array<std::string, 3> res{};
+    std::smatch match;
+    if (std::regex_match(s, match, pattern)) {
+      res[0] = match[1];
+      res[1] = match[2];
+      if (match[3].matched) {
+        res[2] = match[3];
+      }
     }
-    std::filesystem::path mpth(s);
-    std::string confMacroFun = fmt::format("{}()", mpth.stem().string());
-    gen = dynamic_cast<NA6PGenerator*>((TObject*)TInterpreter::Instance()->ProcessLineSynch(confMacroFun.c_str(), &errCode));
-    if (errCode != TInterpreter::EErrorCode::kNoError || !gen) {
-      LOGP(fatal, "Execution of generator function {} from macro {} leads to error TInterpreter::EErrorCode={} and returned pointer {}",
-           confMacroFun, s, int(errCode), (void*)gen);
-    }
-    gen->setStack(mStack.get());
-    if (mRandomSeed) {
-      gen->setRandomSeed(mRandomSeed);
-    }
-    gen->init();
-    mGenerator.reset(gen);
-    LOGP(info, "Initialized generator {} via macro {}", mGenerator->getName(), s);
+    return res;
+  };
+  auto genData = parseGen();
+  if (genData[0].empty() || genData[1].empty()) {
+    LOGP(fatal, "Failed to parse generator input string {}", s);
   }
-
+  std::string cmd = genData[0] + genData[1];
+  LOGP(info, "Loading generator macro {}", cmd);
+  TInterpreter::Instance()->LoadMacro(cmd.c_str(), &errCode);
+  if (errCode != TInterpreter::EErrorCode::kNoError) {
+    LOGP(fatal, "Failed to load generator macro {}, error TInterpreter::EErrorCode={}", cmd.c_str(), int(errCode));
+  }
+  auto stemStart = genData[0].find_last_of('/');
+  std::string invStr = fmt::format("{}({})", stemStart >= genData[0].length() ? genData[0] : genData[0].substr(stemStart + 1), genData[2]);
+  LOGP(info, "Invoking generator initialization as {}", invStr);
+  gen = dynamic_cast<NA6PGenerator*>((TObject*)TInterpreter::Instance()->ProcessLineSynch(invStr.c_str(), &errCode));
+  if (errCode != TInterpreter::EErrorCode::kNoError || !gen) {
+    LOGP(fatal, "Execution of generator function {} from macro {} leads to error TInterpreter::EErrorCode={} and returned pointer {}",
+         invStr, s, int(errCode), (void*)gen);
+  }
+  gen->setStack(mStack.get());
+  if (mRandomSeed) {
+    gen->setRandomSeed(mRandomSeed);
+  }
+  gen->init();
+  mGenerator.reset(gen);
+  LOGP(info, "Initialized generator {} via macro {}", mGenerator->getName(), s);
   return mGenerator != nullptr;
 }
 

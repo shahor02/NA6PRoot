@@ -32,7 +32,7 @@ int main(int argc, char** argv)
     add_option("configKeyValues", bpo::value<std::string>()->default_value(""), "comma-separated configKeyValues");
     add_option("load-ini", bpo::value<std::string>()->default_value(""), "load configurables from ini file (if defined), overridden by configKeyValues");
     add_option("disable-write-ini", bpo::value<bool>()->default_value(false)->implicit_value(true), "do not write ini file");
-    add_option("nevents,n", bpo::value<uint32_t>()->default_value(1), "number of events to generate");
+    add_option("nevents,n", bpo::value<int32_t>()->default_value(1), "number of events to generate");
     add_option("generator,g", bpo::value<std::string>()->default_value(""), "generator defintion root C macro, must return NA6PGenerator pointer");
     add_option("user-hooks,u", bpo::value<std::string>()->default_value(""), "root macro C macro with user hooks for initialization");
     add_option("rnd-seed,r", bpo::value<int64_t>()->default_value(-1), "random number seed, 0 - do not set, <0: generate from time");
@@ -90,7 +90,14 @@ int main(int argc, char** argv)
   }
   mc->init();
 
-  const int nEvents = vm["nevents"].as<uint32_t>(); // Number of events to simulate
+  int nEvents = vm["nevents"].as<int32_t>(); // Number of events to simulate
+  auto maxEvFromGenerator = mc->canGenerateMaxEvents();
+  if (maxEvFromGenerator > 0) {
+    LOGP(info, "Generator can generate at most {} events", maxEvFromGenerator);
+    if (nEvents < 0 || nEvents > maxEvFromGenerator) {
+      nEvents = maxEvFromGenerator;
+    }
+  }
   if (nEvents && mc->getGenerator()) {
     LOGP(info, "Processing {} events", nEvents);
     // RS: if we want to silence long geant initialization output, we can add here MiscUtils::silenceStdOut("for Geant4 inits");

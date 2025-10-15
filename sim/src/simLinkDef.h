@@ -34,6 +34,7 @@
 
 #pragma link C++ class NA6PGenBox + ;
 #pragma link C++ class NA6PGenParam + ;
+#pragma link C++ class NA6PGenHepMC + ;
 #pragma link C++ class NA6PGenCocktail + ;
 
 #pragma link C++ class std::vector < TParticle> + ;
