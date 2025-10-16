@@ -68,7 +68,7 @@ void NA6PMCStack::PushTrack(int toBeDone, int parent, int pdg,
   /// adds it to the particles array (mParticles) and if not done to the
   /// stack (mStack).
   /// Use TParticle::fMother[1] to store Track ID.
-  /// \param toBeDone  1 if particles should go to tracking, 0 otherwise
+  /// \param toBeDone  +-1 if particles should go to tracking, 0 otherwise (-1 in case a short lived parent is provided)
   /// \param parent    number of the parent track, -1 if track is primary
   /// \param pdg       PDG encoding
   /// \param px        particle momentum - x component [GeV/c]
@@ -100,8 +100,9 @@ void NA6PMCStack::PushTrack(int toBeDone, int parent, int pdg,
   particle->SetWeight(weight);
   particle->SetUniqueID(mech);
 
-  if (parent < 0) {
+  if (parent < 0 || toBeDone==-1) {
     mNPrimary++;
+    mNFromGenerator++;
   }
 
   if (toBeDone) {
@@ -124,6 +125,9 @@ TParticle* NA6PMCStack::PopNextTrack(int& itrack)
 
   itrack = -1;
   if (mStack.empty()) {
+    if (mVerbosity > 1) {
+      LOGP(info, "PopNextTrack ret NULL | NParticles:{}, NPrimaries:{} StackSize:0", GetNtrack(), GetNprimary());
+    }
     return nullptr;
   }
 

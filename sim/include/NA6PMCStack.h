@@ -47,6 +47,9 @@ class NA6PMCStack : public TVirtualMCStack
   void Print(Option_t* option = "") const override;
   void clear();
 
+  int getNFromGenerator() const { return mNFromGenerator; }
+  void setNFromGenerator(int n) { mNFromGenerator = n; }
+  
   void SetCurrentTrack(int track) override;
   int GetNtrack() const override { return mParticles->GetEntriesFast(); }
   int GetNprimary() const override { return mNPrimary; }
@@ -77,6 +80,7 @@ class NA6PMCStack : public TVirtualMCStack
   bool mPVGenerated = false;
   int mCurrentTrack = -1;
   int mNPrimary = 0;
+  int mNFromGenerator = 0; // particles added from the generator (== primaries, unless tobodone=0 particles can be added, in this case, the generator should set it explicitly, see NA6PGenHepMC::generate for example)
   int mVerbosity = 0;
 
   ClassDefOverride(NA6PMCStack, 1); // NA6PMCStack

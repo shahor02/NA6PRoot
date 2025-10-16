@@ -30,6 +30,7 @@ void NA6PGenHepMC::generate()
 
   generatePrimaryVertex(); // will generate if not generated yet, otherwise, will set the origin from the MCHeader of the stack.
   auto mcHead = getStack()->getEventHeader();
+  int nFromGeneratorOld = getStack()->getNFromGenerator();
   double xv = mcHead->getVX();
   double yv = mcHead->getVY();
   double zv = mcHead->getVZ();
@@ -55,7 +56,7 @@ void NA6PGenHepMC::generate()
   int pdgCode, status;
   float phi, pt, pZ, en, sn, cs;
   float vx, vy, vz, tof; // tof in mm/c
-  bool tobetracked;
+  int tobetracked = 0;
   
   std::vector<int> partons = {1, 2, 3, 4, 5, 6, 21}; // to remove quarks and gluons
   std::vector<int> mothersid; // vector to store id of particles after purging kinematics from gluons, quarks, diquarks and exotica
@@ -84,10 +85,10 @@ void NA6PGenHepMC::generate()
 	} else {
 	  mothersid.push_back(nparticlesgood); // Add the particle to the list of potential mothers
 	  nparticlesgood++;
-	  tobetracked = kFALSE; // not to be tracked by GEANT4
+	  tobetracked = 0; // not to be tracked by GEANT4
 	}
       } else { // Final state particles do not have an end vertex
-	tobetracked = kTRUE; // to be tracked by GEANT4
+	tobetracked = 1; // to be tracked by GEANT4
 	mothersid.push_back(nparticlesgood);
 	nparticlesgood++;
       }
@@ -114,35 +115,33 @@ void NA6PGenHepMC::generate()
       vy = pos.y() + yv;
       vz = pos.z() + zv;
       tof = pos.t();           
-      int dummy = 0
+      int dummy = 0;
 
-      // Temporary, to avoid crash
-      //      if(mothertobestored == -1) { 
-      //        tobetracked = 1; //test
       nparticleskept++; //test
-      int toBeDone = tobetracked ? 1 : 0;
-      if (mothertobestored >= 0) {}
-      getStack()->PushTrack(tobetracked,mothertobestored,pdgCode, pt*cs, pt*sn, pZ, en, vx, vy, vz, tof, 0., 0., 0., TMCProcess::kPPrimary, dummy, 1., status); 
-	//      } 
-//Temporary, to avoid crash
-      
+      if (tobetracked && mothertobestored >= 0) {
+	tobetracked = -1; // flag that this is a primary for which a short-lived decayed parent is provided
+      }
+      getStack()->PushTrack(tobetracked, mothertobestored, pdgCode, pt*cs, pt*sn, pZ, en, vx, vy, vz, tof, 0., 0., 0., TMCProcess::kPPrimary, dummy, 1., status);       
     } else {
-      LOGP(info, "particle {} with no production vertex\n",p->id()-1);
+      LOGP(info, "particle {} with no production vertex\n", p->id()-1);
       mothersid.push_back(-1);
       continue;
     }
     nparticles++;
   }
-  // register generator header in the MCHeader
-//  static std::string info = fmt::format("{}_x{}", getName(), nparticlesgood);
-//  mcHead->getGenHeaders().emplace_back(nparticlesgood, 0, mcHead->getNPrimaries(), 0, info);
-//  mcHead->incNPrimaries(nparticlesgood);
+  
+  getStack()->setNFromGenerator(nFromGeneratorOld + nparticleskept);
 
-// Temporary, to avoid crash
+  // register generator header in the MCHeader
+  //  static std::string info = fmt::format("{}_x{}", getName(), nparticlesgood);
+  //  mcHead->getGenHeaders().emplace_back(nparticlesgood, 0, mcHead->getNPrimaries(), 0, info);
+  //  mcHead->incNPrimaries(nparticlesgood);
+
+  // Temporary, to avoid crash
   static std::string info = fmt::format("{}_x{}", getName(), nparticleskept); //test
   mcHead->getGenHeaders().emplace_back(nparticleskept, 0, mcHead->getNPrimaries(), 0, info); //test
   mcHead->incNPrimaries(nparticleskept); //test
-// Temporary, to avoid crash
+  // Temporary, to avoid crash
 
   evt.clear();
   mothersid.clear();
