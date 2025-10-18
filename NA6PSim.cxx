@@ -90,7 +90,14 @@ int main(int argc, char** argv)
   }
   mc->init();
 
-  const int nEvents = vm["nevents"].as<uint32_t>(); // Number of events to simulate
+  int nEvents = vm["nevents"].as<uint32_t>(); // Number of events to simulate
+  auto maxEvFromGenerator = mc->canGenerateMaxEvents();
+  if (maxEvFromGenerator > 0) {
+    LOGP(info, "Generator can generate at most {} events", maxEvFromGenerator);
+    if (nEvents == 0 || long(nEvents) > maxEvFromGenerator) {
+      nEvents = maxEvFromGenerator;
+    }
+  }
   if (nEvents && mc->getGenerator()) {
     LOGP(info, "Processing {} events", nEvents);
     // RS: if we want to silence long geant initialization output, we can add here MiscUtils::silenceStdOut("for Geant4 inits");

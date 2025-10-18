@@ -4,6 +4,7 @@
 #define NA6P_GENHEPMC_H
 
 #include "NA6PGenerator.h"
+#include "HepMC3/ReaderRootTree.h"
 
 class NA6PGenHepMC : public NA6PGenerator
 {
@@ -18,10 +19,14 @@ class NA6PGenHepMC : public NA6PGenerator
   void init() override;
 
   void SetFileName(const std::string& name){mFileName = name;}
+  long canGenerateMaxEvents() const override;
   
  protected:
+  inline static const std::string HEPTreeName {"hepmc3_tree"};
   std::string mFileName = {};
-  ulong       mReadEvents = 0;
+  long mNEvInTree = -1; 
+  long mReadEvents = 0;
+  std::unique_ptr<HepMC3::ReaderRootTree> mHEPRootFileReader;
   
   ClassDefOverride(NA6PGenHepMC, 1); // 
 };

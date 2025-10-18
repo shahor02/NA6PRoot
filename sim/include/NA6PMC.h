@@ -35,6 +35,7 @@ class NA6PMC : public TVirtualMCApplication
 
   bool setupGenerator(const std::string& s);
   auto getGenerator() const { return mGenerator.get(); }
+  long canGenerateMaxEvents() const;
 
   void setRandomSeed(Long64_t r);
   auto getRandomSeed() const { return mRandomSeed; }

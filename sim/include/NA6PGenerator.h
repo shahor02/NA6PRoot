@@ -21,6 +21,7 @@ class NA6PGenerator : public TObject
   auto getStack() { return mStack; }
   auto getStack() const { return mStack; }
 
+  virtual long canGenerateMaxEvents() const { return -1; } // if no limit, return negative number
   virtual void generate() = 0;
   virtual void init();
   virtual void generatePrimaryVertex(int maxTrials = 1000000);
@@ -51,7 +52,7 @@ class NA6PGenerator : public TObject
 
   void setVerbosity(int v) { mVerbosity = v; }
   auto getVerbosity() const { return mVerbosity; }
-
+  
  protected:
   std::string mName = {};
   std::array<double, 3> mOrigin{}; //! event origin

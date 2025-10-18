@@ -137,6 +137,11 @@ void NA6PMC::forceJpsiDecays()
 
 }
 
+long NA6PMC::canGenerateMaxEvents() const
+{
+  return mGenerator ? mGenerator->canGenerateMaxEvents() : 0;
+}
+
 void NA6PMC::GeneratePrimaries()
 {
   // Implement primary particle generation here

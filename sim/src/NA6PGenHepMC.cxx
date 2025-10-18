@@ -6,28 +6,56 @@
 #include "HepMC3/GenParticle.h"
 #include "HepMC3/GenVertex.h"
 #include "HepMC3/FourVector.h"
-#include "HepMC3/ReaderRootTree.h"
 #include <TDatabasePDG.h>
 #include <TMath.h>
 #include <cmath>
 
 
 NA6PGenHepMC::NA6PGenHepMC(const std::string& name, const std::string& filname) : NA6PGenerator(name), mFileName(filname), mReadEvents(0)
-{}
+{
+  LOGP(info, "create NA6PGenHepMC {} {}", name, filname);
+}
 
-
+long NA6PGenHepMC::canGenerateMaxEvents() const
+{
+  if (mNEvInTree<0 || isInitDone()) {
+    LOGP(fatal, "Initialization was not done");
+  }
+  return mNEvInTree;
+}
 
 void NA6PGenHepMC::init()
 {
+  LOGP(info, "NA6PGenHepMC init");
   if (isInitDone()) {
     return;
   }
+  try {
+    auto fl = TFile::Open(mFileName.c_str());
+    assert(fl);
+    TTree* tree = (TTree*)fl->Get(HEPTreeName.c_str());
+    assert(tree);
+    mNEvInTree = tree->GetEntries();
+    delete tree;
+    fl->Close();
+  } catch (...) {
+    LOGP(fatal, "Failed to extract the HEPMC tree {} from file {}", HEPTreeName, mFileName);
+  }
+  
+  mHEPRootFileReader = std::make_unique<HepMC3::ReaderRootTree>(mFileName);
+  if (mHEPRootFileReader->failed()) {
+    LOGP(fatal, "No HepMC input file found {}", mFileName);
+  }
   NA6PGenerator::init();
+  LOGP(info, "NA6PGenHepMC initdone {}", canGenerateMaxEvents());
 }
 
 void NA6PGenHepMC::generate()
 {
-
+  if (mReadEvents >= mNEvInTree) {
+    LOGP(error, "Something is wrong: event {} beyond the available range [0:{}] is requested, wrapping to 0", mReadEvents, mNEvInTree - 1);
+    mReadEvents = 0;
+  }
   generatePrimaryVertex(); // will generate if not generated yet, otherwise, will set the origin from the MCHeader of the stack.
   auto mcHead = getStack()->getEventHeader();
   int nFromGeneratorOld = getStack()->getNFromGenerator();
@@ -35,15 +63,11 @@ void NA6PGenHepMC::generate()
   double yv = mcHead->getVY();
   double zv = mcHead->getVZ();
 
-  HepMC3::ReaderRootTree mInput(mFileName);
-  if (mInput.failed()) {
-    LOGP(fatal, "No HepMC input file found {}", mFileName);
-  }
   
-  mInput.skip(mReadEvents);
+  mHEPRootFileReader->skip(mReadEvents);
   HepMC3::GenEvent evt;
-  mInput.read_event(evt); //Read one event
-  if (mInput.failed()) 
+  mHEPRootFileReader->read_event(evt); //Read one event
+  if (mHEPRootFileReader->failed()) 
     {
       LOGP (info, " End of file reached . Exit .\n"); 
       return;
@@ -145,7 +169,6 @@ void NA6PGenHepMC::generate()
 
   evt.clear();
   mothersid.clear();
-  mInput.close();
   ++mReadEvents;
 }
 
