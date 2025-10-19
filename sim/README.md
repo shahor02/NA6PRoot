@@ -41,6 +41,16 @@ as Poisson mean in `setPoisson` was called.
 See an example [test/genParamPi.C](../test/genParamPi.C).
 The [test/genBgEvent.C](../test/genBgEvent.C) shows an example of CockTail generator production PbPb hadronic (pi, K, p) event for specific SPS energies.
 
+### GenHepMC
+
+Allows to import events in HEPMC format from external root file with `hepmc3_tree`. The generation can be done via wrapper macro [test/genHEPMC.C](../test/genHEPMC.C), e.g.
+```
+na6psim -n <N> -g $NA6PROOT_ROOT/share/test/genHEPMC.C+\(\"<input_file_name>\",false\)
+```
+In this example, events from the file `<input_file_name>` will be imported, discarding the intermediate particles already decayed by the generator.
+The default behaviour is to add them as primaries (without further propagation). If the requested number of events `<N>` is negative or exceeds the number of events in the input file,
+then it will be internally overridden to the number of available events. Otherwhise, only the first <N> events will be imported.
+
 ## User hooks
 
 User can provide a macro with the function which is executed at each entry and exit of certain methods, e.g. `NA60PMC::AddParticles` (which allows to modify know particle table and their decays)
