@@ -61,13 +61,13 @@ void NA6PGenHepMC::generate()
   double zv = mcHead->getVZ();
   std::unordered_map<int, int> partID2StoreID;
 
-  mHEPRootFileReader->skip(mReadEvents);
   HepMC3::GenEvent evt;
   mHEPRootFileReader->read_event(evt); // Read one event
   if (mHEPRootFileReader->failed()) {
     LOGP(info, " End of file reached . Exit .\n");
     return;
   }
+
   int nparticlesgood = 0;
   int pdgCode, status;
   float phi, pt, pZ, en, sn, cs;
