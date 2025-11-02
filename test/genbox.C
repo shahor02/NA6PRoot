@@ -2,9 +2,9 @@
 #include "NA6PGenBox.h"
 #endif
 
-NA6PGenerator* genbox()
+NA6PGenerator* genbox(int npart=5)
 {
   auto gen = new NA6PGenBox();
-  gen->setNTracks(5);
+  gen->setNTracks(npart);
   return gen;
 }
