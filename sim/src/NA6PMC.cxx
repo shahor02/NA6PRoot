@@ -11,6 +11,7 @@
 #include "KeyValParam.h"
 #include "NA6PLayoutParam.h"
 #include "NA6PTGeoHelper.h"
+#include "NA6PGenCutParam.h"
 #include <TSystem.h>
 #include <TGeoManager.h>
 #include <TVirtualMC.h>
@@ -206,6 +207,15 @@ void NA6PMC::Stepping()
     NA6PDetector::instance().getModule(NA6PModule::volID2ModuleID(volCopy))->stepManager(volCopy);
   } else {
     // non-sensitive volumes treatment
+  }
+  const auto& cuts = NA6PGenCutParam::Instance();
+  if (cuts.transportMaxAbsZ > 0 || cuts.transportMaxR) {
+    float x, y, z;
+    TVirtualMC::GetMC()->TrackPosition(x, y, z);
+    if ((cuts.transportMaxAbsZ > 0 && std::abs(z) > cuts.transportMaxAbsZ) ||
+        (cuts.transportMaxR > 0 && x * x + y * y > cuts.transportMaxR * cuts.transportMaxR)) {
+      TVirtualMC::GetMC()->StopTrack();
+    }
   }
 }
 

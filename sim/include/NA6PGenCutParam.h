@@ -17,6 +17,9 @@ struct NA6PGenCutParam : public na6p::conf::ConfigurableParamHelper<NA6PGenCutPa
   float phiMin = 0.f;
   float phiMax = 6.2831853f;
 
+  float transportMaxAbsZ = -1.; // if positive, do not transport beyound this |Z|
+  float transportMaxR = -1.;    // if positive, do not transport beyound this R
+
   NA6PParamDef(NA6PGenCutParam, "gencut");
 };
 
