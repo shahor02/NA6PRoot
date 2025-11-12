@@ -76,7 +76,7 @@ NA6PGenerator* addBgEventGenerator(NA6PGenCocktail* genCocktail, float ptMin, fl
   const float ycm = NA6PBeamParam::Instance().getYCM();
 
   std::string dndptFun = "x*exp(-sqrt(x*x+[0]*[0])/[1])";
-  std::string dndyFun = "exp(-pow((x-[0]-[1])/[2],2))+exp(-0.5*pow((x-[0]+[1])/[2],2))/2";
+  std::string dndyFun = "exp(-0.5*pow((x-[0]-[1])/[2],2))+exp(-0.5*pow((x-[0]+[1])/[2],2))";
 
   getParams(T_piM, y0_piM, ysig_piM, dNdY_piM,
             T_piP, y0_piP, ysig_piP, dNdY_piP,

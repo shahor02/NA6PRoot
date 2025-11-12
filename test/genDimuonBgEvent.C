@@ -186,13 +186,13 @@ NA6PGenerator* addBgEventGenerator(NA6PGenCocktail* genCocktail, int NSignalinAc
   const float ycm = NA6PBeamParam::Instance().getYCM();
 
   std::string dndptBgFun = "x*exp(-sqrt(x*x+[0]*[0])/[1])";
-  std::string dndyBgFun = "exp(-pow((x-[0]-[1])/[2],2))+exp(-0.5*pow((x-[0]+[1])/[2],2))/2";
+  std::string dndyBgFun = "exp(-0.5*pow((x-[0]-[1])/[2],2))+exp(-0.5*pow((x-[0]+[1])/[2],2))";
 
-  std::string dndptFun = "x*exp(-pow((x*x +[1]*[1]),0.5)/[0])"; // omega2Body and Phi - PtDistrLowEnergy in fastsim
-  std::string dndyFun = "exp(-0.5*pow((x-[0]/[1]),2))";  // omega2Body and Phi - YDistrLowEnergy in fastsim
+  std::string dndptFun = "x*exp(-pow((x*x+[1]*[1]),0.5)/[0])"; // omega2Body and Phi - PtDistrLowEnergy in fastsim
+  std::string dndyFun = "exp(-0.5*pow((x-[0])/[1],2))";  // omega2Body and Phi - YDistrLowEnergy in fastsim
 
-  std::string dndyJpsiFun = "0.5*(TMath::Erf((x-[0]+[1])/(sqrt(2)*[2]))-TMath::Erf((x-[0]-[1])/(sqrt(2)*[2])))";
   std::string dndptJpsiFun = "x*pow(1+pow(x/[0],[1]),-[2])";
+  std::string dndyJpsiFun = "0.5*(TMath::Erf((x-[0]+[1])/(sqrt(2)*[2]))-TMath::Erf((x-[0]-[1])/(sqrt(2)*[2])))";
 
   getParams(T_piM, y0_piM, ysig_piM, dNdY_piM,
             T_piP, y0_piP, ysig_piP, dNdY_piP,
