@@ -182,7 +182,7 @@ NA6PGenerator* addBgEventGenerator(NA6PGenCocktail* genCocktail, int NSignalinAc
   std::string dndyFun = "exp(-0.5*pow((x-[0])/[1],2))";        // omega2Body and Phi - YDistrLowEnergy in fastsim
 
   std::string dndptJpsiFun = "x*pow(1+pow(x/[0],[1]),-[2])";
-  std::string dndyJpsiFun = "0.5*(TMath::Erf((x-[0]+[1])/(sqrt(2)*[2]))-TMath::Erf((x-[0]-[1])/(sqrt(2)*[2])))";
+  std::string dndyJpsiFun = "TMath::Erf((x-[0]+[1])/(sqrt(2)*[2]))-TMath::Erf((x-[0]-[1])/(sqrt(2)*[2]))";
 
   getParams(T_piM, y0_piM, ysig_piM, dNdY_piM,
             T_piP, y0_piP, ysig_piP, dNdY_piP,
@@ -191,8 +191,6 @@ NA6PGenerator* addBgEventGenerator(NA6PGenCocktail* genCocktail, int NSignalinAc
             T_Prot, y0_Prot, ysig_Prot, dNdY_Prot,
             yboxhalfw_Jpsi, ysig_Jpsi, pt1_Jpsi, pt2_Jpsi, pt3_Jpsi,
             sigySG, TSG_Phi, TSG_Omega, MotherMass_Phi, MotherMass_Omega);
-
-  bool IsPoisson = true;
 
   if (Bg) {
     auto genpiM = new NA6PGenParam("pi-", -211, 0, dndptBgFun, dndyBgFun, ptMin, ptMax, yMin, yMax, true, true, IsPoisson);
