@@ -2,10 +2,12 @@
 
 #include "NA6PGenHepMC.h"
 #include "NA6PMCStack.h"
+#include "HepMC3/GenRunInfo.h"
 #include "HepMC3/GenEvent.h"
 #include "HepMC3/GenParticle.h"
 #include "HepMC3/GenVertex.h"
 #include "HepMC3/FourVector.h"
+#include "HepMC3/Attribute.h"
 #include <TDatabasePDG.h>
 #include <TMath.h>
 #include <cmath>
@@ -45,6 +47,7 @@ void NA6PGenHepMC::init()
   if (mHEPRootFileReader->failed()) {
     LOGP(fatal, "No HepMC input file found {}", mFileName);
   }
+    
   NA6PGenerator::init();
 }
 
@@ -66,6 +69,63 @@ void NA6PGenHepMC::generate()
   if (mHEPRootFileReader->failed()) {
     LOGP(info, " End of file reached . Exit .\n");
     return;
+  }
+  
+// Global variables for heavy-ion running
+  double b;
+  int ncoll, npart, npart_proj, npart_targ;
+  long int id1, id2;
+  double e1, e2;
+  int zproj, aproj, ztarg, atarg;
+  float za_ratio_proj, za_ratio_targ;
+  
+// Centrality-related info
+  auto attr_b_ptr = evt.attribute<HepMC3::DoubleAttribute>("b");
+  if (attr_b_ptr) { 
+    b = attr_b_ptr->value();
+    LOGP(info, "b = {} fm", attr_b_ptr->value());
+  }
+  auto attr_ncoll_ptr  = evt.attribute<HepMC3::IntAttribute>("nColl");
+  if (attr_ncoll_ptr) {
+    ncoll = attr_ncoll_ptr->value();
+    LOGP(info, "Ncoll = {}", attr_ncoll_ptr->value());
+  }
+  auto attr_npart_ptr  = evt.attribute<HepMC3::IntAttribute>("nPartTot");
+  if (attr_npart_ptr) {
+    npart = attr_npart_ptr->value();
+    LOGP(info, "Npart = {}", attr_npart_ptr->value());
+  }
+  auto attr_npart_proj_ptr = evt.attribute<HepMC3::IntAttribute>("nPartProj");
+  if (attr_npart_proj_ptr) {
+    npart_proj = attr_npart_proj_ptr->value();
+    LOGP(info, "Npart_proj = {}", attr_npart_proj_ptr->value());
+  }
+  auto attr_npart_targ_ptr = evt.attribute<HepMC3::IntAttribute>("nPartTarg");
+  if (attr_npart_targ_ptr) {
+    npart_targ = attr_npart_targ_ptr->value();
+    LOGP(info, "Npart_targ = {}", attr_npart_targ_ptr->value());
+  }
+
+// Proj/target species and energy (needs to be stored at each event because storing in GenRunInfo is not supported for HepMC3 v3.03.00 currently linked from O2
+  auto attr_id1_ptr = evt.attribute<HepMC3::LongAttribute>("idbeam1");
+  auto attr_id2_ptr = evt.attribute<HepMC3::LongAttribute>("idbeam2");
+  auto attr_e1_ptr = evt.attribute<HepMC3::DoubleAttribute>("ebeam1");
+  auto attr_e2_ptr = evt.attribute<HepMC3::DoubleAttribute>("ebeam2");
+  if (attr_id1_ptr && attr_id2_ptr && attr_e1_ptr && attr_e2_ptr) {
+    id1 = attr_id1_ptr->value();
+    id2 = attr_id2_ptr->value();
+    e1 = attr_e1_ptr->value();
+    e2 = attr_e2_ptr->value();
+    if (id1> 1000000000) {
+      zproj = (id1 / 10000) % 1000; // Extract Z (atomic number)   
+      aproj = (id1 / 10) % 1000; // Extract A (mass number)  
+      za_ratio_proj = (float) zproj/aproj;
+    }
+    if (id2> 1000000000) {
+      ztarg = (id2 / 10000) % 1000; // Extract Z (atomic number)   
+      atarg = (id2 / 10) % 1000; // Extract A (mass number)  
+      za_ratio_targ = (float) ztarg/atarg;
+    }
   }
 
   int nparticlesgood = 0;
@@ -137,8 +197,25 @@ void NA6PGenHepMC::generate()
     }
   }
 
-  auto info = fmt::format("{}_x{}", getName(), nparticlesgood);                              // test
-  mcHead->getGenHeaders().emplace_back(nparticlesgood, 0, mcHead->getNPrimaries(), 0, info); // test
+// Tracking spectator neutrons and protons
+  if(mTrackSpectators && attr_npart_proj_ptr && id1 > 1000000000 && id2 > 1000000000){
+    int nSpecProtons = (aproj - npart_proj) * za_ratio_proj;
+    int nSpecNeutrons = (aproj - npart_proj) - nSpecProtons;
+    int dummy = 0;
+    LOGP(info, "Tracking {} spectator protons",nSpecProtons);
+    for (int i=0; i<nSpecProtons; i++){
+      getStack()->PushTrack(1, -1, 2212, 0., 0., std::sqrt(e1*e1 - 0.9383*0.9383), e1, xv, yv, zv, 0., 0., 0., 0., TMCProcess::kPPrimary, dummy, 1., status); 
+      nparticlesgood++; 
+    }
+    LOGP(info, "Tracking {} spectator neutrons",nSpecNeutrons);
+    for (int i=0; i<nSpecNeutrons; i++){
+      getStack()->PushTrack(1, -1, 2112, 0., 0., std::sqrt(e1*e1 - 0.9396*0.9396), e1, xv, yv, zv, 0., 0., 0., 0., TMCProcess::kPPrimary, dummy, 1., status);
+      nparticlesgood++;  
+    }
+  }
+
+  auto info = fmt::format("{}_x{}", getName(), nparticlesgood);                              
+  mcHead->getGenHeaders().emplace_back(nparticlesgood, 0, mcHead->getNPrimaries(), 0, info);
   mcHead->incNPrimaries(nparticlesgood);
   ++mReadEvents;
 }
