@@ -20,11 +20,13 @@ class NA6PGenHepMC : public NA6PGenerator
 
   void SetFileName(const std::string& name) { mFileName = name; }
   long canGenerateMaxEvents() const override;
+  void TrackSpectators() { mTrackSpectators = true; }
 
  protected:
   inline static const std::string HEPTreeName{"hepmc3_tree"};
   std::string mFileName = {};
   bool mStoreDecayedPrimaries = true;
+  bool mTrackSpectators = false;
   long mNEvInTree = -1;
   long mReadEvents = 0;
   std::unique_ptr<HepMC3::ReaderRootTree> mHEPRootFileReader;
