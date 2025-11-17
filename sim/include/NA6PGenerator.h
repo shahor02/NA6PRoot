@@ -28,16 +28,16 @@ class NA6PGenerator : public TObject
   virtual void generate() = 0;
   virtual void init();
   virtual void generatePrimaryVertex(int maxTrials = 1000000);
-  virtual void setOrigin(const std::array<double, 3>& v)
+  virtual void setOrigin(const std::array<double, 3>& v, bool force = true)
   {
     mOrigin = v;
-    mOriginSet = true;
+    if(force) mOriginSet = true;
   }
   template <typename T>
-  void setOrigin(T x, T y, T z)
+  void setOrigin(T x, T y, T z, bool force = true)
   {
     mOrigin = {x, y, z};
-    mOriginSet = true;
+    if(force) mOriginSet = true;
   }
   auto& getOrigin() { return mOrigin; }
   auto& getOrigin() const { return mOrigin; }

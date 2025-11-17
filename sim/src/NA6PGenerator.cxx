@@ -33,7 +33,7 @@ void NA6PGenerator::generatePrimaryVertex(int maxTrials)
     return;
   }
   if (getStack()->isPVGenerated()) {
-    setOrigin(mcH->getVX(), mcH->getVY(), mcH->getVZ());
+    setOrigin(mcH->getVX(), mcH->getVY(), mcH->getVZ(), false);
     if (mVerbosity) {
       LOGP(warn, "{}: the primary vertex was already generated, refusing!", getName());
       LOGP(info, "Use existing vertex at {:.4f},{:4f},{:4f}", mcH->getVX(), mcH->getVY(), mcH->getVZ());
@@ -51,7 +51,7 @@ void NA6PGenerator::generatePrimaryVertex(int maxTrials)
       LOGP(fatal, "Failed to generate primary vertex");
     }
   }
-  setOrigin(x, y, z);
+  setOrigin(x, y, z, false);
   mcH->setVX(x);
   mcH->setVY(y);
   mcH->setVZ(z);
