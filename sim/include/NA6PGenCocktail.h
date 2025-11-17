@@ -16,6 +16,7 @@ class NA6PGenCocktail : public NA6PGenerator
   void init() override;
   void setStack(NA6PMCStack* stack) override;
   long canGenerateMaxEvents() const override;
+  void clear() override;
   void setOwner(bool v) { mGenerators.SetOwner(v); }
   void addGenerator(NA6PGenerator* g) { mGenerators.AddLast(g); }
 

@@ -30,6 +30,8 @@ class NA6PMC : public TVirtualMCApplication
   void PreTrack() override {}
   void PostTrack() override {}
 
+  void setupUserVertex(const std::string& s);
+
   void setupUserHooks(const std::string& s);
   int callUserHook(int hookID, bool inout);
 
@@ -60,7 +62,11 @@ class NA6PMC : public TVirtualMCApplication
 
   std::unique_ptr<NA6PMCStack> mStack{};
   std::unique_ptr<NA6PGenerator> mGenerator{};
-  std::unique_ptr<TMethodCall> mUsrHooksMethod;
+
+  std::unique_ptr<TMethodCall> mUserVertexMethod;
+  std::string mUserVertexMacroName{};
+
+  std::unique_ptr<TMethodCall> mUserHooksMethod;
   std::string mUserHookName{};
 
   std::vector<TParticle> mMCTracks, *mMCTracksPtr = &mMCTracks;
