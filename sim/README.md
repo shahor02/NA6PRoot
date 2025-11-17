@@ -102,4 +102,12 @@ int testHooks(int arg, bool inout)
 }
 ```
 
+## Vertex generation
 
+By default the interaction vertex will be randomly generated on one of the subtargets according to their declared cross-sections and thicknesses, see the `Target` block of the [base/include/NA6PLayoutParam.h](../base/include/NA6PLayoutParam.h).
+One can override this behaviour by providing a user macro `<uservtx>.C` (via `-V` of `--user-vertex` options) with the function having signature `void <uservtx(float& x, float& y, float& z)` which assignes to `x,y,z` the wanted vertex position. An example of such a macro is
+[test/vtxInDump.C](../test/vtxInDump.C), which generates an interaction vertex in the main absorber plug. It can be called e.g. as
+
+```
+na6psim -n <N> -g <your_generator> -V $NA6PROOT_ROOT/share/test/vtxInDump.C+
+```

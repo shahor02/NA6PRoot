@@ -9,6 +9,7 @@
 #include <array>
 
 class NA6PMCStack;
+class TMethodCall;
 
 class NA6PGenerator : public TObject
 {
@@ -16,8 +17,10 @@ class NA6PGenerator : public TObject
   NA6PGenerator(const std::string& name) : mName(name) {}
   NA6PGenerator() = default;
   virtual ~NA6PGenerator() = default;
-
+  virtual void clear();
   virtual void setStack(NA6PMCStack* stack) { mStack = stack; }
+  virtual void setUserVertexMethod(TMethodCall* m) { mUserVertexMethod = m; }
+  auto getUserVertexMethod() const { return mUserVertexMethod; }
   auto getStack() { return mStack; }
   auto getStack() const { return mStack; }
 
@@ -57,6 +60,7 @@ class NA6PGenerator : public TObject
   std::string mName = {};
   std::array<double, 3> mOrigin{}; //! event origin
   NA6PMCStack* mStack = nullptr;   //! externally set stack
+  TMethodCall* mUserVertexMethod = nullptr; //! externally set user method for vertex generation
   ULong64_t mRandomSeed = 0;       //  random seed (used if non-0)
   int mVerbosity = 0;              //!
   bool mInitDone = false;

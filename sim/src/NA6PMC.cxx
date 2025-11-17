@@ -67,9 +67,9 @@ void NA6PMC::ConstructOpGeometry()
 int NA6PMC::callUserHook(int hookID, bool inout)
 {
   int ret = 0;
-  if (mUsrHooksMethod) {
+  if (mUserHooksMethod) {
     const void* args[2] = {&hookID, &inout};
-    mUsrHooksMethod->Execute(nullptr, args, 2, &ret);
+    mUserHooksMethod->Execute(nullptr, args, 2, &ret);
     if (ret < 0) {
       LOGP(fatal, "Execution of user hook method {}({},{}) failed with {}", mUserHookName, hookID, inout, ret);
     }
@@ -163,6 +163,9 @@ void NA6PMC::BeginEvent()
   mStack->clear();
   clearHits();
   mMCTracks.clear();
+  if (mGenerator) {
+    mGenerator->clear();
+  }
 }
 
 void NA6PMC::FinishEvent()
@@ -258,6 +261,9 @@ bool NA6PMC::setupGenerator(const std::string& s)
          invStr, s, int(errCode), (void*)gen);
   }
   gen->setStack(mStack.get());
+  if (mUserVertexMethod) {
+    gen->setUserVertexMethod(mUserVertexMethod.get());
+  }
   if (mRandomSeed) {
     gen->setRandomSeed(mRandomSeed);
   }
@@ -288,8 +294,33 @@ void NA6PMC::setupUserHooks(const std::string& s)
   }
   std::filesystem::path mpth(sfname);
   mUserHookName = mpth.stem().string();
-  mUsrHooksMethod = std::make_unique<TMethodCall>();
-  mUsrHooksMethod->InitWithPrototype(mUserHookName.c_str(), "int, bool");
+  mUserHooksMethod = std::make_unique<TMethodCall>();
+  mUserHooksMethod->InitWithPrototype(mUserHookName.c_str(), "int, bool");
+}
+
+void NA6PMC::setupUserVertex(const std::string& s)
+{
+  LOGP(info, "Setting up user vertex generator macro {}", s);
+  TInterpreter::EErrorCode errCode = TInterpreter::EErrorCode::kNoError;
+  std::string sfname{}, sCmd{};
+  if (Str::endsWith(s, ".C+") || Str::endsWith(s, ".C++") || Str::endsWith(s, ".C+g") || Str::endsWith(s, ".C++g")) {
+    static const std::regex pattern(R"((\+\+g|\+g|\+\+|\+)$)");
+    sfname = std::regex_replace(s, pattern, "");
+    sCmd = s;
+  } else if (Str::endsWith(s, ".C")) {
+    sfname = s;
+    sCmd = s + "+"; // always compile
+  } else {
+    LOGP(fatal, "User vertex generator macro {} extention differs from .C, .C+, .C++, .C+g or .C++g", s);
+  }
+  TInterpreter::Instance()->LoadMacro(sCmd.c_str(), &errCode);
+  if (errCode != TInterpreter::EErrorCode::kNoError) {
+    LOGP(fatal, "Failed to compile and load user vertex generator macro {}, error TInterpreter::EErrorCode={}", sCmd, int(errCode));
+  }
+  std::filesystem::path mpth(sfname);
+  mUserVertexMacroName = mpth.stem().string();
+  mUserVertexMethod = std::make_unique<TMethodCall>();
+  mUserVertexMethod->InitWithPrototype(mUserVertexMacroName.c_str(), "float&, float&, float&");
 }
 
 void NA6PMC::setRandomSeed(Long64_t r)

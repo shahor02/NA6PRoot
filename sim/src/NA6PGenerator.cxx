@@ -4,6 +4,7 @@
 #include "NA6PMCStack.h"
 #include "NA6PDetector.h"
 #include "NA6PTarget.h"
+#include <TMethodCall.h>
 
 #include <fairlogger/Logger.h>
 
@@ -39,10 +40,16 @@ void NA6PGenerator::generatePrimaryVertex(int maxTrials)
     }
     return;
   }
-  static NA6PTarget* tgt = (NA6PTarget*)NA6PDetector::instance().getModule("Target");
   float x, y, z;
-  if (!tgt->generateVertex(x, y, z, maxTrials)) {
-    LOGP(fatal, "Failed to generate primary vertex");
+  if (getUserVertexMethod()) {
+    const void* args[3] = {&x, &y, &z};
+    int ret = 0;
+    getUserVertexMethod()->Execute(nullptr, args, 3, &ret);
+  } else {
+    static NA6PTarget* tgt = (NA6PTarget*)NA6PDetector::instance().getModule("Target");
+    if (!tgt->generateVertex(x, y, z, maxTrials)) {
+      LOGP(fatal, "Failed to generate primary vertex");
+    }
   }
   setOrigin(x, y, z);
   mcH->setVX(x);
@@ -52,4 +59,9 @@ void NA6PGenerator::generatePrimaryVertex(int maxTrials)
   if (mVerbosity) {
     LOGP(info, "Generated primary vertex at {:.4f},{:4f},{:4f}", x, y, z);
   }
+}
+
+void NA6PGenerator::clear()
+{
+  mOriginSet = false;
 }
