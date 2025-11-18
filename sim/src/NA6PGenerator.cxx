@@ -22,16 +22,6 @@ void NA6PGenerator::generatePrimaryVertex(int maxTrials)
 {
   // will generate if not generated yet, otherwise, will set the origin from the MCHeader of the stack
   auto mcH = mStack->getEventHeader();
-  if (mOriginSet) {
-    mcH->setVX(mOrigin[0]);
-    mcH->setVY(mOrigin[1]);
-    mcH->setVZ(mOrigin[2]);
-    mStack->setPVGenerated(true);
-    if (mVerbosity) {
-      LOGP(info, "Use vertex imposed via setOrigin {:.4f},{:4f},{:4f}", mcH->getVX(), mcH->getVY(), mcH->getVZ());
-    }
-    return;
-  }
   if (getStack()->isPVGenerated()) {
     setOrigin(mcH->getVX(), mcH->getVY(), mcH->getVZ());
     if (mVerbosity) {
@@ -59,9 +49,4 @@ void NA6PGenerator::generatePrimaryVertex(int maxTrials)
   if (mVerbosity) {
     LOGP(info, "Generated primary vertex at {:.4f},{:4f},{:4f}", x, y, z);
   }
-}
-
-void NA6PGenerator::clear()
-{
-  mOriginSet = false;
 }
