@@ -53,8 +53,8 @@ long NA6PGenCocktail::canGenerateMaxEvents() const
 
 void NA6PGenCocktail::clear()
 {
-  mOriginSet = false;
   for (auto g : mGenerators) {
     ((NA6PGenerator*)g)->clear();
   }
+  NA6PGenerator::clear();
 }
