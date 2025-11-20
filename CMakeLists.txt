@@ -29,6 +29,9 @@ set(BASE_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/base/include)
 add_subdirectory(sim)
 set(SIM_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/sim/include)
 
+add_subdirectory(rec)
+set(REC_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/rec/include)
+
 #----------------------------------------------------------------------------
 # Add the executable, and link it to the libraries
 #
