@@ -8,6 +8,7 @@ set(LIB_NAME "${MOD_NAME}Lib")
 include_directories(${THIS_INCLUDE_DIR})
 include_directories(${UTILS_INCLUDE_DIR})
 include_directories(${BASE_INCLUDE_DIR})
+include_directories(${SIM_INCLUDE_DIR})
 include_directories(${ROOT_INCLUDE_DIRS})
 include_directories(${Boost_INCLUDE_DIRS})
 
@@ -19,6 +20,8 @@ add_library(${LIB_NAME} SHARED ${THIS_SOURCES} ${THIS_HEADERS} )
 
 set(DICTIONARY_HEADERS
   NA6PBaseCluster.h
+  NA6PReconstruction.h
+  NA6PVerTelReconstruction.h
   ExtTrackPar.h
   NA6PTrack.h
   NA6PFastTrackFitter.h
