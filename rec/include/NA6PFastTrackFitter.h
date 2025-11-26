@@ -21,10 +21,11 @@
 // Fast track fit based on Kalman filter
 
 class TGeoManager;
+class NA6PTrack;
+class NA6PBaseCluster;
 
 class NA6PFastTrackFitter
 {
- public:
 
  public:
   enum {kTwoPointSeed = 0,kThreePointSeed = 1};

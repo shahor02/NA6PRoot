@@ -24,6 +24,7 @@ set(DICTIONARY_HEADERS
   NA6PVerTelReconstruction.h
   ExtTrackPar.h
   NA6PTrack.h
+  NA6PTrackerCA.h
   NA6PFastTrackFitter.h
   ) # Add all class headers requiring dictionary
   
