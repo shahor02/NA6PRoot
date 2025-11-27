@@ -4,9 +4,7 @@
 #include <TTree.h>
 #include <TRandom3.h>
 #include <fairlogger/Logger.h>
-#include "NA6PBaseCluster.h"
 #include "NA6PVerTelHit.h"
-#include "NA6PTrack.h"
 #include "NA6PTrackerCA.h"
 #include "NA6PVerTelReconstruction.h"
 
