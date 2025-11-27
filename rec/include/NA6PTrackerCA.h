@@ -78,7 +78,8 @@ public:
   }
   bool loadGeometry(const char* filename, const char* geoname = "NA6P");
   void findTracks(std::vector<NA6PBaseCluster>& cluArr, TVector3 primVert);
-
+  std::vector<NA6PTrack> getTracks();
+  
 protected:
   // methods used in tracking
   void sortClustersByLayerAndEta(std::vector<NA6PBaseCluster>& cluArr,

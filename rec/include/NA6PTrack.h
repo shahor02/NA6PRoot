@@ -46,16 +46,17 @@ class NA6PTrack
   int           getNVTLayers()             const {return mNVTLayers;}
   double        getChi2()                  const {return mChi2;}
   double        getChi2VT()                const {return mChi2VT;}
-  const ExtTrackPar& getTrackExtParam()    const { return mExtTrack; }
-  const double* getCovariance()            const { return mExtTrack.getCovariance(); }
+  const ExtTrackPar& getTrackExtParam()    const {return mExtTrack; }
+  const double* getCovariance()            const {return mExtTrack.getCovariance(); }
   int          getNVTHits()                const {return mNClustersVT;}
   int          getNMSHits()                const {return mNClustersMS;}
   int          getNTRHits()                const {return mNClustersTR;}
   int          getNHits()                  const {return mNClusters;}
   uint32_t     getClusterMap()             const {return mClusterMap;}
   bool         hasClusterOnVTLayer(int lr) const {return (lr<mNVTLayers) ?  mClusterMap&(1<<lr) : false;}
-  int          getVTClusterIndex(int lr)   const { return lr < kMaxVTLr ? mClusterIndices[lr] : -1; }
-  int          getParticleLabel(int lr)    const { return lr < kMaxVTLr ? mParticleID[lr] : -2; }
+  int          getVTClusterIndex(int lr)   const {return lr < kMaxVTLr ? mClusterIndices[lr] : -1; }
+  int          getParticleLabel(int lr)    const {return lr < kMaxVTLr ? mClusterPartID[lr] : -2; }
+  int          getParticleID()             const {return mParticleID;}
   double       getAlpha()                  const {return mExtTrack.getAlpha();}
   double       getCharge()                 const {return mExtTrack.Charge();}
   bool         negDir()                    const {return std::abs(mExtTrack.getAlpha()) > M_PI/2.;}
@@ -79,12 +80,15 @@ class NA6PTrack
   double       getNormChi2()               const {return mNClusters<3 ? 0 :  mChi2 / ( (mNClusters<<1)-kNDOF);}
   double       getNormChi2VT()             const {return mNClustersVT<3 ? 0 :  mChi2VT / ( (mNClustersVT<<1)-kNDOF);}
   double       getPredictedChi2(double* p, double* cov) const {return mExtTrack.getPredictedChi2(p,cov);}
-
+  
   void   setMass(double m)         {mMass = m;}
   void   setNVTLayers(int n)       {mNVTLayers = n;}
   void   setChi2(double chi2)      {mChi2 = chi2;}
   void   setChi2VT(double chi2)    {mChi2VT = chi2;}
-
+  void   setParticleLabel(int idx, int lr)  { if (lr < kMaxVTLr) mClusterPartID[lr] = idx;}
+  void   setVTClusterIndex(int idx, int lr) { if (lr < kMaxVTLr) mClusterIndices[lr] = idx;}
+  void   setParticleID(int idx)    {mParticleID = idx;}
+  
   static void lab2trk(const double *vLab, double *vTrk); 
   static void trk2lab(const double *vTrk, double *vLab); 
 
@@ -111,10 +115,11 @@ class NA6PTrack
   int      mNClustersVT = 0;                     // total VT hits
   int      mNClustersMS = 0;                     // total MS hits
   int      mNClustersTR = 0;                     // total TR hits
-  std::array<int, kMaxVTLr> mClusterIndices{};  // cluster indices
-  std::array<int, kMaxVTLr> mParticleID{};      // particle ID (MC truth)
-  ExtTrackPar mExtTrack;                        // track params
-
+  std::array<int, kMaxVTLr> mClusterIndices{};   // cluster indices
+  std::array<int, kMaxVTLr> mClusterPartID{};    // particle ID (per cluster)
+  int      mParticleID = -1;                     // particle ID (MC truth)
+  ExtTrackPar mExtTrack;                         // track params
+  
   ClassDefNV(NA6PTrack,1)
 };
 

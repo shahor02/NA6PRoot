@@ -20,11 +20,12 @@ NA6PTrack::NA6PTrack() :
   mNClustersMS{0},
   mNClustersTR{0},
   mClusterIndices{},
-  mParticleID{},
+  mClusterPartID{},
+  mParticleID{-2},
   mExtTrack{}
 {
   mClusterIndices.fill(-1);
-  mParticleID.fill(-2);
+  mClusterPartID.fill(-2);
 }
 
 //_______________________________________________________________________
@@ -39,12 +40,13 @@ NA6PTrack::NA6PTrack(const double* xyz, const double* pxyz, int sign, double err
   mNClustersMS{0},
   mNClustersTR{0},
   mClusterIndices{},
-  mParticleID{},
+  mClusterPartID{},
+  mParticleID{-2},
   mExtTrack{}
 {
   // initialize arrays
   mClusterIndices.fill(-1);
-  mParticleID.fill(-2);
+  mClusterPartID.fill(-2);
   // initialize the track parameters and covariance
   init(xyz, pxyz, sign, errLoose);
 }
@@ -58,8 +60,9 @@ void NA6PTrack::reset()
   mClusterMap = 0;
   mExtTrack.Reset();
   resetCovariance();
+  mParticleID = -2;
   mClusterIndices.fill(-1);
-  mParticleID.fill(-2);
+  mClusterPartID.fill(-2);
   mNClusters = mNClustersVT = mNClustersMS = mNClustersTR = 0;
 }
   
@@ -246,7 +249,7 @@ void NA6PTrack::addCluster(const NA6PBaseCluster* clu, int cluIndex, double chi2
     int nLay = nDet / 4;
     mChi2VT += chi2;
     mNClustersVT++;
-    mParticleID[nLay] = trackID;
+    mClusterPartID[nLay] = trackID;
     mClusterIndices[nLay] = cluIndex;
     mClusterMap |= (1<<nLay);
   }
