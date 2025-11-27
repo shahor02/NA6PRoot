@@ -13,7 +13,7 @@
 #include "NA6PVerTelReconstruction.h"
 #endif
 
-void ConvertHitsToRecPoints(){
+void convertHitsToRecPoints(){
   TFile* fh=new TFile("HitsVerTel.root");
   TTree* th=(TTree*)fh->Get("hitsVerTel");
   std::vector<NA6PVerTelHit> vtHits, *vtHitsPtr = &vtHits;

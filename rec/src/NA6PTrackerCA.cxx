@@ -21,6 +21,7 @@ NA6PTrackerCA::NA6PTrackerCA() :
   mTrackFitter{nullptr},
   mIsClusterUsed{false},
   mMaxSharedClusters{0},
+  mVerbose{false},
   mNIterationsCA{2}
 {
   mTrackFitter = new NA6PFastTrackFitter();
@@ -109,10 +110,6 @@ bool NA6PTrackerCA::loadGeometry(const char* filename, const char* geoname){
 
   if (!mTrackFitter) {
     LOGP(error,"Fitter not yet instantiated");
-    return false;
-  }
-  if (gSystem->Exec(Form("ls -l %s > /dev/null",filename)) != 0){
-    LOGP(error,"filename {} does not exist",filename);
     return false;
   }
   return mTrackFitter->loadGeometry(filename, geoname);
@@ -692,12 +689,10 @@ void NA6PTrackerCA::fitAndSelectTracks(const std::vector<TrackCandidate>& trackC
     }
     // assign overall MC label to the track
     int nClus = track.cluIDs.size();
-     int nTrueClus = 0;
     std::vector<std::pair<int,int>> counts;
     for (int jClu = 0; jClu < nClus; jClu++) {
       int cluID = track.cluIDs[jClu];
       if (cluID >= 0) {
-        ++nTrueClus;
         const auto& clu = cluArr[cluID];
         int idPartClu = clu.getParticleID();
         bool found = false;
@@ -737,7 +732,7 @@ void NA6PTrackerCA::findTracks(std::vector<NA6PBaseCluster>& cluArr, TVector3 pr
   mPrimVertPos[0] = primVert.X();
   mPrimVertPos[1] = primVert.Y();
   mPrimVertPos[2] = primVert.Z();
-  LOGP(info,"Process event with nClusters = %d, primary vertex in z = %.2f cm",nClus,mPrimVertPos[2]);
+  LOGP(info,"Process event with nClusters {}, primary vertex in z = {} cm",nClus,mPrimVertPos[2]);
   mIsClusterUsed.resize(nClus);
   for(uint jClu = 0; jClu < nClus; jClu++) mIsClusterUsed[jClu] = false;
   std::vector<int> firstCluPerLay;
@@ -749,7 +744,7 @@ void NA6PTrackerCA::findTracks(std::vector<NA6PBaseCluster>& cluArr, TVector3 pr
   std::vector<TrackCandidate> trackCandidates;
   std::vector<TrackFitted> iterationTracks;
   for (int jIteration = 0; jIteration < mNIterationsCA; ++jIteration){
-    LOGP(info," -> Iteration {} <-",jIteration);
+    if (mVerbose) LOGP(info," -> Iteration {} <-",jIteration);
     foundTracklets.clear();
     foundCells.clear();
     cellsNeighbours.clear();
@@ -759,24 +754,29 @@ void NA6PTrackerCA::findTracks(std::vector<NA6PBaseCluster>& cluArr, TVector3 pr
     std::vector<int> firstTrklPerLay;
     std::vector<int> lastTrklPerLay;
     sortTrackletsByLayerAndIndex(foundTracklets,firstTrklPerLay,lastTrklPerLay);
-    printStats(foundTracklets,cluArr,foundCells,"tracklets");
+    if (mVerbose) printStats(foundTracklets,cluArr,foundCells,"tracklets");
     //
     computeLayerCells(foundTracklets,firstTrklPerLay,lastTrklPerLay,cluArr,foundCells,mMaxDeltaTanLCellsCA[jIteration],mMaxDeltaPhiCellsCA[jIteration],mMaxDeltaPxPzCellsCA[jIteration],mMaxDeltaPyPzCellsCA[jIteration],mMaxChi2TrClCellsCA[jIteration],mMaxChi2ndfCellsCA[jIteration]);
     std::vector<int> firstCellPerLay;
     std::vector<int> lastCellPerLay;
     sortCellsByLayerAndIndex(foundCells,firstCellPerLay,lastCellPerLay);
-    printStats(foundCells,cluArr,foundCells,"cells");
+    if (mVerbose) printStats(foundCells,cluArr,foundCells,"cells");
     //
     findCellsNeighbours(foundCells,firstCellPerLay,lastCellPerLay,cellsNeighbours,cluArr,mMaxChi2TrClCellsCA[jIteration]);
-    printStats(cellsNeighbours,cluArr,foundCells,"cell pairs");
+    if (mVerbose) printStats(cellsNeighbours,cluArr,foundCells,"cell pairs");
     //
     findRoads(cellsNeighbours,foundCells,firstCellPerLay,lastCellPerLay,foundTracklets,cluArr,trackCandidates,mMaxChi2TrClCellsCA[jIteration]);
-    printStats(trackCandidates,cluArr,foundCells,"track candidates");
+    if (mVerbose) printStats(trackCandidates,cluArr,foundCells,"track candidates");
     //
     fitAndSelectTracks(trackCandidates,cluArr,iterationTracks,mMaxChi2TrClCellsCA[jIteration],mMinNClusTracksCA[jIteration],mMaxChi2ndfTracksCA[jIteration]);
-    printStats(iterationTracks,cluArr,foundCells,"selected tracks");
-    printStats(iterationTracks,cluArr,foundCells,"selected tracks",5);
-    printStats(iterationTracks,cluArr,foundCells,"selected tracks",4);
+    if (mVerbose) {
+      printStats(iterationTracks,cluArr,foundCells,"selected tracks");
+      printStats(iterationTracks,cluArr,foundCells,"selected tracks",5);
+      printStats(iterationTracks,cluArr,foundCells,"selected tracks",4);
+    }
+    for (auto& track : iterationTracks) {
+      track.trackFitFast.setCAIteration(jIteration);
+    }
     mFinalTracks.insert(mFinalTracks.end(),iterationTracks.begin(),iterationTracks.end());
   }
 }

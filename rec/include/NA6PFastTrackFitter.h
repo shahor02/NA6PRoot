@@ -93,7 +93,7 @@ class NA6PFastTrackFitter
   double mPrimVertZ = 0.0;               // primary vertex z
   bool   mIsPrimVertSet = false;         // flag for presence of prim vert z
   bool   mCorrectForMaterial = true;     // flag for material corrections
-  TGeoManager* mGeoManager = nullptr;    // geometry, pointer not owned by the fitter class
+
   std::vector<std::unique_ptr<NA6PBaseCluster>> mClusters; // array with clusters
 
  protected:

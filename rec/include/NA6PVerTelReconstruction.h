@@ -17,15 +17,18 @@
 
 #include <string>
 #include <Rtypes.h>
+#include <TVector3.h>
 
 // Class to steer the VT reconstruction
 
+#include "NA6PBaseCluster.h"
+#include "NA6PTrack.h"
 #include "NA6PReconstruction.h"
 
 class TFile;
 class TTree;
 class NA6PVerTelHit;
-class NA6PBaseCluster;
+class NA6PTrackerCA;
 
 class NA6PVerTelReconstruction : public NA6PReconstruction
 {
@@ -34,6 +37,7 @@ class NA6PVerTelReconstruction : public NA6PReconstruction
   NA6PVerTelReconstruction() : NA6PReconstruction("VerTel") {}
   ~NA6PVerTelReconstruction() override = default;
 
+  bool init(const char* filename, const char* geoname = "NA6P") override;
   // methods to steer cluster reconstruction
   void createClustersOutput() override;
   void clearClusters() override { mClusters.clear(); }
@@ -43,11 +47,30 @@ class NA6PVerTelReconstruction : public NA6PReconstruction
   void setClusterSpaceResolution( double clures ) {mCluRes = clures;}
   void hitsToRecPoints(const std::vector<NA6PVerTelHit>& vtHits);
 
+  void setPrimaryVertexPosition(double x, double y, double z){
+    mPrimaryVertex.SetXYZ(x, y, z);
+  }
+  // methods to steer tracking
+  void setClusters(const std::vector<NA6PBaseCluster>& clusters) {
+    mClusters = clusters;
+    hClusPtr = &mClusters;
+  }
+  void createTracksOutput() override;
+  void clearTracks() override{ mTracks.clear(); }
+  void writeTracks() override;
+  void closeTracksOutput() override;
+  void runTracking();
+  
  private:
   std::vector<NA6PBaseCluster> mClusters, *hClusPtr = &mClusters;  // vector of clusters
   TFile* mClusFile = nullptr;                                      // file with clusters
   TTree* mClusTree = nullptr;                                      // tree of clusters
   double mCluRes = 5.e-4;                                          // cluster resolution, cm (for fast simu)
+  TVector3 mPrimaryVertex{0.0,0.0,0.0};                            // primary vertex position
+  std::vector<NA6PTrack> mTracks, *hTrackPtr = &mTracks;           // vector of tracks
+  TFile* mTrackFile = nullptr;                                     // file with tracks
+  TTree* mTrackTree = nullptr;                                     // tree of tracks
+  NA6PTrackerCA *mVTTracker = nullptr;                             // tracker
 
   ClassDefNV(NA6PVerTelReconstruction, 1);
 };

@@ -57,6 +57,8 @@ class NA6PTrack
   int          getVTClusterIndex(int lr)   const {return lr < kMaxVTLr ? mClusterIndices[lr] : -1; }
   int          getParticleLabel(int lr)    const {return lr < kMaxVTLr ? mClusterPartID[lr] : -2; }
   int          getParticleID()             const {return mParticleID;}
+  int          getCAIteration()            const {return mCAIteration;}
+  
   double       getAlpha()                  const {return mExtTrack.getAlpha();}
   double       getCharge()                 const {return mExtTrack.Charge();}
   bool         negDir()                    const {return std::abs(mExtTrack.getAlpha()) > M_PI/2.;}
@@ -88,7 +90,8 @@ class NA6PTrack
   void   setParticleLabel(int idx, int lr)  { if (lr < kMaxVTLr) mClusterPartID[lr] = idx;}
   void   setVTClusterIndex(int idx, int lr) { if (lr < kMaxVTLr) mClusterIndices[lr] = idx;}
   void   setParticleID(int idx)    {mParticleID = idx;}
-  
+  void   setCAIteration(int iter)  {mCAIteration = iter;}
+
   static void lab2trk(const double *vLab, double *vTrk); 
   static void trk2lab(const double *vTrk, double *vLab); 
 
@@ -118,6 +121,7 @@ class NA6PTrack
   std::array<int, kMaxVTLr> mClusterIndices{};   // cluster indices
   std::array<int, kMaxVTLr> mClusterPartID{};    // particle ID (per cluster)
   int      mParticleID = -1;                     // particle ID (MC truth)
+  int      mCAIteration = -1;                    //! CA iteration (for debug)
   ExtTrackPar mExtTrack;                         // track params
   
   ClassDefNV(NA6PTrack,1)

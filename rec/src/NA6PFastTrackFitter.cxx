@@ -33,7 +33,6 @@ NA6PFastTrackFitter::NA6PFastTrackFitter() :
   mPrimVertZ{0.0},
   mIsPrimVertSet{false},
   mCorrectForMaterial{true},
-  mGeoManager{nullptr},
   mClusters(mNLayersVT)
 {
   if (TGeoGlobalMagField::Instance()->GetField() == nullptr) {
@@ -80,18 +79,18 @@ void NA6PFastTrackFitter::setParticleHypothesis(int pdg){
 }
 
 bool NA6PFastTrackFitter::loadGeometry(const char* filename, const char* geoname){
-  if (mGeoManager){
-    LOGP(info,"Geometry was already loaded");
-    return false;
+  if (gGeoManager){
+    LOGP(info,"NA6PFastTrackFitter: Geometry was already loaded");
+    return true;
   }
-  if (gSystem->Exec(Form("ls -l %s",filename)) != 0){
+  if (gSystem->Exec(Form("ls -l %s > /dev/null",filename)) != 0){
     LOGP(error,"filename {} does not exist",filename);
     return false;
   }
   TFile* f = TFile::Open(filename);
-  mGeoManager = (TGeoManager*)f->Get(geoname);
+  gGeoManager = (TGeoManager*)f->Get(geoname);
   f->Close();
-  if (mGeoManager) return true;
+  if (gGeoManager) return true;
   else{
     LOGP(error,"No geometry with name {} found in file {}",geoname,filename);
     return false;
@@ -114,7 +113,7 @@ void NA6PFastTrackFitter::getMeanMaterialBudgetFromGeom(double* start, double* e
   mparam[0]=0; mparam[1]=1; mparam[2] =0; mparam[3] =0;
   mparam[4]=0; mparam[5]=0; mparam[6]=0;
 
-  if (mGeoManager == nullptr){
+  if (gGeoManager == nullptr){
     LOGP(info,"No geometry was loaded, won't apply materical corrections");
     return;
   }
@@ -130,7 +129,7 @@ void NA6PFastTrackFitter::getMeanMaterialBudgetFromGeom(double* start, double* e
   dir[1] = (end[1]-start[1])*invlen;
   dir[2] = (end[2]-start[2])*invlen;
 
-  TGeoNode *currNode = mGeoManager->InitTrack(start, dir);
+  TGeoNode *currNode = gGeoManager->InitTrack(start, dir);
   double sumSteps = 0.0;
   double minStep = 1e-4; // 1 micron
 
@@ -142,13 +141,13 @@ void NA6PFastTrackFitter::getMeanMaterialBudgetFromGeom(double* start, double* e
     double stepMax = length - sumSteps;
     
     // Find next boundary (or max step to end point)
-    TGeoNode* nextNode = mGeoManager->FindNextBoundaryAndStep(stepMax, false);
+    TGeoNode* nextNode = gGeoManager->FindNextBoundaryAndStep(stepMax, false);
     if (!nextNode) break;    
-    double snext = mGeoManager->GetStep();
+    double snext = gGeoManager->GetStep();
     // Handle numerical zero-step
     if (snext < tolerance) {
-      mGeoManager->Step(minStep);
-      snext = mGeoManager->GetStep();
+      gGeoManager->Step(minStep);
+      snext = gGeoManager->GetStep();
       if (snext < tolerance) break; // protection in case still zero
     }
 
