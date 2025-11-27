@@ -23,7 +23,6 @@ NA6PTrackerCA::NA6PTrackerCA() :
   mNIterationsCA{2}
 {
   mTrackFitter = new NA6PFastTrackFitter();
-  mTrackFitter->loadGeometry("geometry.root");
   mTrackFitter->setNLayersVT(mNLayers);
   mTrackFitter->setPropagateToPrimaryVertex(false);
 }
@@ -43,7 +42,7 @@ bool NA6PTrackerCA::loadGeometry(const char* filename, const char* geoname){
     LOGP(error,"Fitter not yet instantiated");
     return false;
   }
-  if (gSystem->Exec(Form("ls -l %s",filename)) != 0){
+  if (gSystem->Exec(Form("ls -l %s > /dev/null",filename)) != 0){
     LOGP(error,"filename {} does not exist",filename);
     return false;
   }
@@ -324,7 +323,7 @@ double NA6PTrackerCA::computeTrackToClusterChi2(const NA6PTrack& track,
   double measErr2[3] = {clu.getSigYY(), clu.getSigYZ(), clu.getSigZZ()};
   NA6PTrack copyToProp = track;
   copyToProp.propagateToZBxByBz(clu.getZ()); // no material correction temporarily
-  double cluchi2 = copyToProp.getPredictedChi2(meas,measErr2);
+  double cluchi2 = copyToProp.getTrackExtParam().getPredictedChi2(meas,measErr2);
   return cluchi2;
 }
 
@@ -362,7 +361,7 @@ bool NA6PTrackerCA::fitTrackPointsFast(const std::vector<int>& cluIDs,
     double meas[2] = {clusters[jClu]->getYTF(), clusters[jClu]->getZTF()}; // tracking (ExtTrParam) frame)
     double measErr2[3] = {clusters[jClu]->getSigYY(), clusters[jClu]->getSigYZ(), clusters[jClu]->getSigZZ()};
     mTrackFitter->propagateToZ(fitTrackPtr.get(),clusters[jClu]->getZLab());
-    double cluchi2 = fitTrackPtr->getPredictedChi2(meas,measErr2);
+    double cluchi2 = fitTrackPtr->getTrackExtParam().getPredictedChi2(meas,measErr2);
     if (cluchi2 > maxChi2TrClu) return false;
   }
   return true;  
@@ -394,7 +393,7 @@ void NA6PTrackerCA::findCellsNeighbours(const std::vector<CellCandidate>& cells,
 	const CellCandidate& cell2 = *it;
 	if (cell2.firstTrackletIndex != nextLayerTrackletIndex) continue;
 	if (cell1.cluIDs[1] != cell2.cluIDs[0] || cell1.cluIDs[2] != cell2.cluIDs[1]){
-	  printf("ERROR: mismatch in cluIDs\n");
+	  LOGP(error, "mismatch in cluIDs");
 	  continue;
 	}
 	int jClu2 = cell2.cluIDs[2];
@@ -438,7 +437,7 @@ std::vector<TrackCandidate> NA6PTrackerCA::prolongSeed(const TrackCandidate& see
       // in case of outward prolongation, pick up firstIndex and lastIndex at iLayer-2 (the cell contains 3 clus in layers: iLayer-2, iLayer-1 and iLayer)
       int layToSearch =  (dir == ExtendDirection::kInward) ? iLayer : iLayer-2;
       if (layToSearch < 0 || layToSearch >= maxValidLayerToSearch){
-	printf("ERROR in prolongSeed direction %d: layToSearch out of range %d\n",step,layToSearch);
+	LOGP(error,"in prolongSeed direction {}: layToSearch out of range {}",step,layToSearch);
 	continue;
       }
       for (int jCe = firstIndex[layToSearch]; jCe < lastIndex[layToSearch]; ++jCe) {
@@ -448,12 +447,12 @@ std::vector<TrackCandidate> NA6PTrackerCA::prolongSeed(const TrackCandidate& see
 	// --- CluID continuity checks ---
 	if (dir == ExtendDirection::kInward) {
 	  if (ccNext.cluIDs[1] != refCell.cluIDs[0] || ccNext.cluIDs[2] != refCell.cluIDs[1]){
-	    printf("ERROR: mismatch in CluIDs in prolongSeed in inward direction\n");
+	    LOGP(error,"mismatch in CluIDs in prolongSeed in inward direction");
 	    continue;
 	  }
 	} else {
 	  if (ccNext.cluIDs[0] != refCell.cluIDs[1] || ccNext.cluIDs[1] != refCell.cluIDs[2]){
-	    printf("ERROR: mismatch in CluIDs in prolongSeed in outward direction\n");
+	    LOGP(error,"mismatch in CluIDs in prolongSeed in outward direction");
 	    continue;
 	  }
 	}
@@ -533,7 +532,7 @@ void NA6PTrackerCA::findRoads(const std::vector<std::pair<int,int>>& cneigh,
       int cluID =  outer.cluIDs[jClu];
       int nLay = cluArr[cluID].getDetectorID()/4;
       if(cluIDsFull[nLay] != -1 && cluIDsFull[nLay] != cluID){
-	printf("ERROR: clu mismatch in layer %d!\n",nLay);
+	LOGP(error,"clu mismatch in layer {}",nLay);
 	continue;
       }
       cluIDsFull[nLay] = cluID;
@@ -541,11 +540,11 @@ void NA6PTrackerCA::findRoads(const std::vector<std::pair<int,int>>& cneigh,
     }
     // consistency checks
     if (innerLay != inner.startingLayer){
-      printf("ERROR mismatch on inner layer\n");
+      LOGP(error,"mismatch on inner layer");
       continue;
     }
     if (outerLay != outer.startingLayer+2){
-      printf("ERROR mismatch on outer layer\n");
+      LOGP(error,"mismatch on outer layer");
       continue;
     }
     TrackCandidate seed{innerLay, innerIndex, outerLay, outerIndex, cluIDsFull};
@@ -622,6 +621,25 @@ void NA6PTrackerCA::fitAndSelectTracks(const std::vector<TrackCandidate>& trackC
     for (int cluID : track.cluIDs) {
       if (cluID >= 0) mIsClusterUsed[cluID] = true;
     }
+    // assign overall MC label to the track
+    int nClus = track.cluIDs.size();
+    int idPartTrack = -9999999;
+    int nTrueClus = 0;
+    for (int jClu = 0; jClu < nClus; jClu++){
+      int cluID =  track.cluIDs[jClu];
+      if(cluID >= 0){
+	++nTrueClus;
+	const auto& clu = cluArr[cluID];
+	int idPartClu = clu.getParticleID();
+	if (jClu ==0){
+	  idPartTrack = idPartClu;
+	}else{
+	  // assign negative label to tracks with misassociations
+	  if(idPartClu != idPartTrack && idPartTrack > 0) idPartTrack *= (-1);
+	}
+      }
+    }
+    track.trackFitFast.setParticleID(idPartTrack);
     tracks.push_back(std::move(track));
   }
 }
@@ -630,11 +648,12 @@ void NA6PTrackerCA::fitAndSelectTracks(const std::vector<TrackCandidate>& trackC
 
 void NA6PTrackerCA::findTracks(std::vector<NA6PBaseCluster>& cluArr, TVector3 primVert) {
 
+  mFinalTracks.clear();
   uint nClus=cluArr.size();
   mPrimVertPos[0] = primVert.X();
   mPrimVertPos[1] = primVert.Y();
   mPrimVertPos[2] = primVert.Z();
-  printf("--- Process event with nClusters = %d, primary vertex in z = %.2f cm ---\n",nClus,mPrimVertPos[2]);
+  LOGP(info,"Process event with nClusters = %d, primary vertex in z = %.2f cm",nClus,mPrimVertPos[2]);
   mIsClusterUsed.resize(nClus);
   for(uint jClu = 0; jClu < nClus; jClu++) mIsClusterUsed[jClu] = false;
   std::vector<int> firstCluPerLay;
@@ -646,7 +665,7 @@ void NA6PTrackerCA::findTracks(std::vector<NA6PBaseCluster>& cluArr, TVector3 pr
   std::vector<TrackCandidate> trackCandidates;
   std::vector<TrackFitted> iterationTracks;
   for (int jIteration = 0; jIteration < mNIterationsCA; ++jIteration){
-    printf("-> Iteration %d <-\n",jIteration);
+    LOGP(info," -> Iteration {} <-",jIteration);
     foundTracklets.clear();
     foundCells.clear();
     cellsNeighbours.clear();
@@ -679,7 +698,14 @@ void NA6PTrackerCA::findTracks(std::vector<NA6PBaseCluster>& cluArr, TVector3 pr
 }
 
 //______________________________________________________________________
+std::vector<NA6PTrack> NA6PTrackerCA::getTracks() {
+  std::vector<NA6PTrack> trackArr;
+  trackArr.reserve(mFinalTracks.size());  
+  for (auto& track : mFinalTracks) trackArr.push_back(std::move(track.trackFitFast));
+  return trackArr;
+}
 
+//______________________________________________________________________
 template<typename T>
 void NA6PTrackerCA::printStats(const std::vector<T>& candidates,
 			       const std::vector<NA6PBaseCluster>& cluArr,
@@ -688,7 +714,7 @@ void NA6PTrackerCA::printStats(const std::vector<T>& candidates,
 			       int requiredClus){
   
   int nFound = candidates.size();
-  if(requiredClus < 0) printf("Number of %s = %d\n",label.c_str(),nFound);
+  if(requiredClus < 0) LOGP(info,"Number of {} = {}",label.c_str(),nFound);
   int nGood = 0;
   int nSelected = 0;
   double aveClus = 0;
@@ -731,7 +757,7 @@ void NA6PTrackerCA::printStats(const std::vector<T>& candidates,
 	const auto& clu = cluArr[cluID];
 	int jLay = clu.getDetectorID()/ 4;
 	if (jClu == 0 && jLay != startLay)
-	  printf("ERROR: mismatch in %s layers: %d %d\n",label.c_str(), jLay, startLay);
+	  LOGP(error,"mismatch in {} layers: {} {}",label.c_str(), jLay, startLay);
 	int idPartClu = clu.getParticleID();
 	if (jClu == 0) idPartTrack = idPartClu;
 	else if (idPartClu != idPartTrack && idPartTrack > 0) idPartTrack *= (-1);
@@ -744,15 +770,15 @@ void NA6PTrackerCA::printStats(const std::vector<T>& candidates,
   }
   if(requiredClus > 0) {
     if(nSelected > 0) {
-      printf("%s with %d clus: Fraction of good = %d / %d = %f  --- average clus = %f\n",
-	     label.c_str(), requiredClus, nGood, nSelected, (double)nGood / (double)nSelected,aveClus / (double)nSelected);
+      LOGP(info,"{} with {} clus: Fraction of good = {} / {} = {}  --- average clus = {}",
+	   label.c_str(), requiredClus, nGood, nSelected, (double)nGood / (double)nSelected,aveClus / (double)nSelected);
     }else{
-      printf("No %s having %d clus\n",label.c_str(),requiredClus);
+      LOGP(info,"No {} having {} clus",label.c_str(),requiredClus);
     }
   }else{
     if (nFound > 0)
-      printf("Fraction of good %s = %d / %d = %f  --- average clus = %f\n",
-	     label.c_str(), nGood, nFound, (double)nGood / (double)nFound,aveClus / (double)nFound);
+      LOGP(info,"Fraction of good {} = {} / {} = {}  --- average clus = {}",
+	   label.c_str(), nGood, nFound, (double)nGood / (double)nFound,aveClus / (double)nFound);
   }
 }
 
