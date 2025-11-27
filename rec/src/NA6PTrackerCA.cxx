@@ -1,6 +1,7 @@
 // NA6PCCopyright
 
 #include <fmt/format.h>
+#include <iostream>
 #include <fairlogger/Logger.h>
 #include <TGeoManager.h>
 #include <TSystem.h>
@@ -34,6 +35,74 @@ NA6PTrackerCA::~NA6PTrackerCA()
   if (mTrackFitter) delete mTrackFitter;
   mTrackFitter = nullptr;
 }
+//______________________________________________________________________
+void NA6PTrackerCA::setNumberOfIterations(int nIter) {
+  if (nIter >= 0 && nIter <= kMaxIterationsCA) mNIterationsCA = nIter;
+  else LOGP(error, "Number of iterations should be <= {}",kMaxIterationsCA);
+}
+void NA6PTrackerCA::setIterationParams(int iter,
+				       double maxDeltaThetaTracklets,
+				       double maxDeltaPhiTracklets,
+				       double maxDeltaTanLCells,
+				       double maxDeltaPhiCells,
+				       double maxDeltaPxPzCells,
+				       double maxDeltaPyPzCells,
+				       double maxChi2TrClCells,
+				       double maxChi2ndfCells,
+				       double maxChi2ndfTracks,
+				       int    minNClusTracks)
+{
+  if (iter < 0 || iter >= mNIterationsCA) {
+    LOGP(error, "Iteration {} out of allowed range [0, {}]", iter, mNIterationsCA-1);
+    return;
+  }
+  mMaxDeltaThetaTrackletsCA[iter] = maxDeltaThetaTracklets;
+  mMaxDeltaPhiTrackletsCA[iter] = maxDeltaPhiTracklets;
+  mMaxDeltaTanLCellsCA[iter] = maxDeltaTanLCells;
+  mMaxDeltaPhiCellsCA[iter] = maxDeltaPhiCells;
+  mMaxDeltaPxPzCellsCA[iter] = maxDeltaPxPzCells;
+  mMaxDeltaPyPzCellsCA[iter] = maxDeltaPyPzCells;
+  mMaxChi2TrClCellsCA[iter] = maxChi2TrClCells;
+  mMaxChi2ndfCellsCA[iter] = maxChi2ndfCells;
+  mMaxChi2ndfTracksCA[iter] = maxChi2ndfTracks;
+  mMinNClusTracksCA[iter] = minNClusTracks;
+}
+void NA6PTrackerCA::printConfiguration() const
+{
+  std::cout << "=== Tracker CA Configuration ===\n";
+  std::cout << "Number of iterations: " << mNIterationsCA << "\n\n";
+
+  std::cout << std::setw(5)  << "Iter"
+	    << std::setw(10) << "dThetaTrk"
+	    << std::setw(10) << "dPhiTrk"
+	    << std::setw(10) << "dTanLCell"
+	    << std::setw(10) << "dPhiCell"
+	    << std::setw(10) << "dPxPz"
+	    << std::setw(10) << "dPyPz"
+	    << std::setw(10) << "Chi2Cell"
+	    << std::setw(10) << "Chi2CellNdf"
+	    << std::setw(10) << "Chi2TrackNdf"
+	    << std::setw(8)  << "MinNClu"
+	    << "\n";
+  
+  for (int i = 0; i < mNIterationsCA; ++i)
+    {
+      std::cout << std::setw(5)  << i
+		<< std::setw(10) << mMaxDeltaThetaTrackletsCA[i]
+		<< std::setw(10) << mMaxDeltaPhiTrackletsCA[i]
+		<< std::setw(10) << mMaxDeltaTanLCellsCA[i]
+		<< std::setw(10) << mMaxDeltaPhiCellsCA[i]
+		<< std::setw(10) << mMaxDeltaPxPzCellsCA[i]
+		<< std::setw(10) << mMaxDeltaPyPzCellsCA[i]
+		<< std::setw(10) << mMaxChi2TrClCellsCA[i]
+		<< std::setw(10) << mMaxChi2ndfCellsCA[i]
+		<< std::setw(10) << mMaxChi2ndfTracksCA[i]
+		<< std::setw(8)  << mMinNClusTracksCA[i]
+		<< "\n";
+    }
+  std::cout << "==============================\n";
+}
+
 //______________________________________________________________________
 
 bool NA6PTrackerCA::loadGeometry(const char* filename, const char* geoname){
@@ -623,22 +692,37 @@ void NA6PTrackerCA::fitAndSelectTracks(const std::vector<TrackCandidate>& trackC
     }
     // assign overall MC label to the track
     int nClus = track.cluIDs.size();
-    int idPartTrack = -9999999;
-    int nTrueClus = 0;
-    for (int jClu = 0; jClu < nClus; jClu++){
-      int cluID =  track.cluIDs[jClu];
-      if(cluID >= 0){
-	++nTrueClus;
-	const auto& clu = cluArr[cluID];
-	int idPartClu = clu.getParticleID();
-	if (jClu ==0){
-	  idPartTrack = idPartClu;
-	}else{
-	  // assign negative label to tracks with misassociations
-	  if(idPartClu != idPartTrack && idPartTrack > 0) idPartTrack *= (-1);
-	}
+     int nTrueClus = 0;
+    std::vector<std::pair<int,int>> counts;
+    for (int jClu = 0; jClu < nClus; jClu++) {
+      int cluID = track.cluIDs[jClu];
+      if (cluID >= 0) {
+        ++nTrueClus;
+        const auto& clu = cluArr[cluID];
+        int idPartClu = clu.getParticleID();
+        bool found = false;
+        for (auto &p : counts) {
+	  if (p.first == idPartClu) {
+	    ++p.second;
+	    found = true;
+	    break;
+	  }
+        }
+        if (!found) {
+	  counts.push_back({idPartClu, 1});
+        }
       }
     }
+    int idPartTrack = -9999999;
+    int maxCount = 0;
+    for (const auto &p : counts) {
+      if (p.second > maxCount) {
+        maxCount = p.second;
+        idPartTrack = p.first;
+      }
+    }
+    // assign negative label to tracks with misassociations
+    if (counts.size() > 1 && idPartTrack > 0) idPartTrack *= -1;
     track.trackFitFast.setParticleID(idPartTrack);
     tracks.push_back(std::move(track));
   }
@@ -671,25 +755,25 @@ void NA6PTrackerCA::findTracks(std::vector<NA6PBaseCluster>& cluArr, TVector3 pr
     cellsNeighbours.clear();
     trackCandidates.clear();
     iterationTracks.clear();
-    computeLayerTracklets(cluArr,firstCluPerLay,lastCluPerLay,foundTracklets,maxDeltaThetaTrackletsCA[jIteration],maxDeltaPhiTrackletsCA[jIteration]);
+    computeLayerTracklets(cluArr,firstCluPerLay,lastCluPerLay,foundTracklets,mMaxDeltaThetaTrackletsCA[jIteration],mMaxDeltaPhiTrackletsCA[jIteration]);
     std::vector<int> firstTrklPerLay;
     std::vector<int> lastTrklPerLay;
     sortTrackletsByLayerAndIndex(foundTracklets,firstTrklPerLay,lastTrklPerLay);
     printStats(foundTracklets,cluArr,foundCells,"tracklets");
     //
-    computeLayerCells(foundTracklets,firstTrklPerLay,lastTrklPerLay,cluArr,foundCells,maxDeltaTanLCellsCA[jIteration],maxDeltaPhiCellsCA[jIteration],maxDeltaPxPzCellsCA[jIteration],maxDeltaPyPzCellsCA[jIteration],maxChi2TrClCellsCA[jIteration],maxChi2ndfCellsCA[jIteration]);
+    computeLayerCells(foundTracklets,firstTrklPerLay,lastTrklPerLay,cluArr,foundCells,mMaxDeltaTanLCellsCA[jIteration],mMaxDeltaPhiCellsCA[jIteration],mMaxDeltaPxPzCellsCA[jIteration],mMaxDeltaPyPzCellsCA[jIteration],mMaxChi2TrClCellsCA[jIteration],mMaxChi2ndfCellsCA[jIteration]);
     std::vector<int> firstCellPerLay;
     std::vector<int> lastCellPerLay;
     sortCellsByLayerAndIndex(foundCells,firstCellPerLay,lastCellPerLay);
     printStats(foundCells,cluArr,foundCells,"cells");
     //
-    findCellsNeighbours(foundCells,firstCellPerLay,lastCellPerLay,cellsNeighbours,cluArr,maxChi2TrClCellsCA[jIteration]);
+    findCellsNeighbours(foundCells,firstCellPerLay,lastCellPerLay,cellsNeighbours,cluArr,mMaxChi2TrClCellsCA[jIteration]);
     printStats(cellsNeighbours,cluArr,foundCells,"cell pairs");
     //
-    findRoads(cellsNeighbours,foundCells,firstCellPerLay,lastCellPerLay,foundTracklets,cluArr,trackCandidates,maxChi2TrClCellsCA[jIteration]);
+    findRoads(cellsNeighbours,foundCells,firstCellPerLay,lastCellPerLay,foundTracklets,cluArr,trackCandidates,mMaxChi2TrClCellsCA[jIteration]);
     printStats(trackCandidates,cluArr,foundCells,"track candidates");
     //
-    fitAndSelectTracks(trackCandidates,cluArr,iterationTracks,maxChi2TrClCellsCA[jIteration],minNClusTracksCA[jIteration],maxChi2ndfTracksCA[jIteration]);
+    fitAndSelectTracks(trackCandidates,cluArr,iterationTracks,mMaxChi2TrClCellsCA[jIteration],mMinNClusTracksCA[jIteration],mMaxChi2ndfTracksCA[jIteration]);
     printStats(iterationTracks,cluArr,foundCells,"selected tracks");
     printStats(iterationTracks,cluArr,foundCells,"selected tracks",5);
     printStats(iterationTracks,cluArr,foundCells,"selected tracks",4);

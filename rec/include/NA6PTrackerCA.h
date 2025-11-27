@@ -67,15 +67,29 @@ enum class ExtendDirection { kInward, kOutward };
 class NA6PTrackerCA
 {
 public:
-  static constexpr int maxIterationsCA = 10;
+  static constexpr int kMaxIterationsCA = 10;
 
   NA6PTrackerCA();
   ~NA6PTrackerCA();
 
   // setters for configurable parameters
   void setNLayers(int n) {mNLayers = n;}
-  void SetMaxNumberOfSharedClusters(int n) {mMaxSharedClusters = n;
-  }
+  void SetMaxNumberOfSharedClusters(int n) {mMaxSharedClusters = n;}
+  void setNumberOfIterations(int nIter);
+  void setIterationParams(int iter,
+			  double maxDeltaThetaTracklets,
+			  double maxDeltaPhiTracklets,
+			  double maxDeltaTanLCells,
+			  double maxDeltaPhiCells,
+			  double maxDeltaPxPzCells,
+			  double maxDeltaPyPzCells,
+			  double maxChi2TrClCells,
+			  double maxChi2ndfCells,
+			  double maxChi2ndfTracks,
+			  int    minNClusTracks);
+
+
+  void printConfiguration() const;
   bool loadGeometry(const char* filename, const char* geoname = "NA6P");
   void findTracks(std::vector<NA6PBaseCluster>& cluArr, TVector3 primVert);
   std::vector<NA6PTrack> getTracks();
@@ -161,16 +175,16 @@ private:
   std::vector<TrackFitted> mFinalTracks = {};
   int    mMaxSharedClusters = 0;
   int    mNIterationsCA = 2;
-  double maxDeltaThetaTrackletsCA[maxIterationsCA] = {0.04, 0.1, 0.15, 0.3, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
-  double maxDeltaPhiTrackletsCA[maxIterationsCA] = {0.1, 0.2, 0.25, 0.5, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
-  double maxDeltaTanLCellsCA[maxIterationsCA] = {4., 9., 18., 40., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
-  double maxDeltaPhiCellsCA[maxIterationsCA] = {0.4, 0.6, 1.2, 2.4, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
-  double maxDeltaPxPzCellsCA[maxIterationsCA] = {0.02, 0.05, 0.1, 0.2, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
-  double maxDeltaPyPzCellsCA[maxIterationsCA] = {2e-3, 7.5e-3, 1.5e-2, 3.e-2, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
-  double maxChi2TrClCellsCA[maxIterationsCA] = {5., 10., 10., 10.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
-  double maxChi2ndfCellsCA[maxIterationsCA] = {5., 10., 10., 10., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
-  double maxChi2ndfTracksCA[maxIterationsCA] = {5., 10., 10., 10., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
-  int    minNClusTracksCA[maxIterationsCA] = {5, 3, 0, 0, 0, 0, 0, 0, 0, 0};
+  double mMaxDeltaThetaTrackletsCA[kMaxIterationsCA] = {0.04, 0.1, 0.15, 0.3, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
+  double mMaxDeltaPhiTrackletsCA[kMaxIterationsCA] = {0.1, 0.2, 0.25, 0.5, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
+  double mMaxDeltaTanLCellsCA[kMaxIterationsCA] = {4., 9., 18., 40., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
+  double mMaxDeltaPhiCellsCA[kMaxIterationsCA] = {0.4, 0.6, 1.2, 2.4, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
+  double mMaxDeltaPxPzCellsCA[kMaxIterationsCA] = {0.02, 0.05, 0.1, 0.2, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
+  double mMaxDeltaPyPzCellsCA[kMaxIterationsCA] = {2e-3, 7.5e-3, 1.5e-2, 3.e-2, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
+  double mMaxChi2TrClCellsCA[kMaxIterationsCA] = {5., 10., 10., 10.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
+  double mMaxChi2ndfCellsCA[kMaxIterationsCA] = {5., 10., 10., 10., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
+  double mMaxChi2ndfTracksCA[kMaxIterationsCA] = {5., 10., 10., 10., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
+  int    mMinNClusTracksCA[kMaxIterationsCA] = {5, 3, 0, 0, 0, 0, 0, 0, 0, 0};
 
 
 
