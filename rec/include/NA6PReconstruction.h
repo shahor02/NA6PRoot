@@ -29,15 +29,22 @@ class NA6PReconstruction
 
   const std::string& getName() const { return mName; }
 
+  virtual bool init(const char* filename, const char* geoname = "NA6P");
+  
   // methods to steer cluster reconstruction
   virtual void createClustersOutput();
   virtual void clearClusters();
   virtual void writeClusters();
   virtual void closeClustersOutput();
+  // methods to steer tracking
+  virtual void createTracksOutput();
+  virtual void clearTracks();
+  virtual void writeTracks();
+  virtual void closeTracksOutput();
 
  protected:
   std::string mName{"MothClass"};                // detector name
-
+  bool        mIsInitialized = false;            // flag for initialization
   ClassDefNV(NA6PReconstruction, 1);
 };
 

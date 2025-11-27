@@ -74,7 +74,7 @@ public:
 
   // setters for configurable parameters
   void setNLayers(int n) {mNLayers = n;}
-  void SetMaxNumberOfSharedClusters(int n) {mMaxSharedClusters = n;}
+  void setMaxNumberOfSharedClusters(int n) {mMaxSharedClusters = n;}
   void setNumberOfIterations(int nIter);
   void setIterationParams(int iter,
 			  double maxDeltaThetaTracklets,
@@ -87,12 +87,14 @@ public:
 			  double maxChi2ndfCells,
 			  double maxChi2ndfTracks,
 			  int    minNClusTracks);
-
+  void setVerbosity(bool opt = true) {mVerbose = opt;}
 
   void printConfiguration() const;
+  int  getNIterations() const {return mNIterationsCA;}
   bool loadGeometry(const char* filename, const char* geoname = "NA6P");
   void findTracks(std::vector<NA6PBaseCluster>& cluArr, TVector3 primVert);
   std::vector<NA6PTrack> getTracks();
+
   
 protected:
   // methods used in tracking
@@ -174,6 +176,7 @@ private:
   std::vector<bool> mIsClusterUsed = {};
   std::vector<TrackFitted> mFinalTracks = {};
   int    mMaxSharedClusters = 0;
+  bool   mVerbose = false;
   int    mNIterationsCA = 2;
   double mMaxDeltaThetaTrackletsCA[kMaxIterationsCA] = {0.04, 0.1, 0.15, 0.3, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   double mMaxDeltaPhiTrackletsCA[kMaxIterationsCA] = {0.1, 0.2, 0.25, 0.5, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};

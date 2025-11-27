@@ -6,7 +6,19 @@
 #include <fairlogger/Logger.h>
 #include "NA6PBaseCluster.h"
 #include "NA6PVerTelHit.h"
+#include "NA6PTrack.h"
+#include "NA6PTrackerCA.h"
 #include "NA6PVerTelReconstruction.h"
+
+ClassImp(NA6PVerTelReconstruction)
+
+bool NA6PVerTelReconstruction::init(const char* filename, const char* geoname)
+{
+  NA6PReconstruction::init(filename, geoname);
+  mVTTracker = new NA6PTrackerCA();
+  createTracksOutput();
+  return true;
+}
 
 void NA6PVerTelReconstruction::createClustersOutput()
 {
@@ -70,3 +82,44 @@ void NA6PVerTelReconstruction::hitsToRecPoints(const std::vector<NA6PVerTelHit>&
   }
 }
 
+void NA6PVerTelReconstruction::createTracksOutput()
+{
+  auto nm = fmt::format("Tracks{}.root", getName());
+  mTrackFile = TFile::Open(nm.c_str(), "recreate");
+  mTrackTree = new TTree(fmt::format("tracks{}", getName()).c_str(), fmt::format("{} Tracks", getName()).c_str());
+  mTrackTree->Branch(getName().c_str(), &hTrackPtr);
+  LOGP(info, "Will store {} tracks in {}", getName(), nm);
+}
+
+void NA6PVerTelReconstruction::writeTracks()
+{
+  if (mTrackTree) {
+    mTrackTree->Fill();
+  }
+  LOGP(info, "Saved {} tracks in tree with {} entries", mTracks.size(),mTrackTree->GetEntries());
+}
+
+void NA6PVerTelReconstruction::closeTracksOutput()
+{
+  if (mTrackTree && mTrackFile) {
+    mTrackFile->cd();
+    mTrackTree->Write();
+    delete mTrackTree;
+    mTrackTree = nullptr;
+    mTrackFile->Close();
+    delete mTrackFile;
+    mTrackFile = nullptr;
+  }
+}
+
+void NA6PVerTelReconstruction::runTracking()
+{
+  if (!mIsInitialized){
+    LOGP(error,"Magnetic field and geometry not initialized");
+    return;
+  }
+  clearTracks();
+  mVTTracker->findTracks(mClusters,mPrimaryVertex);
+  mTracks = mVTTracker->getTracks();
+  writeTracks();
+}
