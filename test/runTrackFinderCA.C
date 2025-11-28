@@ -43,6 +43,12 @@ void runTrackFinderCA(int firstEv = 0,
 
   NA6PTrackerCA* tracker = new NA6PTrackerCA();
   if (!tracker->loadGeometry(Form("%s/geometry.root",dirSimu))) return;
+  // pass here the configuration of the tracker via an ini file
+  tracker->configureFromRecoParam(/* filename.ini */);
+  // alternatively the configuration can be set calling setters for the iterations
+  // tracker->setNumberOfIterations(3);
+  // tracker->setIterationParams(0,0.04,0.1,4.,0.4,0.02,2e-3,5.,5.,5.,5);
+  tracker->printConfiguration();
   TFile* fk=new TFile(Form("%s/MCKine.root",dirSimu));
   TTree* mcTree=(TTree*)fk->Get("mckine");
   std::vector<TParticle>* mcArr = nullptr;

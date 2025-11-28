@@ -87,6 +87,7 @@ public:
 			  double maxChi2ndfCells,
 			  double maxChi2ndfTracks,
 			  int    minNClusTracks);
+  void configureFromRecoParam(const std::string filename = "");
   void setVerbosity(bool opt = true) {mVerbose = opt;}
 
   void printConfiguration() const;

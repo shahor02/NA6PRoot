@@ -14,6 +14,7 @@ bool NA6PVerTelReconstruction::init(const char* filename, const char* geoname)
 {
   NA6PReconstruction::init(filename, geoname);
   mVTTracker = new NA6PTrackerCA();
+  mVTTracker->configureFromRecoParam();
   createTracksOutput();
   return true;
 }
