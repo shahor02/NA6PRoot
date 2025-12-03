@@ -22,7 +22,6 @@ set(DICTIONARY_HEADERS
   MagneticField.h
   NA6PBeamParam.h
   NA6PBeam.h
-  NA6PRecoParam.h
   ) # Add all class headers requiring dictionary
   
 set(DICTIONARY_LINKDEF ${THIS_SRC_DIR}/${MOD_NAME}LinkDef.h)

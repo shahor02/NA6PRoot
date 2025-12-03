@@ -22,6 +22,7 @@ set(DICTIONARY_HEADERS
   NA6PBaseCluster.h
   ExtTrackPar.h
   NA6PTrack.h
+  NA6PRecoParam.h
   NA6PReconstruction.h
   NA6PVerTelReconstruction.h
   NA6PTrackerCA.h

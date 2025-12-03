@@ -16,7 +16,4 @@
 
 #pragma link C++ class NA6PBeam + ;
 
-#pragma link C++ class NA6PRecoParam + ;
-#pragma link C++ class na6p::conf::ConfigurableParamHelper < NA6PRecoParam> + ;
-
 #endif
