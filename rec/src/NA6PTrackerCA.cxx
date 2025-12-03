@@ -8,6 +8,7 @@
 #include "NA6PBaseCluster.h"
 #include "MagneticField.h"
 #include "NA6PFastTrackFitter.h"
+#include "NA6PRecoParam.h"
 #include "NA6PTrackerCA.h"
 
 ClassImp(NA6PTrackerCA)
@@ -68,6 +69,28 @@ void NA6PTrackerCA::setIterationParams(int iter,
   mMaxChi2ndfTracksCA[iter] = maxChi2ndfTracks;
   mMinNClusTracksCA[iter] = minNClusTracks;
 }
+
+void NA6PTrackerCA::configureFromRecoParam(const std::string filename){
+  if (filename != "") {
+    na6p::conf::ConfigurableParamHelper<NA6PRecoParam>::updateFromFile(filename);
+  }
+  const auto& param = NA6PRecoParam::Instance();
+  setNumberOfIterations(param.nIterationsTrackerCA);
+  for (int jIter = 0; jIter < mNIterationsCA; ++jIter){
+    setIterationParams(jIter,
+		       param.maxDeltaThetaTrackletsCA[jIter],
+		       param.maxDeltaPhiTrackletsCA[jIter],
+		       param.maxDeltaTanLCellsCA[jIter],
+		       param.maxDeltaPhiCellsCA[jIter],
+		       param.maxDeltaPxPzCellsCA[jIter],
+		       param.maxDeltaPyPzCellsCA[jIter],
+		       param.maxChi2TrClCellsCA[jIter],
+		       param.maxChi2ndfCellsCA[jIter],
+		       param.maxChi2ndfTracksCA[jIter],
+		       param.minNClusTracksCA[jIter]);
+  }
+}
+
 void NA6PTrackerCA::printConfiguration() const
 {
   std::cout << "=== Tracker CA Configuration ===\n";

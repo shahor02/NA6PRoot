@@ -17,4 +17,7 @@
 #pragma link C++ class NA6PTrackerCA + ;
 #pragma link C++ class NA6PFastTrackFitter + ;
 
+#pragma link C++ class NA6PRecoParam + ;
+#pragma link C++ class na6p::conf::ConfigurableParamHelper < NA6PRecoParam> + ;
+
 #endif
