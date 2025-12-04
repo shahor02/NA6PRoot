@@ -301,7 +301,7 @@ void NA6PTrackerCA::computeLayerTracklets(const std::vector<NA6PBaseCluster>& cl
       double r1 = std::sqrt(x1*x1 + y1*y1);
       double theta1 = std::atan2(z1, r1);
       double phi1 = std::atan2(y1,x1);
-      double tanth2Min = std::tan(theta1 - 1.2 * deltaThetaMax); // 1.2 is a safety margin
+      double tanth2Min = std::max(0.,std::tan(theta1 - 1.2 * deltaThetaMax)); // 1.2 is a safety margin, the tan(theta) range is limited at zero to protect for the case in which theta1 - 1.2 * deltaThetaMax is <0, which would give a negative tangent. The minimum acceptable value for theta is 0
       double tanth2Max = std::tan(theta1 + 1.2 * deltaThetaMax);
       auto lower = std::partition_point(layerBegin, layerEnd, 
 					[pvx, pvy, pvz, tanth2Min](const NA6PBaseCluster& clu){
