@@ -10,6 +10,8 @@
 #pragma link C++ class std::vector < NA6PBaseCluster> + ;
 #pragma link C++ class NA6PTrack + ;
 #pragma link C++ class std::vector < NA6PTrack> + ;
+#pragma link C++ class NA6PVertex + ;
+#pragma link C++ class std::vector < NA6PVertex> + ;
 
 #pragma link C++ class NA6PReconstruction + ;
 #pragma link C++ class NA6PVerTelReconstruction + ;
