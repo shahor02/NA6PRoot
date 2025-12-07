@@ -3,6 +3,7 @@
 #define NA6P_TRACKPARCOV_H
 
 #include "NA6PTrackPar.h"
+#include "NA6PCluster.h"
 
 /*
   Add covariance matrix and related methods to NA6PTrackPar
@@ -28,6 +29,7 @@ class NA6PTrackParCov : public NA6PTrackPar
 
   bool update(const float xm, const float ym, const float sx2, const float sxy, const float sy2);
   bool update(const std::array<float, 2>& meas, const std::array<float, 3>& cov);
+  bool update(const NA6PCluster& cl);
 
   std::string asString() const;
 
@@ -42,6 +44,11 @@ class NA6PTrackParCov : public NA6PTrackPar
 inline bool NA6PTrackParCov::update(const std::array<float, 2>& meas, const std::array<float, 3>& cov)
 {
   return update(meas[kX], meas[kY], cov[kXX], cov[kYX], cov[kYY]);
+}
+
+inline bool NA6PTrackParCov::update(const NA6PCluster& cl)
+{
+  return update(cl.getX(), cl.getY(), cl.getSigXX(), cl.getSigXY(), cl.getSigYY());
 }
 
 #endif // NA6P_TRACKPARCOV_H
