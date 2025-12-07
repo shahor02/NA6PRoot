@@ -21,8 +21,9 @@ add_library(${LIB_NAME} SHARED ${THIS_SOURCES} ${THIS_HEADERS} )
 set(DICTIONARY_HEADERS
   NA6PTrackPar.h
   NA6PTrackParCov.h
+  NA6PCluster.h
 ) # Add all class headers requiring dictionary
-  
+
 set(DICTIONARY_LINKDEF ${THIS_SRC_DIR}/${MOD_NAME}LinkDef.h)
 set(DICTIONARY_OUTPUT ${LIB_NAME}Dict)
 
