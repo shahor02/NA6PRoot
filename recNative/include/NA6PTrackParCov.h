@@ -26,6 +26,7 @@ class NA6PTrackParCov : public NA6PTrackPar
 
   // --- propagation in dipole field B = (0, By, 0) ---
   bool propagate(float z, float by);
+  bool propagateToDCA(float xv, float yv, float zv, float by, float epsZ = 1e-4, float epsDCA = 1e-5, int maxIt = 30);
 
   bool update(const float xm, const float ym, const float sx2, const float sxy, const float sy2);
   bool update(const std::array<float, 2>& meas, const std::array<float, 3>& cov);
@@ -49,6 +50,12 @@ inline bool NA6PTrackParCov::update(const std::array<float, 2>& meas, const std:
 inline bool NA6PTrackParCov::update(const NA6PCluster& cl)
 {
   return update(cl.getX(), cl.getY(), cl.getSigXX(), cl.getSigXY(), cl.getSigYY());
+}
+
+inline bool NA6PTrackParCov::propagateToDCA(float xv, float yv, float zv, float by, float epsZ, float epsDCA, int maxIt)
+{
+  NA6PTrackPar tTmp(*this);
+  return tTmp.propagateParamToDCA(xv, yv, zv, by, epsZ, epsDCA, maxIt) && propagate(tTmp.getZ(), by);
 }
 
 #endif // NA6P_TRACKPARCOV_H

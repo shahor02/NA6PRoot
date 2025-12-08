@@ -13,6 +13,7 @@ std::string NA6PTrackParCov::asString() const
 
 bool NA6PTrackParCov::propagate(float z, float by)
 {
+  using prec_t = double;
   const float dz = z - getZ();
   if (std::abs(dz) < 1e-6f) {
     return true;
@@ -25,17 +26,17 @@ bool NA6PTrackParCov::propagate(float z, float by)
     mZ = z;
     return true;
   }
-  const auto pxz2pz2 = getPxz2Pz2();                        // D^2 of the into
+  const auto pxz2pz2 = getPxz2Pz2<prec_t>();                // D^2 of the into
   const auto pxz2pz = std::sqrt(pxz2pz2);                   // D of the into
   const auto p2pz = std::sqrt(pxz2pz2 + getTy() * getTy()); // A of the intro
   //   tan(psi0) = tx0 = p_x/p_z
-  const auto cosPsi0 = 1.f / pxz2pz;
+  const auto cosPsi0 = prec_t(1) / pxz2pz;
   const auto sinPsi0 = getTx() * cosPsi0;
   const auto kappa = kB2C * by * getQ2P() * (p2pz * cosPsi0); // curvature
   // dz = (1/kappa) [ sin(psi1) - sin(psi0) ]
   // => sin(psi1) = sinPsi0 + kappa * dz
   const auto sinPsi1 = sinPsi0 + kappa * dz;
-  auto cosPsi1 = (1.f - sinPsi1) * (1.f + sinPsi1);
+  auto cosPsi1 = (prec_t(1) - sinPsi1) * (prec_t(1) + sinPsi1);
   if (cosPsi1 < kTiny) {
     return false;
   }
@@ -44,18 +45,18 @@ bool NA6PTrackParCov::propagate(float z, float by)
     cosPsi1 = -cosPsi1;
   }
   auto dPsi = cosPsi0 * sinPsi1 - cosPsi1 * sinPsi0; // could be simpler for large curvature/small step : kappa*dz/cosPsi0
-  if (std::abs(dPsi) > 1.f - kTiny) {
+  if (std::abs(dPsi) > prec_t(1) - kTiny) {
     return false;
   }
   dPsi = std::asin(dPsi); // dPsi = (std::atan2(sinPsi1,cosPsi1) - std::atan2(sinPsi0,cosPsi0));
-  if ((sinPsi0 * sinPsi1 < 0.f) && (sinPsi0 * sinPsi0 + sinPsi1 * sinPsi1 > 1.f)) {
+  if ((sinPsi0 * sinPsi1 < 0.f) && (sinPsi0 * sinPsi0 + sinPsi1 * sinPsi1 > prec_t(1))) {
     dPsi = sinPsi1 > 0.f ? (kPI - dPsi) : (-kPI - dPsi);
   }
-  auto xUpd = (cosPsi0 - cosPsi1) / kappa;
-  auto yUpd = getTy() / (pxz2pz * kappa) * dPsi;
-  auto cosPsi1Inv = 1.f / cosPsi1;
-  auto txNew = sinPsi1 * cosPsi1Inv;             // tx1 = tan(psi1) = sin(psi1)/cos(psi1)
-  auto tyNew = getTy() * (cosPsi0 * cosPsi1Inv); // ty = p_y/p_z => ty1 = ty0 * (cosPsi0 / cosPsi1)   simplify this
+  auto cosPsi1Inv = prec_t(1) / cosPsi1;
+  float xUpd = (cosPsi0 - cosPsi1) / kappa;
+  float yUpd = getTy() / (pxz2pz * kappa) * dPsi;
+  float txNew = sinPsi1 * cosPsi1Inv;             // tx1 = tan(psi1) = sin(psi1)/cos(psi1)
+  float tyNew = getTy() * (cosPsi0 * cosPsi1Inv); // ty = p_y/p_z => ty1 = ty0 * (cosPsi0 / cosPsi1)   simplify this
   if (std::abs(kappa) < kTiny) {
     xUpd = getTx() * dz;
     yUpd = getTy() * dz;
