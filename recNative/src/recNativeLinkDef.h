@@ -13,4 +13,5 @@
 
 #pragma link C++ class NA6PCluster + ;
 #pragma link C++ class std::vector < NA6PCluster> + ;
+
 #endif

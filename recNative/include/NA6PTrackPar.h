@@ -34,7 +34,7 @@
 
   We make a step of dz in z direction (from z0 to z1)
 
-  From the geometry: sinPsi1 - sinPsi0 = dz / kappa
+  From the geometry: sinPsi1 - sinPsi0 = dz * kappa
   => sin(Psi0+dPsi) - sinPsi0 \approx dPsi * cosPsi0
   => dPsi \approx kappa * dz / cosPsi0
 
@@ -52,12 +52,14 @@
   dy     = n_y * s_perp = (ty0 / D) * (psi1 - psi0) / kappa.
   => y1 = y0 + ty0/D * (psi1 - psi0) / kappa              (3)
 
-  ty1 and q/p do not change
+  py and q/p and pxz  do not change
+  => ty1 = py/pz1 = ty0*pz0/pz1 = ty0*D1/D0 = ty0*cosPsi0/cosPsi1 (4)
 
   For the covariance matrix calculation we use simplified (up to dz^2) state propagation
   x1 = x0 + tx0 * dz + kappa/2 * dz^2                     (1a)
   tx1 = tx0 + kappa * dz                                  (2a)
   y1 = y0 + ty0 * dz                                      (3a)
+  ty1 = ty0                                               (4a)
 
   //-------- cov. matrix transformation ------------//
   Since the curvature kappa depends on q/p, tx and ty, we need its derivatives:
@@ -142,16 +144,45 @@ class NA6PTrackPar
   void getPXYZ(std::array<float, 3>& pxyz) const;
   std::array<float, 3> getPXYZ() const;
 
+  template <typename T = float>
+  T getCurvature(float by) const
+  {
+    return kB2C * by * getQ2P() * std::sqrt(T(1) + T(getTy()) * T(getTy()) / getPxz2Pz2<T>());
+  }
+
   // --- propagation in dipole field B = (0, By, 0) ---
   bool propagateParam(float z, float by);
+  bool propagateParamToDCA(float xv, float yv, float zv, float by, float epsZ = 1e-4, float epsDCA = 1e-5, int maxIt = 30);
+
+  template <typename T = float>
+  std::array<T, 3> getCircleParams(float by) const;
 
   std::string asString() const;
 
  protected:
   // helpers
-  float getPxz2Pz2() const { return 1.f + getTx() * getTx(); }        // 1 + tx^2 = pxz^2 / pz^2
-  float getP2Pz2() const { return getPxz2Pz2() + getTy() * getTy(); } // 1 + tx^2 + + ty^2 = (p/pz)^2
-  float getP2Pz() const { return std::sqrt(getP2Pz2()); }
+  template <typename T = float>
+  T getPxz2Pz2() const
+  {
+    return T(1) + T(getTx()) * T(getTx());
+  } // 1 + tx^2 = pxz^2 / pz^2
+  template <typename T = float>
+  T getP2Pz2() const
+  {
+    return getPxz2Pz2<T>() + T(getTy()) * T(getTy());
+  } // 1 + tx^2 + + ty^2 = (p/pz)^2
+  template <typename T = float>
+  T getP2Pz() const
+  {
+    return std::sqrt(getP2Pz2<T>());
+  }
+  template <typename T = float>
+  T getCosXZ() const
+  {
+    return T(1) / std::sqrt(getPxz2Pz2());
+  }
+  template <typename T>
+  void getSinCosXZ(T& s, T& c) const;
 
   float mZ{};                                  // evaluation z
   std::array<float, 5> mP{0., 0., 0., 0., 0.}; // parameters: {x,y,px/pz,py/pz,q/p}
@@ -183,6 +214,30 @@ inline void NA6PTrackPar::getPXYZ(std::array<float, 3>& pxyz) const
   pxyz[2] = getPz();
   pxyz[0] = getTx() * pxyz[2];
   pxyz[1] = getTy() * pxyz[2];
+}
+
+template <typename T>
+inline void NA6PTrackPar::getSinCosXZ(T& s, T& c) const
+{
+  // get sin and cos of track in the bending plane
+  c = getCosXZ<T>();
+  s = getTx() * c;
+}
+
+template <typename T>
+std::array<T, 3> NA6PTrackPar::getCircleParams(float by) const
+{
+  // get circle params as {R, Xcenter, Zcenter}, for straight line just set to current coordinates
+  constexpr T ZeroCurv = 1e-8;
+  auto crv = getCurvature<T>(by);
+  if (std::abs(crv) > ZeroCurv) {
+    auto crvi = T(1) / crv;
+    T sn, cs;
+    getSinCosXZ(sn, cs);
+    return {std::abs(crvi), getX() + cs * crvi, getZ() - sn * crvi};
+  } else {
+    return {T(0), T(getX()), T(getZ())};
+  }
 }
 
 #endif // NA6P_TRACKPAR_H
