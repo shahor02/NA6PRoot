@@ -62,6 +62,26 @@ void NA6PReconstruction::closeClustersOutput()
   LOGP(warning, "closeClustersOutput called for {}, this should not happen", getName());
 }
 
+void NA6PReconstruction::createVerticesOutput()
+{
+  LOGP(warning, "createVerticesOutput called for {}, this should not happen", getName());
+}
+
+void NA6PReconstruction::clearVertices()
+{
+  LOGP(warning, "clearVertices called for {}, this should not happen", getName());
+}
+
+void NA6PReconstruction::writeVertices()
+{
+  LOGP(warning, "writeVertices called for {}, this should not happen", getName());
+}
+
+void NA6PReconstruction::closeVerticesOutput()
+{
+  LOGP(warning, "closeVerticesOutput called for {}, this should not happen", getName());
+}
+
 void NA6PReconstruction::createTracksOutput()
 {
   LOGP(warning, "createTracksOutput called for {}, this should not happen", getName());
@@ -81,4 +101,3 @@ void NA6PReconstruction::closeTracksOutput()
 {
   LOGP(warning, "closeTracksOutput called for {}, this should not happen", getName());
 }
-

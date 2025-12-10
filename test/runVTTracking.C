@@ -42,8 +42,8 @@ void runVTTracking(int firstEv = 0,
     for(int jp=0; jp<nPart; jp++){
       auto curPart=mcArr->at(jp);
       if(curPart.IsPrimary()){
-	zvert =  curPart.Vz();
-	break;
+        zvert =  curPart.Vz();
+        break;
       }
     }
     tc->GetEvent(jEv);
