@@ -106,7 +106,7 @@ class NA6PVertex
   int   mNContributors = 0; 
   short mVertexType = kBaseVertex;
   
-  ClassDefNV(NA6PVertex,1)
+  ClassDefNV(NA6PVertex,1);
 };
 
 #endif

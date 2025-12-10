@@ -16,6 +16,7 @@
 #pragma link C++ class NA6PReconstruction + ;
 #pragma link C++ class NA6PVerTelReconstruction + ;
 #pragma link C++ class ExtTrackPar + ;
+#pragma link C++ class NA6PVertexerTracklets + ;
 #pragma link C++ class NA6PTrackerCA + ;
 #pragma link C++ class NA6PFastTrackFitter + ;
 
