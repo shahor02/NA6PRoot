@@ -3,13 +3,13 @@
 #include <TFile.h>
 #include <TParticle.h>
 #include <TStopwatch.h>
-#include "NA6PVerTelCluster.h"
-#include "NA6PVerTelReconstruction.h"
+#include "NA6PMuonSpecCluster.h"
+#include "NA6PMuonSpecReconstruction.h"
 #endif
 
-void runVTTracking(int firstEv = 0,
+void runMSTracking(int firstEv = 0,
 		   int lastEv = 99999,
-		   const char *dirSimu = "Angantyr")
+		   const char *dirSimu = "../tst")
 {
   
   // kine file needed to get the primary vertex position (temporary)
@@ -18,14 +18,13 @@ void runVTTracking(int firstEv = 0,
   std::vector<TParticle>* mcArr = nullptr;
   mcTree->SetBranchAddress("tracks", &mcArr);
 
-  TFile* fc=new TFile(Form("%s/ClustersVerTel.root",dirSimu));
+  TFile* fc=new TFile(Form("%s/ClustersMuonSpec.root",dirSimu));
   printf("Open cluster file: %s\n",fc->GetName());
-  TTree* tc=(TTree*)fc->Get("clustersVerTel");
-  std::vector<NA6PVerTelCluster> vtClus, *vtClusPtr = &vtClus;
-  tc->SetBranchAddress("VerTel", &vtClusPtr);
-
-  NA6PVerTelReconstruction* vtrec = new NA6PVerTelReconstruction();
-  vtrec->init(Form("%s/geometry.root",dirSimu));
+  TTree* tc=(TTree*)fc->Get("clustersMuonSpec");
+  std::vector<NA6PMuonSpecCluster> msClus, *msClusPtr = &msClus;
+  tc->SetBranchAddress("MuonSpec", &msClusPtr);
+  NA6PMuonSpecReconstruction* msrec = new NA6PMuonSpecReconstruction();
+  msrec->init(Form("%s/geometry.root",dirSimu));
 
   int nEv=tc->GetEntries();
   if(lastEv>nEv || lastEv<0) lastEv=nEv;
@@ -47,11 +46,11 @@ void runVTTracking(int firstEv = 0,
       }
     }
     tc->GetEvent(jEv);
-    vtrec->setPrimaryVertexPosition(0.,0.,zvert);
-    vtrec->setClusters(vtClus);
-    vtrec->runTracking();
+    msrec->setPrimaryVertexPosition(0.,0.,zvert);
+    msrec->setClusters(msClus);
+    msrec->runTracking();
   }
-  vtrec->closeTracksOutput();
+  msrec->closeTracksOutput();
   
   timer.Stop();
   timer.Print();

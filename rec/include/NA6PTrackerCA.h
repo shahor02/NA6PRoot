@@ -73,7 +73,7 @@ public:
   ~NA6PTrackerCA();
 
   // setters for configurable parameters
-  void setNLayers(int n) {mNLayers = n;}
+  void setNLayers(int n);
   void setMaxNumberOfSharedClusters(int n) {mMaxSharedClusters = n;}
   void setNumberOfIterations(int nIter);
   void setIterationParams(int iter,
@@ -93,13 +93,17 @@ public:
   void printConfiguration() const;
   int  getNIterations() const {return mNIterationsCA;}
   bool loadGeometry(const char* filename, const char* geoname = "NA6P");
-  void findTracks(std::vector<NA6PBaseCluster>& cluArr, TVector3 primVert);
+  
+  template<typename ClusterType>
+  void findTracks(std::vector<ClusterType>& cluArr, TVector3 primVert);
+  
   std::vector<NA6PTrack> getTracks();
 
   
 protected:
   // methods used in tracking
-  void sortClustersByLayerAndEta(std::vector<NA6PBaseCluster>& cluArr,
+  template<typename ClusterType>
+  void sortClustersByLayerAndEta(std::vector<ClusterType>& cluArr,
 				 std::vector<int>& firstIndex,
 				 std::vector<int>& lastIndex);
   void sortTrackletsByLayerAndIndex(std::vector<TrackletCandidate>& tracklets,
@@ -108,16 +112,18 @@ protected:
   void sortCellsByLayerAndIndex(std::vector<CellCandidate>& cells,
 				std::vector<int>& firstIndex,
 				std::vector<int>& lastIndex);
-  void computeLayerTracklets(const std::vector<NA6PBaseCluster>& cluArr,
+  template<typename ClusterType>
+  void computeLayerTracklets(const std::vector<ClusterType>& cluArr,
 			     const std::vector<int>& firstIndex,
 			     const std::vector<int>& lastIndex,
 			     std::vector<TrackletCandidate>& tracklets,
 			     double deltaThetaMax,
 			     double deltaPhiMax);
+  template<typename ClusterType>
   void computeLayerCells(const std::vector<TrackletCandidate>& tracklets,
 			 const std::vector<int>& firstIndex,
 			 const std::vector<int>& lastIndex,
-			 const std::vector<NA6PBaseCluster>& cluArr,
+			 const std::vector<ClusterType>& cluArr,
 			 std::vector<CellCandidate>& cells,
 			 double deltaTanLMax,
 			 double deltaPhiMax,
@@ -125,43 +131,49 @@ protected:
 			 double deltaPyPzMax,
 			 double maxChi2TrClu,
 			 double maxChi2NDF);
+  template<typename ClusterType>
   double computeTrackToClusterChi2(const NA6PTrack& track,
-				   const NA6PBaseCluster& clu);
+				   const ClusterType& clu);
+  template<typename ClusterType>
   bool fitTrackPointsFast(const std::vector<int>& cluIDs,
-			  const std::vector<NA6PBaseCluster>& cluArr,
+			  const std::vector<ClusterType>& cluArr,
 			  NA6PTrack& fitTrack,
 			  double maxChi2TrClu,
 			  double maxChi2NDF);
+  template<typename ClusterType>
   void findCellsNeighbours(const std::vector<CellCandidate>& cells,
 			   const std::vector<int>& firstIndex,
 			   const std::vector<int>& lastIndex,
 			   std::vector<std::pair<int,int>>& cneigh,
-			   const std::vector<NA6PBaseCluster>& cluArr,
+			   const std::vector<ClusterType>& cluArr,
 			   double maxChi2TrClu);
+  template<typename ClusterType>
   std::vector<TrackCandidate> prolongSeed(const TrackCandidate& seed,
 					  const std::vector<CellCandidate>& cells,
 					  const std::vector<int>& firstIndex,
 					  const std::vector<int>& lastIndex,
-					  const std::vector<NA6PBaseCluster>& cluArr,
+					  const std::vector<ClusterType>& cluArr,
 					  double maxChi2TrClu,
 					  ExtendDirection dir);
+  template<typename ClusterType>
   void findRoads(const std::vector<std::pair<int,int>>& cneigh,
 		 const std::vector<CellCandidate>& cells,
 		 const std::vector<int>& firstIndex,
 		 const std::vector<int>& lastIndex,
 		 const std::vector<TrackletCandidate>& tracklets,
-		 const std::vector<NA6PBaseCluster>& cluArr,
+		 const std::vector<ClusterType>& cluArr,
 		 std::vector<TrackCandidate>& trackCands,
 		 double maxChi2TrClu);
+  template<typename ClusterType>
   void fitAndSelectTracks(const std::vector<TrackCandidate>& trackCands,
-			  const std::vector<NA6PBaseCluster>& cluArr,
+			  const std::vector<ClusterType>& cluArr,
 			  std::vector<TrackFitted>& tracks,
 			  double maxChi2TrClu,
 			  int minNClu,
 			  double maxChi2NDF);
-  template<typename T>
+  template<typename T, typename ClusterType>
   void printStats(const std::vector<T>& candidates,
-		  const std::vector<NA6PBaseCluster>& cluArr,
+		  const std::vector<ClusterType>& cluArr,
 		  const std::vector<CellCandidate>& cells,
 		  const std::string& label,
 		  int requiredClus = -1);
@@ -189,11 +201,6 @@ private:
   double mMaxChi2ndfCellsCA[kMaxIterationsCA] = {5., 10., 10., 10., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   double mMaxChi2ndfTracksCA[kMaxIterationsCA] = {5., 10., 10., 10., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   int    mMinNClusTracksCA[kMaxIterationsCA] = {5, 3, 0, 0, 0, 0, 0, 0, 0, 0};
-
-
-
- 
-  
 
   ClassDefNV(NA6PTrackerCA, 1);
 };

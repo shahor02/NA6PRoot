@@ -43,9 +43,8 @@ class NA6PTrack
   void    resetCovariance(float err=-1.);
 
   double        getMass()                  const {return mMass;}
-  int           getNVTLayers()             const {return mNVTLayers;}
+  int           getNLayers()             const {return mNLayers;}
   double        getChi2()                  const {return mChi2;}
-  double        getChi2VT()                const {return mChi2VT;}
   const ExtTrackPar& getTrackExtParam()    const {return mExtTrack; }
   const double* getCovariance()            const {return mExtTrack.getCovariance(); }
   int          getNVTHits()                const {return mNClustersVT;}
@@ -53,8 +52,8 @@ class NA6PTrack
   int          getNTRHits()                const {return mNClustersTR;}
   int          getNHits()                  const {return mNClusters;}
   uint32_t     getClusterMap()             const {return mClusterMap;}
-  bool         hasClusterOnVTLayer(int lr) const {return (lr<mNVTLayers) ?  mClusterMap&(1<<lr) : false;}
-  int          getVTClusterIndex(int lr)   const {return lr < kMaxVTLr ? mClusterIndices[lr] : -1; }
+  bool         hasClusterOnLayer(int lr) const {return (lr<mNLayers) ?  mClusterMap&(1<<lr) : false;}
+  int          getClusterIndex(int lr)   const {return lr < kMaxVTLr ? mClusterIndices[lr] : -1; }
   int          getParticleLabel(int lr)    const {return lr < kMaxVTLr ? mClusterPartID[lr] : -2; }
   int          getParticleID()             const {return mParticleID;}
   int          getCAIteration()            const {return mCAIteration;}
@@ -80,13 +79,11 @@ class NA6PTrack
   double       getSigmaPY2()               const;
   double       getSigmaPZ2()               const;
   double       getNormChi2()               const {return mNClusters<3 ? 0 :  mChi2 / ( (mNClusters<<1)-kNDOF);}
-  double       getNormChi2VT()             const {return mNClustersVT<3 ? 0 :  mChi2VT / ( (mNClustersVT<<1)-kNDOF);}
   double       getPredictedChi2(double* p, double* cov) const {return mExtTrack.getPredictedChi2(p,cov);}
   
   void   setMass(double m)         {mMass = m;}
-  void   setNVTLayers(int n)       {mNVTLayers = n;}
+  void   setNLayers(int n)       {mNLayers = n;}
   void   setChi2(double chi2)      {mChi2 = chi2;}
-  void   setChi2VT(double chi2)    {mChi2VT = chi2;}
   void   setParticleLabel(int idx, int lr)  { if (lr < kMaxVTLr) mClusterPartID[lr] = idx;}
   void   setVTClusterIndex(int idx, int lr) { if (lr < kMaxVTLr) mClusterIndices[lr] = idx;}
   void   setParticleID(int idx)    {mParticleID = idx;}
@@ -111,8 +108,7 @@ class NA6PTrack
  protected:
   double   mMass = 0.140;                        // particle mass
   double   mChi2 = 0.f;                          // total chi2
-  double   mChi2VT = 0.f;                        // total chi2 VT
-  int      mNVTLayers = 5;                       // number of vT laters
+  int      mNLayers = 6;                       // number of layers
   uint32_t mClusterMap = 0;                      // pattern of clusters per layer
   int      mNClusters = 0;                       // total hits
   int      mNClustersVT = 0;                     // total VT hits

@@ -1,3 +1,16 @@
+/*
+  CA Track Finder Macro
+  
+  Usage:
+    root -l
+    root [0] .L setup_macros.C     // Load NA6PRoot libraries and setup paths
+    root [1] .L runTrackFinderCA.C+  // Compile the macro with ACLiC
+    root [2] runTrackFinderCA()      // Run with default parameters
+    
+  Or with custom parameters:
+    root [2] runTrackFinderCA(0, 100, "../fullgeo", 5)
+*/
+
 #if !defined(__CINT__) || defined(__MAKECINT__)
 #include <TTree.h>
 #include <TFile.h>
@@ -6,7 +19,7 @@
 #include <TParticle.h>
 #include <TCanvas.h>
 #include <TLegend.h>
-#include "NA6PBaseCluster.h"
+#include "NA6PVerTelCluster.h"
 #include "NA6PTrack.h"
 #include "NA6PTrackerCA.h"
 #include "MagneticField.h"
@@ -15,7 +28,7 @@
 
 const int maxIterationsCA = NA6PTrackerCA::kMaxIterationsCA;
 
-void runTrackFinderCA(int firstEv = 0,
+void runVTTrackFinderCA(int firstEv = 0,
 		      int lastEv = 9999,
 		      const char *dirSimu = "../testN6Proot/pions/latesttag",
 		      int nLayers = 5){
@@ -62,7 +75,7 @@ void runTrackFinderCA(int firstEv = 0,
   TFile* fc=new TFile(Form("%s/ClustersVerTel.root",dirSimu));
   printf("Open cluster file: %s\n",fc->GetName());
   TTree* tc=(TTree*)fc->Get("clustersVerTel");
-  std::vector<NA6PBaseCluster> vtClus, *vtClusPtr = &vtClus;
+  std::vector<NA6PVerTelCluster> vtClus, *vtClusPtr = &vtClus;
   tc->SetBranchAddress("VerTel", &vtClusPtr);
   int nEv=tc->GetEntries();
   if(lastEv>nEv || lastEv<0) lastEv=nEv;

@@ -6,9 +6,10 @@
 #include <TFile.h>
 #include <TSystem.h>
 #include "NA6PTrack.h"
-#include "NA6PBaseCluster.h"
 #include "MagneticField.h"
 #include "NA6PFastTrackFitter.h"
+#include "NA6PVerTelCluster.h"
+#include "NA6PMuonSpecCluster.h"
 
 ClassImp(NA6PFastTrackFitter)
 
@@ -33,7 +34,7 @@ NA6PFastTrackFitter::NA6PFastTrackFitter() :
   mPrimVertZ{0.0},
   mIsPrimVertSet{false},
   mCorrectForMaterial{true},
-  mClusters(mNLayersVT)
+  mClusters(5)
 {
   if (TGeoGlobalMagField::Instance()->GetField() == nullptr) {
     auto magField = new MagneticField();
@@ -46,13 +47,13 @@ NA6PFastTrackFitter::NA6PFastTrackFitter() :
   mSeedMom[0] = mSeedMom[1] = mSeedMom[2] = 1.; // 1 GeV for default momentum seed
 }
 
-
-void NA6PFastTrackFitter::addClusterVT(int jLay, NA6PBaseCluster* cl) {
+template <typename ClusterType>
+void NA6PFastTrackFitter::addCluster(int jLay, ClusterType* cl) {
   if (jLay < 0 || jLay >= mNLayersVT) {
     LOGP(error,"Invalid layer index {}",jLay);
     return;
   }
-  mClusters[jLay] = std::unique_ptr<NA6PBaseCluster>(cl);
+  mClusters[jLay] = std::unique_ptr<ClusterType>(cl);
 }
 
 void NA6PFastTrackFitter::setSeed(const double* pos, const double* mom, int charge){
@@ -228,7 +229,8 @@ int NA6PFastTrackFitter::propagateToZ(NA6PTrack* trc, double zFrom, double zTo, 
   return 1;
 }
 
-bool NA6PFastTrackFitter::updateTrack(NA6PTrack* trc, NA6PBaseCluster* cl) const
+template <typename ClusterType>
+bool NA6PFastTrackFitter::updateTrack(NA6PTrack* trc, ClusterType* cl) const
 {
   // update track with measured cluster
   // propagate to cluster
@@ -246,6 +248,15 @@ bool NA6PFastTrackFitter::updateTrack(NA6PTrack* trc, NA6PBaseCluster* cl) const
   //
   return true;
 }
+
+// Explicit instantiations to ensure symbols are emitted in the library
+template void NA6PFastTrackFitter::addCluster<NA6PMuonSpecCluster>(int, NA6PMuonSpecCluster*);
+template void NA6PFastTrackFitter::addCluster<NA6PVerTelCluster>(int, NA6PVerTelCluster*);
+template void NA6PFastTrackFitter::addCluster<NA6PBaseCluster>(int, NA6PBaseCluster*);
+template bool NA6PFastTrackFitter::updateTrack<NA6PMuonSpecCluster>(NA6PTrack*, NA6PMuonSpecCluster*) const;
+template bool NA6PFastTrackFitter::updateTrack<NA6PVerTelCluster>(NA6PTrack*, NA6PVerTelCluster*) const;
+template bool NA6PFastTrackFitter::updateTrack<NA6PBaseCluster>(NA6PTrack*, NA6PBaseCluster*) const;
+
 
 void NA6PFastTrackFitter::computeSeed(){
   // compute track seed from the 3 (or 2) outermost clusters
@@ -345,7 +356,7 @@ void   NA6PFastTrackFitter::printSeed() const {
 }
 
 
-NA6PTrack* NA6PFastTrackFitter::fitTrackPointsVT(){
+NA6PTrack* NA6PFastTrackFitter::fitTrackPoints(){
   
   int nClus = getNumberOfClusters();
   if (nClus < 2) {

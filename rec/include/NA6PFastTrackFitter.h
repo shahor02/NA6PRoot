@@ -17,12 +17,12 @@
 
 #include <string>
 #include <Rtypes.h>
+#include "NA6PBaseCluster.h"
 
 // Fast track fit based on Kalman filter
 
 class TGeoManager;
 class NA6PTrack;
-class NA6PBaseCluster;
 
 class NA6PFastTrackFitter
 {
@@ -35,7 +35,7 @@ class NA6PFastTrackFitter
 
   // setters for configurable parameters
   void   setMaxChi2Cl(double v=10)  {mMaxChi2Cl = v;}
-  void   setNLayersVT(int n) {
+  void   setNLayers(int n) {
     mNLayersVT = n; mClusters.clear(); mClusters.resize(n);
   }
   void   setParticleHypothesis(int pdg);
@@ -53,7 +53,8 @@ class NA6PFastTrackFitter
   void   computeSeed();
   void   printSeed() const;
   
-  void   addClusterVT(int jLay, NA6PBaseCluster* cl);
+  template <typename ClusterType>
+  void   addCluster(int jLay, ClusterType* cl);
   void   resetClusters() {
     // deletes the owned cluster and sets pointer to nullptr
     for (auto& clPtr : mClusters) clPtr.reset();
@@ -65,8 +66,9 @@ class NA6PFastTrackFitter
 
   bool   loadGeometry(const char* filename = "geometry.root", const char* geoname = "NA6P");
   
-  NA6PTrack*  fitTrackPointsVT();
-  bool   updateTrack(NA6PTrack* trc, NA6PBaseCluster* cl) const;
+  NA6PTrack*  fitTrackPoints();
+  template <typename ClusterType>
+  bool   updateTrack(NA6PTrack* trc, ClusterType* cl) const;
   int    propagateToZ(NA6PTrack* trc, double zFrom, double zTo, int dir) const;
   int    propagateToZ(NA6PTrack* trc, double zTo) const;
   void   getMeanMaterialBudgetFromGeom(double* start, double* end, double *mparam) const;
