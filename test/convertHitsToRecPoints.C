@@ -7,28 +7,73 @@
 #include <TVector3.h>
 #include <TRandom3.h>
 #include "NA6PVerTelHit.h"
-#include "NA6PBaseCluster.h"
+#include "NA6PMuonSpecHit.h"
 #include "ConfigurableParam.h"
 #include <fairlogger/Logger.h>
 #include "NA6PVerTelReconstruction.h"
+#include "NA6PMuonSpecReconstruction.h"
 #endif
 
 void convertHitsToRecPoints(){
-  TFile* fh=new TFile("HitsVerTel.root");
-  TTree* th=(TTree*)fh->Get("hitsVerTel");
-  std::vector<NA6PVerTelHit> vtHits, *vtHitsPtr = &vtHits;
-  th->SetBranchAddress("VerTel", &vtHitsPtr);
-  int nEv=th->GetEntriesFast();
+  // Process VerTel hits
+  TFile* fhVT = TFile::Open("HitsVerTel.root");
+  if (!fhVT || fhVT->IsZombie()) {
+    LOGP(error, "Cannot open HitsVerTel.root");
+    if (fhVT) delete fhVT;
+  } else {
+    TTree* thVT = (TTree*)fhVT->Get("hitsVerTel");
+    if (!thVT) {
+      LOGP(error, "Cannot find tree 'hitsVerTel' in HitsVerTel.root");
+    } else {
+      std::vector<NA6PVerTelHit> vtHits, *vtHitsPtr = &vtHits;
+      thVT->SetBranchAddress("VerTel", &vtHitsPtr);
+      int nEvVT = thVT->GetEntriesFast();
 
-  NA6PVerTelReconstruction* recVT = new NA6PVerTelReconstruction();
-  recVT->createClustersOutput();
-  for(int jEv=0; jEv<nEv; jEv++){
-    th->GetEvent(jEv);
-    int nHits=vtHits.size();
-    printf("Event %d nHits=%d\n",jEv,nHits);
-    recVT->clearClusters();
-    recVT->hitsToRecPoints(vtHits);
-    recVT->writeClusters();
+      NA6PVerTelReconstruction* recVT = new NA6PVerTelReconstruction();
+      recVT->createClustersOutput();
+      for(int jEv=0; jEv<nEvVT; jEv++){
+        thVT->GetEvent(jEv);
+        int nHits = vtHits.size();
+        printf("VerTel Event %d nHits=%d\n", jEv, nHits);
+        recVT->clearClusters();
+        recVT->hitsToRecPoints(vtHits);
+        recVT->writeClusters();
+      }
+      recVT->closeClustersOutput();
+      delete recVT;
+    }
+    fhVT->Close();
+    delete fhVT;
   }
-  recVT->closeClustersOutput();
+
+  // Process MuonSpec hits
+  TFile* fhMS = TFile::Open("HitsMuonSpecModular.root");
+  if (!fhMS || fhMS->IsZombie()) {
+    LOGP(error, "Cannot open HitsMuonSpecModular.root");
+    if (fhMS) delete fhMS;
+  } else {
+    TTree* thMS = (TTree*)fhMS->Get("hitsMuonSpecModular");
+    if (!thMS) {
+      LOGP(error, "Cannot find tree 'hitsMuonSpecModular' in HitsMuonSpecModular.root");
+    } else {
+      std::vector<NA6PMuonSpecModularHit> msHits, *msHitsPtr = &msHits;
+      thMS->SetBranchAddress("MuonSpecModular", &msHitsPtr);
+      int nEvMS = thMS->GetEntriesFast();
+
+      NA6PMuonSpecReconstruction* recMS = new NA6PMuonSpecReconstruction();
+      recMS->createClustersOutput();
+      for(int jEv=0; jEv<nEvMS; jEv++){
+        thMS->GetEvent(jEv);
+        int nHits = msHits.size();
+        printf("MuonSpec Event %d nHits=%d\n", jEv, nHits);
+        recMS->clearClusters();
+        recMS->hitsToRecPoints(msHits);
+        recMS->writeClusters();
+      }
+      recMS->closeClustersOutput();
+      delete recMS;
+    }
+    fhMS->Close();
+    delete fhMS;
+  }
 }

@@ -30,6 +30,7 @@ class NA6PBaseCluster
   NA6PBaseCluster& operator=(const NA6PBaseCluster&) = default;
   virtual ~NA6PBaseCluster() {}
 
+  virtual int getLayer() const { return -1; } // to be overridden in derived classes
   // Lab frame coordinates
   auto getXLab()       const {return mPos[0];}
   auto getYLab()       const {return mPos[1];}
@@ -64,7 +65,6 @@ class NA6PBaseCluster
 
   virtual void print() const;
   std::string asString() const;
-
   
  protected:
   float mPos[3] = {};          // cartesian position of cluster in lab frame

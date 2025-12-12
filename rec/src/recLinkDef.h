@@ -8,6 +8,10 @@
 
 #pragma link C++ class NA6PBaseCluster + ;
 #pragma link C++ class std::vector < NA6PBaseCluster> + ;
+#pragma link C++ class NA6PVerTelCluster + ;
+#pragma link C++ class std::vector < NA6PVerTelCluster> + ;
+#pragma link C++ class NA6PMuonSpecCluster + ;
+#pragma link C++ class std::vector < NA6PMuonSpecCluster> + ;
 #pragma link C++ class NA6PTrack + ;
 #pragma link C++ class std::vector < NA6PTrack> + ;
 #pragma link C++ class NA6PVertex + ;
@@ -15,6 +19,7 @@
 
 #pragma link C++ class NA6PReconstruction + ;
 #pragma link C++ class NA6PVerTelReconstruction + ;
+#pragma link C++ class NA6PMuonSpecReconstruction + ;
 #pragma link C++ class ExtTrackPar + ;
 #pragma link C++ class NA6PVertexerTracklets + ;
 #pragma link C++ class NA6PTrackerCA + ;
@@ -22,5 +27,8 @@
 
 #pragma link C++ class NA6PRecoParam + ;
 #pragma link C++ class na6p::conf::ConfigurableParamHelper < NA6PRecoParam> + ;
+#pragma link C++ class NA6PMuonSpecRecoParam + ;
+#pragma link C++ class na6p::conf::ConfigurableParamHelper < NA6PMuonSpecRecoParam> + ;
+
 
 #endif

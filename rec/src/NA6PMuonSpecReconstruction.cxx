@@ -4,29 +4,28 @@
 #include <TTree.h>
 #include <TRandom3.h>
 #include <fairlogger/Logger.h>
-#include "NA6PVerTelHit.h"
+#include "NA6PMuonSpecModularHit.h"
 #include "NA6PTrackerCA.h"
 #include "NA6PVertexerTracklets.h"
-#include "NA6PVerTelReconstruction.h"
+#include "NA6PMuonSpecReconstruction.h"
 
-ClassImp(NA6PVerTelReconstruction)
+ClassImp(NA6PMuonSpecReconstruction)
 
-  NA6PVerTelReconstruction::NA6PVerTelReconstruction() : NA6PReconstruction("VerTel")
+  NA6PMuonSpecReconstruction::NA6PMuonSpecReconstruction() : NA6PReconstruction("MuonSpec")
 {
-  mVTTrackletVertexer = new NA6PVertexerTracklets();
-  createVerticesOutput();
 }
 
-bool NA6PVerTelReconstruction::init(const char* filename, const char* geoname)
+bool NA6PMuonSpecReconstruction::init(const char* filename, const char* geoname)
 {
   NA6PReconstruction::init(filename, geoname);
-  mVTTracker = new NA6PTrackerCA();
-  mVTTracker->configureFromRecoParam();
+  mMSTracker = new NA6PTrackerCA();
+  mMSTracker->configureFromRecoParam();
+  mMSTracker->setNLayers(6); 
   createTracksOutput();
   return true;
 }
 
-void NA6PVerTelReconstruction::createClustersOutput()
+void NA6PMuonSpecReconstruction::createClustersOutput()
 {
   auto nm = fmt::format("Clusters{}.root", getName());
   mClusFile = TFile::Open(nm.c_str(), "recreate");
@@ -35,7 +34,7 @@ void NA6PVerTelReconstruction::createClustersOutput()
   LOGP(info, "Will store {} clusters in {}", getName(), nm);
 }
 
-void NA6PVerTelReconstruction::writeClusters()
+void NA6PMuonSpecReconstruction::writeClusters()
 {
   if (mClusTree) {
     mClusTree->Fill();
@@ -43,7 +42,7 @@ void NA6PVerTelReconstruction::writeClusters()
   LOGP(info, "Saved {} clusters in tree with {} entries", mClusters.size(), mClusTree->GetEntries());
 }
 
-void NA6PVerTelReconstruction::closeClustersOutput()
+void NA6PMuonSpecReconstruction::closeClustersOutput()
 {
   if (mClusTree && mClusFile) {
     mClusFile->cd();
@@ -56,7 +55,7 @@ void NA6PVerTelReconstruction::closeClustersOutput()
   }
 }
 
-void NA6PVerTelReconstruction::hitsToRecPoints(const std::vector<NA6PVerTelHit>& hits)
+void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecModularHit>& hits)
 {
   int nHits = hits.size();
   for (int jHit = 0; jHit < nHits; ++jHit) {
@@ -66,19 +65,17 @@ void NA6PVerTelReconstruction::hitsToRecPoints(const std::vector<NA6PVerTelHit>&
     double z = hit.getZ();
     double ex2clu = 5.e-4;
     double ey2clu = 5.e-4;
-    if (mCluRes > 0) {
-      x = gRandom->Gaus(hit.getX(), mCluRes);
-      y = gRandom->Gaus(hit.getY(), mCluRes);
-      ex2clu = mCluRes * mCluRes;
-      ey2clu = mCluRes * mCluRes;
+    if (mCluResX > 0) {
+      x = gRandom->Gaus(hit.getX(), mCluResX);
+      ex2clu = mCluResX * mCluResX;
+    }
+    if (mCluResY > 0) {
+      y = gRandom->Gaus(hit.getY(), mCluResY);
+      ey2clu = mCluResY * mCluResY;
     }
     double eloss = hit.getHitValue();
     // very rough cluster size settings
-    int clusiz = 2;
-    if (eloss > 2.e-5 && eloss < 5.e-5)
-      clusiz = 3;
-    else if (eloss > 5.e-5)
-      clusiz = 4;
+    int clusiz = 1;
     int nDet = hit.getDetectorID();
     int idPart = hit.getTrackID();
     mClusters.emplace_back(x, y, z, clusiz);
@@ -92,45 +89,7 @@ void NA6PVerTelReconstruction::hitsToRecPoints(const std::vector<NA6PVerTelHit>&
 
 //____________________________________________________________________________________
 
-void NA6PVerTelReconstruction::createVerticesOutput()
-{
-  auto nm = fmt::format("Vertices{}.root", getName());
-  mVertexFile = TFile::Open(nm.c_str(), "recreate");
-  mVertexTree = new TTree(fmt::format("vertices{}", getName()).c_str(), fmt::format("{} Vertices", getName()).c_str());
-  mVertexTree->Branch(getName().c_str(), &hVerticesPtr);
-  LOGP(info, "Will store {} vertices in {}", getName(), nm);
-}
-
-void NA6PVerTelReconstruction::writeVertices()
-{
-  if (mVertexTree) {
-    mVertexTree->Fill();
-  }
-  LOGP(info, "Saved {} vertices in tree with {} entries", mVertices.size(), mVertexTree->GetEntries());
-}
-
-void NA6PVerTelReconstruction::closeVerticesOutput()
-{
-  if (mVertexTree && mVertexFile) {
-    mVertexFile->cd();
-    mVertexTree->Write();
-    delete mVertexTree;
-    mVertexTree = nullptr;
-    mVertexFile->Close();
-    delete mVertexFile;
-    mVertexFile = nullptr;
-  }
-}
-
-void NA6PVerTelReconstruction::runVertexerTracklets()
-{
-  clearVertices();
-  mVTTrackletVertexer->findVertices(mClusters, mVertices);
-  writeVertices();
-}
-//____________________________________________________________________________________
-
-void NA6PVerTelReconstruction::createTracksOutput()
+void NA6PMuonSpecReconstruction::createTracksOutput()
 {
   auto nm = fmt::format("Tracks{}.root", getName());
   mTrackFile = TFile::Open(nm.c_str(), "recreate");
@@ -139,7 +98,7 @@ void NA6PVerTelReconstruction::createTracksOutput()
   LOGP(info, "Will store {} tracks in {}", getName(), nm);
 }
 
-void NA6PVerTelReconstruction::writeTracks()
+void NA6PMuonSpecReconstruction::writeTracks()
 {
   if (mTrackTree) {
     mTrackTree->Fill();
@@ -147,7 +106,7 @@ void NA6PVerTelReconstruction::writeTracks()
   LOGP(info, "Saved {} tracks in tree with {} entries", mTracks.size(), mTrackTree->GetEntries());
 }
 
-void NA6PVerTelReconstruction::closeTracksOutput()
+void NA6PMuonSpecReconstruction::closeTracksOutput()
 {
   if (mTrackTree && mTrackFile) {
     mTrackFile->cd();
@@ -160,14 +119,14 @@ void NA6PVerTelReconstruction::closeTracksOutput()
   }
 }
 
-void NA6PVerTelReconstruction::runTracking()
+void NA6PMuonSpecReconstruction::runTracking()
 {
   if (!mIsInitialized) {
     LOGP(error, "Magnetic field and geometry not initialized");
     return;
   }
   clearTracks();
-  mVTTracker->findTracks(mClusters, mPrimaryVertex);
-  mTracks = mVTTracker->getTracks();
+  mMSTracker->findTracks(mClusters, mPrimaryVertex);
+  mTracks = mMSTracker->getTracks();
   writeTracks();
 }

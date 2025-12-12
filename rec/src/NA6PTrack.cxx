@@ -12,8 +12,7 @@ ClassImp(NA6PTrack)
 NA6PTrack::NA6PTrack() :
   mMass{0.140},
   mChi2{0.0},
-  mChi2VT{0.0},
-  mNVTLayers{5},
+  mNLayers{6},
   mClusterMap{0},
   mNClusters{0},
   mNClustersVT{0},
@@ -32,8 +31,7 @@ NA6PTrack::NA6PTrack() :
 NA6PTrack::NA6PTrack(const double* xyz, const double* pxyz, int sign, double errLoose) :
   mMass{0.140},
   mChi2{0.0},
-  mChi2VT{0.0},
-  mNVTLayers{5},
+  mNLayers{6},
   mClusterMap{0},
   mNClusters{0},
   mNClustersVT{0},
@@ -56,14 +54,13 @@ void NA6PTrack::reset()
 {
   mMass = 0.14; 
   mChi2 = 0; 
-  mChi2VT = 0;
   mClusterMap = 0;
   mExtTrack.Reset();
   resetCovariance();
   mParticleID = -2;
   mClusterIndices.fill(-1);
   mClusterPartID.fill(-2);
-  mNClusters = mNClustersVT = mNClustersMS = mNClustersTR = 0;
+  mNClusters = mNClusters = mNClustersMS = mNClustersTR = 0;
 }
   
 //_______________________________________________________________________
@@ -229,7 +226,7 @@ std::string NA6PTrack::asString() const
   double pxyz[3];
   getPXYZ(pxyz);
   return fmt::format("Track: Nclusters:{} NVTclusters:{}  chi2:{} pos:{:.4f},{:.4f},{:.4f} mom:{:.3f},{:.3f},{:.3f}",
-                     mNClusters,mNClustersVT,mChi2,getXLab(),getYLab(),getZLab(),pxyz[0],pxyz[1],pxyz[2]);
+                     mNClusters,mNClusters,mChi2,getXLab(),getYLab(),getZLab(),pxyz[0],pxyz[1],pxyz[2]);
 }
 
 //_______________________________________________________________________
@@ -243,18 +240,18 @@ void NA6PTrack::addCluster(const NA6PBaseCluster* clu, int cluIndex, double chi2
 
   mNClusters++;
   mChi2 += chi2;
-  int nDet = clu->getDetectorID();
+  // int nDet = clu->getDetectorID();
   int trackID = clu->getParticleID();
-  if (nDet < mNVTLayers * 4) {
-    int nLay = nDet / 4;
-    mChi2VT += chi2;
-    mNClustersVT++;
-    mClusterPartID[nLay] = trackID;
-    mClusterIndices[nLay] = cluIndex;
-    mClusterMap |= (1<<nLay);
-  }
-  else if (nDet >= 20 && nDet < 24) mNClustersMS++;
-  else if (nDet >= 24) mNClustersTR++;
+  
+  int nLay = clu->getLayer();
+  mClusterPartID[nLay] = trackID;
+  mClusterIndices[nLay] = cluIndex;
+  mClusterMap |= (1<<nLay);
+
+  // if (nDet < mNLayers * 4) {
+  // }
+  // else if (nDet >= 20 && nDet < 24) mNClustersMS++;
+  // else if (nDet >= 24) mNClustersTR++;
 }
 
 //____________________________________________

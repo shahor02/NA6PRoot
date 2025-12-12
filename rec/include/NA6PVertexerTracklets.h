@@ -18,6 +18,7 @@
 #include <Rtypes.h>
 
 class NA6PVertex;
+class NA6PVerTelCluster;
 
 // Vertex reconstruction from tracklets in the telescope
 
@@ -116,28 +117,28 @@ class NA6PVertexerTracklets
   void setVerbosity(bool opt = true) { mVerbose = opt; }
 
   // methods for vertex calculation
-  void findVertices(std::vector<NA6PBaseCluster>& cluArr,
+  void findVertices(std::vector<NA6PVerTelCluster>& cluArr,
                     std::vector<NA6PVertex>& vertices);
 
-  void sortClustersByLayerAndEta(std::vector<NA6PBaseCluster>& cluArr,
+  void sortClustersByLayerAndEta(std::vector<NA6PVerTelCluster>& cluArr,
                                  std::vector<int>& firstIndex,
                                  std::vector<int>& lastIndex);
   void sortTrackletsByLayerAndIndex(std::vector<TrackletForVertex>& tracklets,
                                     std::vector<int>& firstIndex,
                                     std::vector<int>& lastIndex);
-  void computeLayerTracklets(const std::vector<NA6PBaseCluster>& cluArr,
+  void computeLayerTracklets(const std::vector<NA6PVerTelCluster>& cluArr,
                              const std::vector<int>& firstIndex,
                              const std::vector<int>& lastIndex,
                              std::vector<TrackletForVertex>& tracklets);
   void selectTracklets(const std::vector<TrackletForVertex>& tracklets,
                        const std::vector<int>& firstIndex,
                        const std::vector<int>& lastIndex,
-                       const std::vector<NA6PBaseCluster>& cluArr,
+                       const std::vector<NA6PVerTelCluster>& cluArr,
                        std::vector<TrackletForVertex>& selTracklets);
   void filterOutUsedTracklets(const std::vector<TrackletForVertex>& tracklets,
                               std::vector<TrackletForVertex>& usableTracklets);
   void computeIntersections(const std::vector<TrackletForVertex>& selTracklets,
-                            const std::vector<NA6PBaseCluster>& cluArr,
+                            const std::vector<NA6PVerTelCluster>& cluArr,
                             std::vector<TracklIntersection>& zIntersec);
   bool findVertexHistoPeak(std::vector<TracklIntersection>& zIntersec,
                            std::vector<NA6PVertex>& vertices);
@@ -155,7 +156,7 @@ class NA6PVertexerTracklets
   bool findVertexKDE(const std::vector<TracklIntersection>& zIntersec,
                      std::vector<NA6PVertex>& vertices);
   void printStats(const std::vector<TrackletForVertex>& candidates,
-                  const std::vector<NA6PBaseCluster>& cluArr,
+                  const std::vector<NA6PVerTelCluster>& cluArr,
                   const std::string& label);
   short getMethodForPeakFinding() const { return mMethod; }
 
