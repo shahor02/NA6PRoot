@@ -49,6 +49,7 @@ class NA6PMuonSpecReconstruction : public NA6PReconstruction
   void setClusterSpaceResolutionX(double clures) { mCluResX = clures; }
   void setClusterSpaceResolutionY(double clures) { mCluResY = clures; }
   void hitsToRecPoints(const std::vector<NA6PMuonSpecModularHit>& hits);
+  NA6PTrackerCA* getTracker() const { return mMSTracker; }
 
   void setPrimaryVertexPosition(double x, double y, double z)
   {

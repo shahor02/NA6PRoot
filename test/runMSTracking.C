@@ -25,7 +25,10 @@ void runMSTracking(int firstEv = 0,
   tc->SetBranchAddress("MuonSpec", &msClusPtr);
   NA6PMuonSpecReconstruction* msrec = new NA6PMuonSpecReconstruction();
   msrec->init(Form("%s/geometry.root",dirSimu));
-
+  auto msTracker = msrec->getTracker();
+  msTracker->setNLayers(6);
+  msTracker->setNumberOfIterations(2);
+  msTracker->setIterationParams(0,0.06,0.1,6.,0.6,0.05,0.05,5.,5.,5.,6);
   int nEv=tc->GetEntries();
   if(lastEv>nEv || lastEv<0) lastEv=nEv;
   if(firstEv<0) firstEv=0;

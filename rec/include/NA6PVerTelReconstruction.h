@@ -47,6 +47,7 @@ class NA6PVerTelReconstruction : public NA6PReconstruction
   // fast method to smear the hits bypassing digitization and cluster finder
   void setClusterSpaceResolution(double clures) { mCluRes = clures; }
   void hitsToRecPoints(const std::vector<NA6PVerTelHit>& hits);
+  NA6PTrackerCA* getTracker() const { return mVTTracker; }
 
   void setPrimaryVertexPosition(double x, double y, double z)
   {
