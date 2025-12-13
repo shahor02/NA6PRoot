@@ -54,6 +54,7 @@ find_package(VMC REQUIRED)
 find_package(Geant4VMC REQUIRED)
 find_package(VGM REQUIRED)
 find_package(HepMC3 REQUIRED)
+find_package(Pythia8 REQUIRED)
 
 include_directories(${Geant4_INCLUDE_DIR})
 include_directories(${HDF5_INCLUDE_DIR})

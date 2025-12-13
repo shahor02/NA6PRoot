@@ -1,0 +1,39 @@
+# --- Pb-Pb setting  
+# --- beams: lead beam hitting a lead target at rest (lab system) ---
+Beams:idA	 = 1000822080   # 208Pb (PDG nucleus code)
+Beams:idB	 = 1000822080   # 208Pb as target
+Beams:frameType  = 2	# specify individual beam energies (back-to-back or fixed-target)
+Beams:eB	 = 0.0	# energy for the target: set < mass -> treated as at rest
+ 
+# --- heavy-ion (Angantyr) ---
+HeavyIon:mode       = 1 	   # enable heavy-ion machinery (Angantyr is used for ion beams)
+HeavyIon:bWidth     = 14.0         # maximum b
+HeavyIon:bWidthCut  = 0.243        # 0-10% bmax=4.7 fm --> bWidthCut = 0.336 0-5% bmax=3.4 fm --> bWidthCut = 0.243
+
+#  --- Heavy-flavour/decay handling ---
+HadronLevel:Decay = on
+ParticleDecays:limitTau0 = on
+ParticleDecays:tau0Max = 10.0
+ 
+# soft + thermal + rescattering
+SoftQCD:nonDiffractive = on
+PhaseSpace:pTHatMin = 0.0
+ 
+# (optional but recommended for production)
+HeavyIon:SigFitNGen = 20   	# number of generations for internal cross-section fits (affects init time)
+HeavyIon:SigFitErr  = 0.02,0.02,0.1,0.05,0.05,0.0,0.1,0.0  # example tolerances used in Pythia examples
+
+Fragmentation:setVertices = on
+PartonVertex:setVertex = on
+
+StringPT:temperature   = 0.21
+StringPT:tempPreFactor = 1.21
+ClosePacking:doClosePacking = off
+
+HadronLevel:Rescatter = on
+Rescattering:opacity = 0.9
+Rescattering:bMax = 5.0
+Rescattering:inelastic = on
+
+Rescattering:tauRegeneration = 1.0
+Rescattering:scatterManyTimes = on
