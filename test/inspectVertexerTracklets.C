@@ -24,123 +24,140 @@
 
 void inspectVertexerTracklets(int firstEv = 0,
                               int lastEv = 999999,
-                              const char *dirSimu = "../testN6Proot/pions/latesttag")
-//			const char *dirSimu = "Angantyr") 
+                              const char* dirSimu = "../testN6Proot/pions/latesttag")
+//			const char *dirSimu = "Angantyr")
 {
-  TFile* fk=new TFile(Form("%s/MCKine.root",dirSimu));
-  TTree* mcTree=(TTree*)fk->Get("mckine");
-  int nEv=mcTree->GetEntries();
+  TFile* fk = new TFile(Form("%s/MCKine.root", dirSimu));
+  TTree* mcTree = (TTree*)fk->Get("mckine");
+  int nEv = mcTree->GetEntries();
   std::vector<TParticle>* mcArr = nullptr;
   mcTree->SetBranchAddress("tracks", &mcArr);
 
-  TFile* fc=new TFile(Form("%s/ClustersVerTel.root",dirSimu));
-  printf("Open cluster file: %s\n",fc->GetName());
-  TTree* tc=(TTree*)fc->Get("clustersVerTel");
+  TFile* fc = new TFile(Form("%s/ClustersVerTel.root", dirSimu));
+  printf("Open cluster file: %s\n", fc->GetName());
+  TTree* tc = (TTree*)fc->Get("clustersVerTel");
   std::vector<NA6PBaseCluster> vtClus, *vtClusPtr = &vtClus;
   tc->SetBranchAddress("VerTel", &vtClusPtr);
 
-  if(lastEv>nEv || lastEv<0) lastEv=nEv;
-  if(firstEv<0) firstEv=0;
+  if (lastEv > nEv || lastEv < 0)
+    lastEv = nEv;
+  if (firstEv < 0)
+    firstEv = 0;
 
-  TH1F* hdz = new TH1F("hdz","",100,-0.5,0.5);
-  TH1F* hncontr = new TH1F("hncontr","",100,-0.5,999.5);
-  TH1F* hnvert = new TH1F("hnvert","",11,-0.5,10.5);
-  TH1D* histocheck = new TH1D("histocheck","",250,-20.,5.);
-  int kMaxPileupVertices = NA6PVertexerTracklets::kMaxPileupVertices;  
+  TH1F* hdz = new TH1F("hdz", "", 100, -0.5, 0.5);
+  TH1F* hncontr = new TH1F("hncontr", "", 100, -0.5, 999.5);
+  TH1F* hnvert = new TH1F("hnvert", "", 11, -0.5, 10.5);
+  TH1D* histocheck = new TH1D("histocheck", "; z_{intersection} (cm); counts", 250, -20., 5.);
+  int kMaxPileupVertices = NA6PVertexerTracklets::kMaxPileupVertices;
   TH1D* histocheck2[kMaxPileupVertices];
   for (int jPil = 0; jPil < kMaxPileupVertices; jPil++) {
-    histocheck2[jPil] = new TH1D(Form("histocheckPil%d",jPil+1),"",250,-20.,5.);
+    histocheck2[jPil] = new TH1D(Form("histocheckPil%d", jPil + 1), "", 250, -20., 5.);
   }
-  TH1F* hSigmaZ = new TH1F("hSigmaZ","",100,0.,10.);
-
+  TH1F* hSigmaZ = new TH1F("hSigmaZ", "", 100, 0., 10.);
 
   NA6PVertexerTracklets* vertxr = new NA6PVertexerTracklets();
-  
-  for(int jEv=firstEv;jEv<lastEv; jEv++){
+
+  for (int jEv = firstEv; jEv < lastEv; jEv++) {
     mcTree->GetEvent(jEv);
     tc->GetEvent(jEv);
-    int nPart=mcArr->size();
+    int nPart = mcArr->size();
+    double xVertGen = 0;
+    double yVertGen = 0;
     double zVertGen = 0;
     // get primary vertex position from the Kine Tree
-    for(int jp=0; jp<nPart; jp++){
-      auto curPart=mcArr->at(jp);
-      if(curPart.IsPrimary()){
-        zVertGen =  curPart.Vz();
+    for (int jp = 0; jp < nPart; jp++) {
+      auto curPart = mcArr->at(jp);
+      if (curPart.IsPrimary()) {
+        xVertGen = curPart.Vx();
+        yVertGen = curPart.Vy();
+        zVertGen = curPart.Vz();
         break;
       }
     }
     std::vector<TracklIntersection> zIntersec;
-    int nClus=vtClus.size();
+    int nClus = vtClus.size();
+    printf("--- Process event %d, nClus = %d, primary vertex in %.2f %.2f %.2f cm ---\n", jEv, nClus, xVertGen, yVertGen, zVertGen);
+    vertxr->setBeamX(xVertGen);
+    vertxr->setBeamY(yVertGen);
     vertxr->resetClusters(nClus);
     std::vector<int> firstCluPerLay;
     std::vector<int> lastCluPerLay;
-    vertxr->sortClustersByLayerAndEta(vtClus,firstCluPerLay,lastCluPerLay);
+    vertxr->sortClustersByLayerAndEta(vtClus, firstCluPerLay, lastCluPerLay);
     std::vector<TrackletForVertex> allTracklets;
     std::vector<TrackletForVertex> selTracklets;
-    vertxr->computeLayerTracklets(vtClus,firstCluPerLay,lastCluPerLay,allTracklets);
+    vertxr->computeLayerTracklets(vtClus, firstCluPerLay, lastCluPerLay, allTracklets);
     std::vector<int> firstTrklPerLay;
     std::vector<int> lastTrklPerLay;
-    vertxr->sortTrackletsByLayerAndIndex(allTracklets,firstTrklPerLay,lastTrklPerLay);
-    vertxr->printStats(allTracklets,vtClus,"tracklets");
-    vertxr->selectTracklets(allTracklets,firstTrklPerLay,lastTrklPerLay,vtClus,selTracklets);
-    vertxr->printStats(selTracklets,vtClus,"selected tracklets");
-    vertxr->computeIntersections(selTracklets,vtClus,zIntersec);
+    vertxr->sortTrackletsByLayerAndIndex(allTracklets, firstTrklPerLay, lastTrklPerLay);
+    vertxr->printStats(allTracklets, vtClus, "tracklets");
+    vertxr->selectTracklets(allTracklets, firstTrklPerLay, lastTrklPerLay, vtClus, selTracklets);
+    vertxr->printStats(selTracklets, vtClus, "selected tracklets");
+    vertxr->computeIntersections(selTracklets, vtClus, zIntersec);
     std::vector<NA6PVertex> zVertices;
     bool retCode;
-    if(vertxr->getMethodForPeakFinding() == NA6PVertexerTracklets::kKDE) retCode = vertxr->findVertexKDE(zIntersec,zVertices);
-    else retCode = vertxr->findVertexHistoPeak(zIntersec,zVertices);
+    if (vertxr->getMethodForPeakFinding() == NA6PVertexerTracklets::kKDE)
+      retCode = vertxr->findVertexKDE(zIntersec, zVertices);
+    else
+      retCode = vertxr->findVertexHistoPeak(zIntersec, zVertices);
     histocheck->Reset("MICE");
-    for (auto zi : zIntersec){
+    for (auto zi : zIntersec) {
       histocheck->Fill(zi.zeta);
       hSigmaZ->Fill(zi.sigmazeta);
     }
     int nVertices = zVertices.size();
-    int jv=0;
+    int jv = 0;
     for (auto vert : zVertices) {
       double zRec = vert.getZ();
-      printf("Vertex %d, z = %f contrib = %d\n",jv++,zRec,vert.getNContributors());
-      hdz->Fill(zRec-zVertGen);
+      printf("Vertex %d, z = %f contrib = %d\n", jv++, zRec, vert.getNContributors());
+      hdz->Fill(zRec - zVertGen);
       hncontr->Fill(vert.getNContributors());
     }
     // pileup detection
-    std::vector<TrackletForVertex> remainingTracklets;      
+    std::vector<TrackletForVertex> remainingTracklets;
     for (int jPil = 0; jPil < kMaxPileupVertices; jPil++) {
-      vertxr->filterOutUsedTracklets(selTracklets,remainingTracklets);
-      vertxr->printStats(remainingTracklets,vtClus,"remaining tracklets");
-      vertxr->computeIntersections(remainingTracklets,vtClus,zIntersec);
-      if(vertxr->getMethodForPeakFinding() == NA6PVertexerTracklets::kKDE) retCode = vertxr->findVertexKDE(zIntersec,zVertices);
-      else retCode = vertxr->findVertexHistoPeak(zIntersec,zVertices);
+      vertxr->filterOutUsedTracklets(selTracklets, remainingTracklets);
+      vertxr->printStats(remainingTracklets, vtClus, "remaining tracklets");
+      vertxr->computeIntersections(remainingTracklets, vtClus, zIntersec);
+      if (vertxr->getMethodForPeakFinding() == NA6PVertexerTracklets::kKDE)
+        retCode = vertxr->findVertexKDE(zIntersec, zVertices);
+      else
+        retCode = vertxr->findVertexHistoPeak(zIntersec, zVertices);
       histocheck2[jPil]->Reset("MICES");
-      for (auto zi : zIntersec) histocheck2[jPil]->Fill(zi.zeta);
-      if (!retCode) break;
+      for (auto zi : zIntersec)
+        histocheck2[jPil]->Fill(zi.zeta);
+      if (!retCode)
+        break;
       selTracklets.swap(remainingTracklets);
     }
     nVertices = zVertices.size();
     hnvert->Fill(nVertices);
-    printf("After pileup search: nVertices = %d\n",nVertices);
-    jv=0;
+    printf("After pileup search: nVertices = %d\n", nVertices);
+    jv = 0;
     for (auto vert : zVertices) {
       double zRec = vert.getZ();
-      printf("Vertex %d, z = %f nContrib = %d\n",jv++,zRec,vert.getNContributors());
+      printf("Vertex %d, z = %f nContrib = %d\n", jv++, zRec, vert.getNContributors());
     }
   }
 
-  TCanvas* coutp= new TCanvas("coutp","",1200,800);
-  coutp->Divide(3,2);
-  coutp->cd(1);
+  TCanvas* cev = new TCanvas("cev", "", 1200, 500);
+  histocheck->SetLineWidth(2);
   histocheck->Draw();
   for (int jPil = 0; jPil < kMaxPileupVertices; jPil++) {
-    if(histocheck2[jPil]->GetEntries() > 0){
-      histocheck2[jPil]->SetLineColor(jPil+2);
+    if (histocheck2[jPil]->GetEntries() > 0) {
+      histocheck2[jPil]->SetLineColor(jPil + 2);
+      histocheck2[jPil]->SetLineWidth(2);
       histocheck2[jPil]->Draw("sames");
     }
   }
-  coutp->cd(2);
+
+  TCanvas* coutp = new TCanvas("coutp", "", 1200, 800);
+  coutp->Divide(2, 2);
+  coutp->cd(1);
   hnvert->Draw();
-  coutp->cd(3);
+  coutp->cd(2);
   hdz->Draw();
-  coutp->cd(4);
+  coutp->cd(3);
   hncontr->Draw();
-  coutp->cd(5);
+  coutp->cd(4);
   hSigmaZ->Draw();
 }

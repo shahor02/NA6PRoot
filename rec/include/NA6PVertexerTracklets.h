@@ -67,13 +67,13 @@ class NA6PVertexerTracklets
     mZMin = zmin;
     mZMax = zmax;
     mNBinsForPeakFind = nbins;
-    mBinWidth = (mZMax - mZMin) / mNBinsForPeakFind;
+    mZBinWidth = (mZMax - mZMin) / mNBinsForPeakFind;
     mHistIntersec.assign(nbins, 0);
   }
   void configureKDE(double width, int nbins = 500)
   {
     mNGridKDE = nbins;
-    mKDEWidth = width;
+    mKDEBandwidth = width;
   }
 
   // Settters
@@ -114,6 +114,8 @@ class NA6PVertexerTracklets
   void setUseStandardKDE() { mKDEOption = kStandardKDE; }
   void setUseAdaptiveKDE() { mKDEOption = kAdaptiveKDE; }
   void setVerbosity(bool opt = true) { mVerbose = opt; }
+  void configureFromRecoParam(const std::string filename = "");
+  void printConfiguration() const;
 
   // methods for vertex calculation
   void findVertices(std::vector<NA6PBaseCluster>& cluArr,
@@ -179,13 +181,13 @@ class NA6PVertexerTracklets
   double mZMax = 5.;                     // z range, max, cm
   double mZWindowWidth = 1.25;           // window around peak, cm
   int mNBinsForPeakFind = 250;           // 0.1 cm per bin
-  double mBinWidth = 0.1;                // default value
+  double mZBinWidth = 0.1;               // bin width (recalculated from n bins)
   std::vector<int> mHistIntersec;        // histogram for the peak finding method
-  int mPeakWidthBins = 3;
-  int mMinCountsInPeak = 3;
-  int mKDEOption = kAdaptiveKDE;
-  int mNGridKDE = 500;
-  double mKDEWidth = 0.5; // smoothing parameter, cm
+  int mPeakWidthBins = 3;                // number of bins for integrating histo peak
+  int mMinCountsInPeak = 3;              // minimum entries in histo peak
+  int mKDEOption = kStandardKDE;         // option for using uncertainties in KDE sigma
+  int mNGridKDE = 500;                   // number of points to sample the KDE
+  double mKDEBandwidth = 0.5;            // smoothing parameter, cm
   bool mVerbose = false;
 
   ClassDefNV(NA6PVertexerTracklets, 1);

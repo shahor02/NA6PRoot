@@ -4,6 +4,7 @@
 #include <fairlogger/Logger.h>
 #include "NA6PBaseCluster.h"
 #include "NA6PVertex.h"
+#include "NA6PRecoParam.h"
 #include "NA6PVertexerTracklets.h"
 
 ClassImp(NA6PVertexerTracklets)
@@ -11,6 +12,104 @@ ClassImp(NA6PVertexerTracklets)
   NA6PVertexerTracklets::NA6PVertexerTracklets()
 {
   configurePeakFinding(mZMin, mZMax, mNBinsForPeakFind);
+}
+
+void NA6PVertexerTracklets::configureFromRecoParam(const std::string filename)
+{
+  if (filename != "") {
+    na6p::conf::ConfigurableParamHelper<NA6PRecoParam>::updateFromFile(filename);
+  }
+  const auto& param = NA6PRecoParam::Instance();
+  mNLayersVT = param.nVerTelLayers;
+  mLayerToStart = param.vertexerLayerToStart;
+  mMaxDeltaThetaTracklet = param.vertexerMaxDeltaThetaTracklet;
+  mMaxDeltaPhiTracklet = param.vertexerMaxDeltaPhiTracklet;
+  mMaxDeltaTanLamInOut = param.vertexerMaxDeltaTanLamInOut;
+  mMaxDeltaPhiInOut = param.vertexerMaxDeltaPhiInOut;
+  mMaxDeltaPxPzInOut = param.vertexerMaxDeltaPxPzInOut;
+  mMaxDeltaPyPzInOut = param.vertexerMaxDeltaPyPzInOut;
+  const std::string& rtyp = param.vertexerRecoType;
+  if (rtyp == "YZ")
+    mRecoType = kYZ;
+  else if (rtyp == "RZ")
+    mRecoType = kRZ;
+  else if (rtyp == "3D")
+    mRecoType = k3D;
+  else if (rtyp == "XZ")
+    mRecoType = kXZ;
+  else
+    LOGP(error, "Wrong option {} for reco type: won't apply this setting", rtyp.c_str());
+  mMaxDCAxy = param.vertexerMaxDCAxy;
+  const std::string& pmet = param.vertexerPeakMethod;
+  if (pmet == "KDE")
+    mMethod = kKDE;
+  else if (pmet == "HistoPeak")
+    mMethod = kHistoPeak;
+  else
+    LOGP(error, "Wrong option {} for method: won't apply this setting", pmet.c_str());
+  const std::string& mopt = param.vertexerWeightedMeanOption;
+  if (mopt == "NoWeight")
+    mWeightedMeanOption = kNoWeight;
+  else if (mopt == "TanL")
+    mWeightedMeanOption = kTanL;
+  else if (mopt == "Sigma")
+    mWeightedMeanOption = kSigma;
+  else
+    LOGP(error, "Wrong option {} for weights: won't apply this setting", mopt.c_str());
+  mZMin = param.vertexerZMin;
+  mZMax = param.vertexerZMax;
+  mZWindowWidth = param.vertexerZWindowWidth;
+  mNBinsForPeakFind = param.vertexerNBinsForPeakFind;
+  configurePeakFinding(mZMin, mZMax, mNBinsForPeakFind);
+  mPeakWidthBins = param.vertexerPeakWidthBins;
+  mMinCountsInPeak = param.vertexerMinCountsInPeak;
+  const std::string& kopt = param.vertexerKDEOption;
+  if (kopt == "Standard")
+    mKDEOption = kStandardKDE;
+  else if (kopt == "Adaptive")
+    mKDEOption = kAdaptiveKDE;
+  else
+    LOGP(error, "Wrong option {} for KDE: won't apply this setting", kopt.c_str());
+  mNGridKDE = param.vertexerNGridKDE;
+  mKDEBandwidth = param.vertexerKDEBandwidth;
+}
+
+void NA6PVertexerTracklets::printConfiguration() const
+{
+  static const char* recoTypeNames[] = {"YZ", "RZ", "3D", "XZ"};
+  static const char* methodNames[] = {"KDE", "HistoPeak"};
+  static const char* weightedMeanNames[] = {"NoWeight", "TanL", "Sigma"};
+  static const char* kdeOptionNames[] = {"StandardKDE", "AdaptiveKDE"};
+
+  std::cout << "Tracklet building selections:\n";
+  std::cout << "  MaxDeltaThetaTracklet = " << mMaxDeltaThetaTracklet << " rad\n";
+  std::cout << "  MaxDeltaPhiTracklet = " << mMaxDeltaPhiTracklet << " rad\n";
+  std::cout << "Tracklet validation selections:\n";
+  std::cout << "  MaxDeltaTanLamInOut = " << mMaxDeltaTanLamInOut << "\n";
+  std::cout << "  MaxDeltaPhiInOut = " << mMaxDeltaPhiInOut << " rad\n";
+  std::cout << "  MaxDeltaPxPzInOut = " << mMaxDeltaPxPzInOut << "\n";
+  std::cout << "  MaxDeltaPyPzInOut = " << mMaxDeltaPyPzInOut << "\n";
+  std::cout << "Reconstruction options:\n";
+  std::cout << "  RecoType = " << recoTypeNames[mRecoType] << "\n";
+  std::cout << "  MaxDCAxy = " << mMaxDCAxy << " cm\n";
+  std::cout << "  Method For peak finding = " << methodNames[mMethod] << "\n";
+  std::cout << "  ZMin = " << mZMin << " cm\n";
+  std::cout << "  ZMax = " << mZMax << " cm\n";
+  std::cout << "  ZWindowWidth = " << mZWindowWidth << " cm\n";
+  std::cout << "  WeightedMeanOption = " << weightedMeanNames[mWeightedMeanOption] << "\n";
+  if (mMethod == kHistoPeak) {
+    std::cout << "Z-peak parameters:\n";
+    std::cout << "  NBinsForPeakFind = " << mNBinsForPeakFind << "\n";
+    std::cout << "  BinWidth = " << mZBinWidth << " cm\n";
+    std::cout << "  PeakWidthBins = " << mPeakWidthBins << "\n";
+    std::cout << "  MinCountsInPeak = " << mMinCountsInPeak << "\n";
+  } else if (mMethod == kKDE) {
+    std::cout << "KDE parameters:\n";
+    std::cout << "  KDEOption = " << kdeOptionNames[mKDEOption] << "\n";
+    std::cout << "  NGridKDE = " << mNGridKDE << "\n";
+    std::cout << "  KDEBandwidth = " << mKDEBandwidth << " cm\n";
+  }
+  std::cout << "===================================\n";
 }
 
 //______________________________________________________________________
@@ -266,9 +365,9 @@ void NA6PVertexerTracklets::computeIntersections(const std::vector<TrackletForVe
     switch (mRecoType) {
       case kYZ: {
         // work in the yz plane (non bending) to use straight line approximation of traks
-        // slo = dy/dz  y = slo*z + q --> q = y0-slo*z0 --> zv = -q/slo = z0 - y0/slo
+        // slo = dy/dz  y = slo*z + q --> q = y0-slo*z0 --> yBeam = slo*zv + q --> zv =  = (ybeam-q)/slo = ybeam/slo + z0 - y0/slo = z0 - (y0-yeman)/slo
         double slo = dy / dz;
-        zi = z0 - y0 / slo;
+        zi = z0 - (y0 - mBeamY) / slo;
         double sigmaSlo = std::sqrt(sigmayClu0 * sigmayClu0 + sigmayClu1 * sigmayClu1) / std::abs(dz);
         double invSlo = 1.0 / slo;
         double term1 = (sigmayClu0 * invSlo) * (sigmayClu0 * invSlo);
@@ -279,13 +378,18 @@ void NA6PVertexerTracklets::computeIntersections(const std::vector<TrackletForVe
       case kXZ: {
         // work in the xz plane (bending) just for debug purposes
         double slo = dx / dz;
-        zi = z0 - x0 / slo;
+        zi = z0 - (x0 - mBeamX) / slo;
         break;
       }
       case kRZ: {
         // solution in the r/z plane (as in AliRoot)
-        double r0 = std::sqrt(x0 * x0 + y0 * y0);
-        double r1 = std::sqrt(x1 * x1 + y1 * y1);
+        double dx0 = x0 - mBeamX;
+        double dy0 = y0 - mBeamY;
+        double dx1 = x1 - mBeamX;
+        double dy1 = y1 - mBeamY;
+
+        double r0 = std::sqrt(dx0 * dx0 + dy0 * dy0);
+        double r1 = std::sqrt(dx1 * dx1 + dy1 * dy1);
         double slo = (r1 - r0) / (z1 - z0);
         // r = slo * z + q --> q = r0 - slo * z0 --> slo * zv + q = = --> zv = -q/slo = -(r0 - slo*z0)/slo = z0 - r0/slo
         zi = z0 - r0 / slo;
@@ -326,7 +430,7 @@ bool NA6PVertexerTracklets::findVertexHistoPeak(std::vector<TracklIntersection>&
   for (const auto& zInt : zIntersec) {
     double zi = zInt.zeta;
     if (zi >= mZMin && zi < mZMax) {
-      int bin = int((zi - mZMin) / mBinWidth);
+      int bin = int((zi - mZMin) / mZBinWidth);
       mHistIntersec[bin]++;
     }
   }
@@ -378,7 +482,7 @@ bool NA6PVertexerTracklets::findVertexHistoPeak(std::vector<TracklIntersection>&
   bool peakFound = false;
   if (jMainPeak >= 0 && (nPeaks == 1 || (nPeaks > 1 && nPeaksSameIntegral == 1))) {
     // compute the z position for the peak
-    zPeak = mZMin + (peaks[jMainPeak].first + 0.5) * mBinWidth;
+    zPeak = mZMin + (peaks[jMainPeak].first + 0.5) * mZBinWidth;
     zWinMin = zPeak - mZWindowWidth;
     zWinMax = zPeak + mZWindowWidth;
     peakFound = true;
@@ -421,8 +525,8 @@ bool NA6PVertexerTracklets::findVertexHistoPeak(std::vector<TracklIntersection>&
       }
     }
     if (!ambiguous) {
-      double zFirst = mZMin + (clusters[jLargestClu].firstBin + 0.5) * mBinWidth;
-      double zLast = mZMin + (clusters[jLargestClu].lastBin + 0.5) * mBinWidth;
+      double zFirst = mZMin + (clusters[jLargestClu].firstBin + 0.5) * mZBinWidth;
+      double zLast = mZMin + (clusters[jLargestClu].lastBin + 0.5) * mZBinWidth;
       zPeak = 0.5 * (zFirst + zLast);
       zWinMin = zFirst - mZWindowWidth;
       zWinMax = zLast + mZWindowWidth;
@@ -431,7 +535,7 @@ bool NA6PVertexerTracklets::findVertexHistoPeak(std::vector<TracklIntersection>&
   }
   if (!peakFound) {
     // resort to use the lowest z peak
-    zPeak = mZMin + (peaks[0].first + 0.5) * mBinWidth;
+    zPeak = mZMin + (peaks[0].first + 0.5) * mZBinWidth;
     zWinMin = zPeak - mZWindowWidth;
     zWinMax = zPeak + mZWindowWidth;
   }
@@ -533,9 +637,9 @@ bool NA6PVertexerTracklets::findVertexKDE(const std::vector<TracklIntersection>&
     double sumGW = 0.0;
     for (const auto& zInt : zIntersec) {
       double zi = zInt.zeta;
-      double sigma = mKDEWidth;
+      double sigma = mKDEBandwidth;
       if (mKDEOption == kAdaptiveKDE)
-        sigma = std::sqrt(mKDEWidth * mKDEWidth + zInt.sigmazeta * zInt.sigmazeta);
+        sigma = std::sqrt(mKDEBandwidth * mKDEBandwidth + zInt.sigmazeta * zInt.sigmazeta);
       double u = (z - zi) / sigma;
       double g = gaussKernel(u);
       double w = 1.0 / (1.0 + zInt.tanl * zInt.tanl);
@@ -578,7 +682,7 @@ bool NA6PVertexerTracklets::findVertexKDE(const std::vector<TracklIntersection>&
   int nInPeak = 0;
   for (const auto& zInt : zIntersec) {
     double zi = zInt.zeta;
-    if (zi > zPeak - 0.5 * mBinWidth && zi < zPeak + 0.5 * mBinWidth)
+    if (zi > zPeak - 0.5 * mZBinWidth && zi < zPeak + 0.5 * mZBinWidth)
       ++nInPeak;
   }
   if (nInPeak < mMinCountsInPeak)

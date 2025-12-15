@@ -14,6 +14,7 @@ ClassImp(NA6PVerTelReconstruction)
   NA6PVerTelReconstruction::NA6PVerTelReconstruction() : NA6PReconstruction("VerTel")
 {
   mVTTrackletVertexer = new NA6PVertexerTracklets();
+  mVTTrackletVertexer->configureFromRecoParam();
   createVerticesOutput();
 }
 
