@@ -27,17 +27,17 @@ struct TrackletForVertex {
   int startingLayer;
   int firstClusterIndex;
   int secondClusterIndex;
-  double tanL;
-  double phi;
-  double pxpz;
-  double pypz;
+  float tanL;
+  float phi;
+  float pxpz;
+  float pypz;
   bool isSignal;
 };
 
 struct TracklIntersection {
-  double zeta;
-  double sigmazeta;
-  double tanl;
+  float zeta;
+  float sigmazeta;
+  float tanl;
   int firstClusterIndex;
   int secondClusterIndex;
 };
@@ -62,7 +62,7 @@ class NA6PVertexerTracklets
   NA6PVertexerTracklets();
   ~NA6PVertexerTracklets() = default;
 
-  void configurePeakFinding(double zmin = -20.0, double zmax = 5., int nbins = 250)
+  void configurePeakFinding(float zmin = -20.0, float zmax = 5., int nbins = 250)
   {
     mZMin = zmin;
     mZMax = zmax;
@@ -70,7 +70,7 @@ class NA6PVertexerTracklets
     mZBinWidth = (mZMax - mZMin) / mNBinsForPeakFind;
     mHistIntersec.assign(nbins, 0);
   }
-  void configureKDE(double width, int nbins = 500)
+  void configureKDE(float width, int nbins = 500)
   {
     mNGridKDE = nbins;
     mKDEBandwidth = width;
@@ -79,25 +79,25 @@ class NA6PVertexerTracklets
   // Settters
   void setNLayersVT(int n) { mNLayersVT = n; }
   void setLayerToStart(int lay) { mLayerToStart = lay; }
-  void setBeamX(double x) { mBeamX = x; }
-  void setBeamY(double y) { mBeamY = y; }
+  void setBeamX(float x) { mBeamX = x; }
+  void setBeamY(float y) { mBeamY = y; }
   void setRecoInYZPlane() { mRecoType = kYZ; }
   void setRecoInXZPlane() { mRecoType = kXZ; }
   void setRecoInRZPlane() { mRecoType = kRZ; }
   void setRecoIn3D() { mRecoType = k3D; }
-  void setMaxDCAxy(double v) { mMaxDCAxy = v; }
-  void setMaxDeltaThetaTracklet(double v) { mMaxDeltaThetaTracklet = v; }
-  void setMaxDeltaPhiTracklet(double v) { mMaxDeltaPhiTracklet = v; }
-  void setMaxDeltaTanLamInOut(double v) { mMaxDeltaTanLamInOut = v; }
-  void setMaxDeltaPhiInOut(double v) { mMaxDeltaPhiInOut = v; }
-  void setMaxDeltaPxPzInOut(double v) { mMaxDeltaPxPzInOut = v; }
-  void setMaxDeltaPyPzInOut(double v) { mMaxDeltaPyPzInOut = v; }
+  void setMaxDCAxy(float v) { mMaxDCAxy = v; }
+  void setMaxDeltaThetaTracklet(float v) { mMaxDeltaThetaTracklet = v; }
+  void setMaxDeltaPhiTracklet(float v) { mMaxDeltaPhiTracklet = v; }
+  void setMaxDeltaTanLamInOut(float v) { mMaxDeltaTanLamInOut = v; }
+  void setMaxDeltaPhiInOut(float v) { mMaxDeltaPhiInOut = v; }
+  void setMaxDeltaPxPzInOut(float v) { mMaxDeltaPxPzInOut = v; }
+  void setMaxDeltaPyPzInOut(float v) { mMaxDeltaPyPzInOut = v; }
   void setUseHistoForPeakFinding() { mMethod = kHistoPeak; }
   void setUseKDEForPeakFinding() { mMethod = kKDE; }
   void setUseNoWeight() { mWeightedMeanOption = kNoWeight; }
   void setUseTanLWeight() { mWeightedMeanOption = kTanL; }
   void setUseSigmaWeight() { mWeightedMeanOption = kSigma; }
-  void setZRange(double zmin, double zmax)
+  void setZRange(float zmin, float zmax)
   {
     mZMin = zmin;
     mZMax = zmax;
@@ -144,7 +144,7 @@ class NA6PVertexerTracklets
   bool findVertexHistoPeak(std::vector<TracklIntersection>& zIntersec,
                            std::vector<NA6PVertex>& vertices);
 
-  double gaussKernel(double u)
+  float gaussKernel(float u)
   {
     return std::exp(-0.5 * u * u) / std::sqrt(2.0 * M_PI);
   }
@@ -165,29 +165,29 @@ class NA6PVertexerTracklets
   int mNLayersVT = 5;                    // number of layers in the VT
   int mLayerToStart = 0;                 // innermost layer used in tracklets
   std::vector<bool> mIsClusterUsed = {}; // flag for used clusters
-  double mBeamX = 0.;                    // beam transverse coordindates
-  double mBeamY = 0.;                    // beam transverse coordindates
-  double mMaxDeltaThetaTracklet = 0.6;   // selections for tracklet building
-  double mMaxDeltaPhiTracklet = 0.05;    // selections for tracklet building
-  double mMaxDeltaTanLamInOut = 1.;      // selections for tracklet validation
-  double mMaxDeltaPhiInOut = 0.2;        // selections for tracklet validation
-  double mMaxDeltaPxPzInOut = 99.;       // selections for tracklet validation
-  double mMaxDeltaPyPzInOut = 0.005;     // selections for tracklet validation
+  float mBeamX = 0.;                     // beam transverse coordindates
+  float mBeamY = 0.;                     // beam transverse coordindates
+  float mMaxDeltaThetaTracklet = 0.6;    // selections for tracklet building
+  float mMaxDeltaPhiTracklet = 0.05;     // selections for tracklet building
+  float mMaxDeltaTanLamInOut = 1.;       // selections for tracklet validation
+  float mMaxDeltaPhiInOut = 0.2;         // selections for tracklet validation
+  float mMaxDeltaPxPzInOut = 99.;        // selections for tracklet validation
+  float mMaxDeltaPyPzInOut = 0.005;      // selections for tracklet validation
   short mRecoType = kYZ;                 // method to compute tracklet intersections with beam axis
-  double mMaxDCAxy = 0.25;               // selection for tracklet intersection, cm
+  float mMaxDCAxy = 0.25;                // selection for tracklet intersection, cm
   short mMethod = kKDE;                  // method for peak finding (KDE vs histo)
   int mWeightedMeanOption = kNoWeight;   // option for weigthed mean
-  double mZMin = -20.0;                  // z range, min, cm
-  double mZMax = 5.;                     // z range, max, cm
-  double mZWindowWidth = 1.25;           // window around peak, cm
+  float mZMin = -20.0;                   // z range, min, cm
+  float mZMax = 5.;                      // z range, max, cm
+  float mZWindowWidth = 1.25;            // window around peak, cm
   int mNBinsForPeakFind = 250;           // 0.1 cm per bin
-  double mZBinWidth = 0.1;               // bin width (recalculated from n bins)
+  float mZBinWidth = 0.1;                // bin width (recalculated from n bins)
   std::vector<int> mHistIntersec;        // histogram for the peak finding method
   int mPeakWidthBins = 3;                // number of bins for integrating histo peak
   int mMinCountsInPeak = 3;              // minimum entries in histo peak
   int mKDEOption = kStandardKDE;         // option for using uncertainties in KDE sigma
   int mNGridKDE = 500;                   // number of points to sample the KDE
-  double mKDEBandwidth = 0.5;            // smoothing parameter, cm
+  float mKDEBandwidth = 0.5;             // smoothing parameter, cm
   bool mVerbose = false;
 
   ClassDefNV(NA6PVertexerTracklets, 1);

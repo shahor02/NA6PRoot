@@ -150,14 +150,14 @@ void NA6PVertexerTracklets::sortClustersByLayerAndEta(std::vector<NA6PBaseCluste
     auto first = cluArr.begin() + firstIndex[jLay];
     auto last = cluArr.begin() + lastIndex[jLay];
     std::sort(first, last, [](const NA6PBaseCluster& a, const NA6PBaseCluster& b) {
-      double xa = a.getX();
-      double ya = a.getY();
-      double za = a.getZ();
-      double xb = b.getX();
-      double yb = b.getY();
-      double zb = b.getZ();
-      double r2a = xa * xa + ya * ya;
-      double r2b = xb * xb + yb * yb;
+      float xa = a.getX();
+      float ya = a.getY();
+      float za = a.getZ();
+      float xb = b.getX();
+      float yb = b.getY();
+      float zb = b.getZ();
+      float r2a = xa * xa + ya * ya;
+      float r2b = xb * xb + yb * yb;
       return za * za * r2b < zb * zb * r2a;
     });
   }
@@ -220,53 +220,53 @@ void NA6PVertexerTracklets::computeLayerTracklets(const std::vector<NA6PBaseClus
     auto layerEnd = cluArr.begin() + lastIndex[iLayer + 1];
     for (int jClu1 = firstIndex[iLayer]; jClu1 < lastIndex[iLayer]; ++jClu1) {
       const NA6PBaseCluster& clu1 = cluArr[jClu1];
-      double x1 = clu1.getX();
-      double y1 = clu1.getY();
-      double z1 = clu1.getZ();
-      double r1 = std::sqrt(x1 * x1 + y1 * y1);
-      double theta1 = std::atan2(z1, r1);
-      double phi1 = std::atan2(y1, x1);
-      double tanth2Min = std::max(0., std::tan(theta1 - 1.2 * mMaxDeltaThetaTracklet)); // 1.2 is a safety margin
-      double tanth2Max = std::tan(std::min(M_PI / 2.001, theta1 + 1.2 * mMaxDeltaThetaTracklet));
+      float x1 = clu1.getX();
+      float y1 = clu1.getY();
+      float z1 = clu1.getZ();
+      float r1 = std::sqrt(x1 * x1 + y1 * y1);
+      float theta1 = std::atan2(z1, r1);
+      float phi1 = std::atan2(y1, x1);
+      float tanth2Min = std::max(0., std::tan(theta1 - 1.2 * mMaxDeltaThetaTracklet)); // 1.2 is a safety margin
+      float tanth2Max = std::tan(std::min(M_PI / 2.001, theta1 + 1.2 * mMaxDeltaThetaTracklet));
       auto lower = std::partition_point(layerBegin, layerEnd,
                                         [&](const NA6PBaseCluster& clu) {
-                                          double x = clu.getX();
-                                          double y = clu.getY();
-                                          double z = clu.getZ();
-                                          double r2 = x * x + y * y;
-                                          double tan2 = z * z / r2;
+                                          float x = clu.getX();
+                                          float y = clu.getY();
+                                          float z = clu.getZ();
+                                          float r2 = x * x + y * y;
+                                          float tan2 = z * z / r2;
                                           return tan2 < tanth2Min * tanth2Min;
                                         });
 
       auto upper = std::partition_point(layerBegin, layerEnd,
                                         [&](const NA6PBaseCluster& clu) {
-                                          double x = clu.getX();
-                                          double y = clu.getY();
-                                          double z = clu.getZ();
-                                          double r2 = x * x + y * y;
-                                          double tan2 = z * z / r2;
+                                          float x = clu.getX();
+                                          float y = clu.getY();
+                                          float z = clu.getZ();
+                                          float r2 = x * x + y * y;
+                                          float tan2 = z * z / r2;
                                           return tan2 <= tanth2Max * tanth2Max;
                                         });
       int lowerIdx = std::distance(cluArr.begin(), lower);
       int upperIdx = std::distance(cluArr.begin(), upper);
       for (int jClu2 = lowerIdx; jClu2 < upperIdx; ++jClu2) {
         const NA6PBaseCluster& clu2 = cluArr[jClu2];
-        double x2 = clu2.getX();
-        double y2 = clu2.getY();
-        double z2 = clu2.getZ();
-        double r2 = std::sqrt(x2 * x2 + y2 * y2);
-        double theta2 = std::atan2(z2, r2);
-        double phi2 = std::atan2(y2, x2);
-        double dphi = phi2 - phi1;
+        float x2 = clu2.getX();
+        float y2 = clu2.getY();
+        float z2 = clu2.getZ();
+        float r2 = std::sqrt(x2 * x2 + y2 * y2);
+        float theta2 = std::atan2(z2, r2);
+        float phi2 = std::atan2(y2, x2);
+        float dphi = phi2 - phi1;
         if (dphi > M_PI)
           dphi -= 2 * M_PI;
         else if (dphi < -M_PI)
           dphi += 2 * M_PI;
         if (std::abs(theta2 - theta1) < mMaxDeltaThetaTracklet && std::abs(dphi) < mMaxDeltaPhiTracklet) {
-          double phi = std::atan2(y2 - y1, x2 - x1);
-          double tanL = (z2 - z1) / (r2 - r1);
-          double pxpz = (x2 - x1) / (z2 - z1);
-          double pypz = (y2 - y1) / (z2 - z1);
+          float phi = std::atan2(y2 - y1, x2 - x1);
+          float tanL = (z2 - z1) / (r2 - r1);
+          float pxpz = (x2 - x1) / (z2 - z1);
+          float pypz = (y2 - y1) / (z2 - z1);
           bool signal = false;
           if (clu1.getParticleID() == clu2.getParticleID())
             signal = true;
@@ -308,14 +308,14 @@ void NA6PVertexerTracklets::selectTracklets(const std::vector<TrackletForVertex>
       const TrackletForVertex& trkl12 = *it;
       if (trkl12.firstClusterIndex != nextLayerClusterIndex)
         continue;
-      const double deltaTanLambda = std::abs(trkl12.tanL - trkl01.tanL);
-      double dphi = trkl12.phi - trkl01.phi;
+      const float deltaTanLambda = std::abs(trkl12.tanL - trkl01.tanL);
+      float dphi = trkl12.phi - trkl01.phi;
       if (dphi > M_PI)
         dphi -= 2 * M_PI;
       else if (dphi < -M_PI)
         dphi += 2 * M_PI;
-      double deltapxpz = std::abs(trkl12.pxpz - trkl01.pxpz);
-      double deltapypz = std::abs(trkl12.pypz - trkl01.pypz);
+      float deltapxpz = std::abs(trkl12.pxpz - trkl01.pxpz);
+      float deltapypz = std::abs(trkl12.pypz - trkl01.pypz);
       if (deltapypz < mMaxDeltaPyPzInOut && deltapxpz < mMaxDeltaPxPzInOut && deltaTanLambda < mMaxDeltaTanLamInOut && std::abs(dphi) < mMaxDeltaPhiInOut) {
         // if(trkl01.isSignal) isTrackletSelected[jTrkl0] = true;
         isTrackletSelected[jTrkl0] = true;
@@ -349,65 +349,65 @@ void NA6PVertexerTracklets::computeIntersections(const std::vector<TrackletForVe
   for (auto& trkl : selTracklets) {
     auto clu0 = cluArr[trkl.firstClusterIndex];
     auto clu1 = cluArr[trkl.secondClusterIndex];
-    double x0 = clu0.getX();
-    double y0 = clu0.getY();
-    double z0 = clu0.getZ();
-    double x1 = clu1.getX();
-    double y1 = clu1.getY();
-    double z1 = clu1.getZ();
-    double sigmayClu0 = std::sqrt(clu0.getSigYY());
-    double sigmayClu1 = std::sqrt(clu1.getSigYY());
-    double dx = x1 - x0;
-    double dy = y1 - y0;
-    double dz = z1 - z0;
-    double zi = -99999.;
-    double sigmazi = 0.1;
+    float x0 = clu0.getX();
+    float y0 = clu0.getY();
+    float z0 = clu0.getZ();
+    float x1 = clu1.getX();
+    float y1 = clu1.getY();
+    float z1 = clu1.getZ();
+    float sigmayClu0 = std::sqrt(clu0.getSigYY());
+    float sigmayClu1 = std::sqrt(clu1.getSigYY());
+    float dx = x1 - x0;
+    float dy = y1 - y0;
+    float dz = z1 - z0;
+    float zi = -99999.;
+    float sigmazi = 0.1;
     switch (mRecoType) {
       case kYZ: {
         // work in the yz plane (non bending) to use straight line approximation of traks
         // slo = dy/dz  y = slo*z + q --> q = y0-slo*z0 --> yBeam = slo*zv + q --> zv =  = (ybeam-q)/slo = ybeam/slo + z0 - y0/slo = z0 - (y0-yeman)/slo
-        double slo = dy / dz;
+        float slo = dy / dz;
         zi = z0 - (y0 - mBeamY) / slo;
-        double sigmaSlo = std::sqrt(sigmayClu0 * sigmayClu0 + sigmayClu1 * sigmayClu1) / std::abs(dz);
-        double invSlo = 1.0 / slo;
-        double term1 = (sigmayClu0 * invSlo) * (sigmayClu0 * invSlo);
-        double term2 = (y0 * sigmaSlo / (slo * slo)) * (y0 * sigmaSlo / (slo * slo));
+        float sigmaSlo = std::sqrt(sigmayClu0 * sigmayClu0 + sigmayClu1 * sigmayClu1) / std::abs(dz);
+        float invSlo = 1.0 / slo;
+        float term1 = (sigmayClu0 * invSlo) * (sigmayClu0 * invSlo);
+        float term2 = (y0 * sigmaSlo / (slo * slo)) * (y0 * sigmaSlo / (slo * slo));
         sigmazi = std::sqrt(term1 + term2);
         break;
       }
       case kXZ: {
         // work in the xz plane (bending) just for debug purposes
-        double slo = dx / dz;
+        float slo = dx / dz;
         zi = z0 - (x0 - mBeamX) / slo;
         break;
       }
       case kRZ: {
         // solution in the r/z plane (as in AliRoot)
-        double dx0 = x0 - mBeamX;
-        double dy0 = y0 - mBeamY;
-        double dx1 = x1 - mBeamX;
-        double dy1 = y1 - mBeamY;
+        float dx0 = x0 - mBeamX;
+        float dy0 = y0 - mBeamY;
+        float dx1 = x1 - mBeamX;
+        float dy1 = y1 - mBeamY;
 
-        double r0 = std::sqrt(dx0 * dx0 + dy0 * dy0);
-        double r1 = std::sqrt(dx1 * dx1 + dy1 * dy1);
-        double slo = (r1 - r0) / (z1 - z0);
+        float r0 = std::sqrt(dx0 * dx0 + dy0 * dy0);
+        float r1 = std::sqrt(dx1 * dx1 + dy1 * dy1);
+        float slo = (r1 - r0) / (z1 - z0);
         // r = slo * z + q --> q = r0 - slo * z0 --> slo * zv + q = = --> zv = -q/slo = -(r0 - slo*z0)/slo = z0 - r0/slo
         zi = z0 - r0 / slo;
         break;
       }
       case k3D: {
         // 3D solution for DCA between lines
-        double denomXY = dx * dx + dy * dy;
+        float denomXY = dx * dx + dy * dy;
         if (denomXY < 1e-8)
           continue;
-        double tBeam = -((x0 - mBeamX) * dx + (y0 - mBeamY) * dy) / denomXY;
-        double xi = x0 + tBeam * dx;
-        double yi = y0 + tBeam * dy;
-        double ri2 = xi * xi + yi * yi;
+        float tBeam = -((x0 - mBeamX) * dx + (y0 - mBeamY) * dy) / denomXY;
+        float xi = x0 + tBeam * dx;
+        float yi = y0 + tBeam * dy;
+        float ri2 = xi * xi + yi * yi;
         if (ri2 > mMaxDCAxy * mMaxDCAxy)
           continue;
         zi = z0 + tBeam * dz;
-        double sigmaDCA = sigmayClu0 * std::sqrt(2.0) * (1.0 + std::abs(tBeam));
+        float sigmaDCA = sigmayClu0 * std::sqrt(2.0) * (1.0 + std::abs(tBeam));
         sigmazi = sigmaDCA * std::abs(dz) / std::sqrt(denomXY);
         break;
       }
@@ -428,7 +428,7 @@ bool NA6PVertexerTracklets::findVertexHistoPeak(std::vector<TracklIntersection>&
 {
   std::fill(mHistIntersec.begin(), mHistIntersec.end(), 0.0);
   for (const auto& zInt : zIntersec) {
-    double zi = zInt.zeta;
+    float zi = zInt.zeta;
     if (zi >= mZMin && zi < mZMax) {
       int bin = int((zi - mZMin) / mZBinWidth);
       mHistIntersec[bin]++;
@@ -448,7 +448,7 @@ bool NA6PVertexerTracklets::findVertexHistoPeak(std::vector<TracklIntersection>&
     if (mHistIntersec[jBin] == maxHeight) {
       int lowBin = std::max(jBin - mPeakWidthBins, 0);
       int highBin = std::min(jBin + mPeakWidthBins, mNBinsForPeakFind - 1);
-      double integral = 0;
+      float integral = 0;
       for (int jPeak = lowBin; jPeak <= highBin; ++jPeak)
         integral += mHistIntersec[jPeak];
       peaks.push_back(std::make_pair(jBin, integral));
@@ -478,7 +478,7 @@ bool NA6PVertexerTracklets::findVertexHistoPeak(std::vector<TracklIntersection>&
     jMainPeak = 0;
     nPeaksSameIntegral = 1;
   }
-  double zPeak, zWinMin, zWinMax;
+  float zPeak, zWinMin, zWinMax;
   bool peakFound = false;
   if (jMainPeak >= 0 && (nPeaks == 1 || (nPeaks > 1 && nPeaksSameIntegral == 1))) {
     // compute the z position for the peak
@@ -525,8 +525,8 @@ bool NA6PVertexerTracklets::findVertexHistoPeak(std::vector<TracklIntersection>&
       }
     }
     if (!ambiguous) {
-      double zFirst = mZMin + (clusters[jLargestClu].firstBin + 0.5) * mZBinWidth;
-      double zLast = mZMin + (clusters[jLargestClu].lastBin + 0.5) * mZBinWidth;
+      float zFirst = mZMin + (clusters[jLargestClu].firstBin + 0.5) * mZBinWidth;
+      float zLast = mZMin + (clusters[jLargestClu].lastBin + 0.5) * mZBinWidth;
       zPeak = 0.5 * (zFirst + zLast);
       zWinMin = zFirst - mZWindowWidth;
       zWinMax = zLast + mZWindowWidth;
@@ -545,21 +545,21 @@ bool NA6PVertexerTracklets::findVertexHistoPeak(std::vector<TracklIntersection>&
             });
   // std::sort(zIntersec.begin(),zIntersec.end());
   auto lower = std::lower_bound(zIntersec.begin(), zIntersec.end(), zWinMin,
-                                [](const TracklIntersection& a, double value) {
+                                [](const TracklIntersection& a, float value) {
                                   return a.zeta < value;
                                 });
 
   auto upper = std::upper_bound(zIntersec.begin(), zIntersec.end(), zWinMax,
-                                [](double value, const TracklIntersection& a) {
+                                [](float value, const TracklIntersection& a) {
                                   return value < a.zeta;
                                 });
   int nContrib = 0;
-  double sumZ = 0.;
-  double sumZW = 0.;
-  double sumW = 0.;
+  float sumZ = 0.;
+  float sumZW = 0.;
+  float sumW = 0.;
   for (auto it = lower; it != upper; ++it) {
-    double zp = it->zeta;
-    double w = 1.0 / (1.0 + it->tanl * it->tanl);
+    float zp = it->zeta;
+    float w = 1.0 / (1.0 + it->tanl * it->tanl);
     if (mWeightedMeanOption == kSigma)
       w = 1.0 / (it->sigmazeta * it->sigmazeta);
     sumZ += zp;
@@ -567,9 +567,9 @@ bool NA6PVertexerTracklets::findVertexHistoPeak(std::vector<TracklIntersection>&
     sumW += w;
     ++nContrib;
   }
-  double zMean;
+  float zMean;
   if (mWeightedMeanOption == kNoWeight) {
-    zMean = (nContrib > 0) ? sumZ / (double)nContrib : 0.0;
+    zMean = (nContrib > 0) ? sumZ / (float)nContrib : 0.0;
   } else {
     zMean = (sumW > 0) ? sumZW / sumW : 0.0;
   }
@@ -577,12 +577,12 @@ bool NA6PVertexerTracklets::findVertexHistoPeak(std::vector<TracklIntersection>&
   zWinMin = zMean - mZWindowWidth;
   zWinMax = zMean + mZWindowWidth;
   lower = std::lower_bound(zIntersec.begin(), zIntersec.end(), zWinMin,
-                           [](const TracklIntersection& a, double value) {
+                           [](const TracklIntersection& a, float value) {
                              return a.zeta < value;
                            });
 
   upper = std::upper_bound(zIntersec.begin(), zIntersec.end(), zWinMax,
-                           [](double value, const TracklIntersection& a) {
+                           [](float value, const TracklIntersection& a) {
                              return value < a.zeta;
                            });
   nContrib = 0;
@@ -590,8 +590,8 @@ bool NA6PVertexerTracklets::findVertexHistoPeak(std::vector<TracklIntersection>&
   sumZW = 0.;
   sumW = 0.;
   for (auto it = lower; it != upper; ++it) {
-    double zp = it->zeta;
-    double w = 1.0 / (1.0 + it->tanl * it->tanl);
+    float zp = it->zeta;
+    float w = 1.0 / (1.0 + it->tanl * it->tanl);
     if (mWeightedMeanOption == kSigma)
       w = 1.0 / (it->sigmazeta * it->sigmazeta);
     sumZ += zp;
@@ -603,7 +603,7 @@ bool NA6PVertexerTracklets::findVertexHistoPeak(std::vector<TracklIntersection>&
     ++nContrib;
   }
   if (mWeightedMeanOption == kNoWeight) {
-    zMean = (nContrib > 0) ? sumZ / (double)nContrib : 0.0;
+    zMean = (nContrib > 0) ? sumZ / (float)nContrib : 0.0;
   } else {
     zMean = (sumW > 0) ? sumZW / sumW : 0.0;
   }
@@ -624,25 +624,25 @@ bool NA6PVertexerTracklets::findVertexKDE(const std::vector<TracklIntersection>&
     return false;
 
   // Prepare grid
-  std::vector<double> gridZ(mNGridKDE);
-  double dz = (mZMax - mZMin) / (mNGridKDE - 1);
+  std::vector<float> gridZ(mNGridKDE);
+  float dz = (mZMax - mZMin) / (mNGridKDE - 1);
   for (int jg = 0; jg < mNGridKDE; ++jg)
     gridZ[jg] = mZMin + jg * dz;
   // Evaluate KDE at each grid point
-  std::vector<double> fkde(mNGridKDE, 0.0);
+  std::vector<float> fkde(mNGridKDE, 0.0);
   for (int jg = 0; jg < mNGridKDE; ++jg) {
-    double z = gridZ[jg];
-    double sum = 0.0;
-    double sumW = 0.0;
-    double sumGW = 0.0;
+    float z = gridZ[jg];
+    float sum = 0.0;
+    float sumW = 0.0;
+    float sumGW = 0.0;
     for (const auto& zInt : zIntersec) {
-      double zi = zInt.zeta;
-      double sigma = mKDEBandwidth;
+      float zi = zInt.zeta;
+      float sigma = mKDEBandwidth;
       if (mKDEOption == kAdaptiveKDE)
         sigma = std::sqrt(mKDEBandwidth * mKDEBandwidth + zInt.sigmazeta * zInt.sigmazeta);
-      double u = (z - zi) / sigma;
-      double g = gaussKernel(u);
-      double w = 1.0 / (1.0 + zInt.tanl * zInt.tanl);
+      float u = (z - zi) / sigma;
+      float g = gaussKernel(u);
+      float w = 1.0 / (1.0 + zInt.tanl * zInt.tanl);
       if (mKDEOption == kStandardKDE && mWeightedMeanOption == kSigma)
         w = 1.0 / (zInt.sigmazeta * zInt.sigmazeta);
       sum += g;
@@ -656,7 +656,7 @@ bool NA6PVertexerTracklets::findVertexKDE(const std::vector<TracklIntersection>&
     }
   }
   // Find global maximum on the grid
-  double fMax = -1.0;
+  float fMax = -1.0;
   int jMax = -1;
   for (int jg = 0; jg < mNGridKDE; ++jg) {
     if (fkde[jg] > fMax) {
@@ -667,21 +667,21 @@ bool NA6PVertexerTracklets::findVertexKDE(const std::vector<TracklIntersection>&
   if (jMax < 0)
     return false;
   // Quadratic interpolation for sub-grid precision
-  double zPeak = gridZ[jMax];
+  float zPeak = gridZ[jMax];
   if (jMax > 0 && jMax < mNGridKDE - 1) {
-    double f0 = fkde[jMax - 1];
-    double f1 = fkde[jMax];
-    double f2 = fkde[jMax + 1];
-    double denom = 2. * (f0 - 2. * f1 + f2);
+    float f0 = fkde[jMax - 1];
+    float f1 = fkde[jMax];
+    float f2 = fkde[jMax + 1];
+    float denom = 2. * (f0 - 2. * f1 + f2);
     if (std::abs(denom) > 1e-12) {
-      double delta = (f0 - f2) / denom;
+      float delta = (f0 - f2) / denom;
       zPeak += delta * dz;
     }
   }
   // check peak height in small bin
   int nInPeak = 0;
   for (const auto& zInt : zIntersec) {
-    double zi = zInt.zeta;
+    float zi = zInt.zeta;
     if (zi > zPeak - 0.5 * mZBinWidth && zi < zPeak + 0.5 * mZBinWidth)
       ++nInPeak;
   }
@@ -689,11 +689,11 @@ bool NA6PVertexerTracklets::findVertexKDE(const std::vector<TracklIntersection>&
     return false;
 
   // count contributors and mark used hits
-  double zWinMin = zPeak - mZWindowWidth;
-  double zWinMax = zPeak + mZWindowWidth;
+  float zWinMin = zPeak - mZWindowWidth;
+  float zWinMax = zPeak + mZWindowWidth;
   int nContrib = 0;
   for (const auto& zInt : zIntersec) {
-    double zi = zInt.zeta;
+    float zi = zInt.zeta;
     if (zi > zWinMin && zi < zWinMax) {
       ++nContrib;
       mIsClusterUsed[zInt.firstClusterIndex] = true;
@@ -800,5 +800,5 @@ void NA6PVertexerTracklets::printStats(const std::vector<TrackletForVertex>& can
   }
   if (nFound > 0)
     LOGP(info, "Fraction of good {} = {} / {} = {}",
-         label.c_str(), nGood, nFound, (double)nGood / (double)nFound);
+         label.c_str(), nGood, nFound, (float)nGood / (float)nFound);
 }
