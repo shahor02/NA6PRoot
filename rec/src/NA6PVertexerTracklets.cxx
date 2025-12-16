@@ -14,7 +14,7 @@ ClassImp(NA6PVertexerTracklets)
   configurePeakFinding(mZMin, mZMax, mNBinsForPeakFind);
 }
 
-void NA6PVertexerTracklets::configureFromRecoParam(const std::string filename)
+void NA6PVertexerTracklets::configureFromRecoParam(const std::string& filename)
 {
   if (filename != "") {
     na6p::conf::ConfigurableParamHelper<NA6PRecoParam>::updateFromFile(filename);

@@ -88,7 +88,7 @@ class NA6PTrackerCA
                           double maxChi2ndfCells,
                           double maxChi2ndfTracks,
                           int minNClusTracks);
-  void configureFromRecoParam(const std::string filename = "");
+  void configureFromRecoParam(const std::string& filename = "");
   void setVerbosity(bool opt = true) { mVerbose = opt; }
 
   void printConfiguration() const;
@@ -112,38 +112,38 @@ class NA6PTrackerCA
                              const std::vector<int>& firstIndex,
                              const std::vector<int>& lastIndex,
                              std::vector<TrackletCandidate>& tracklets,
-                             double deltaThetaMax,
-                             double deltaPhiMax);
+                             double& deltaThetaMax,
+                             double& deltaPhiMax);
   void computeLayerCells(const std::vector<TrackletCandidate>& tracklets,
                          const std::vector<int>& firstIndex,
                          const std::vector<int>& lastIndex,
                          const std::vector<NA6PBaseCluster>& cluArr,
                          std::vector<CellCandidate>& cells,
-                         double deltaTanLMax,
-                         double deltaPhiMax,
-                         double deltaPxPzMax,
-                         double deltaPyPzMax,
-                         double maxChi2TrClu,
-                         double maxChi2NDF);
+                         double& deltaTanLMax,
+                         double& deltaPhiMax,
+                         double& deltaPxPzMax,
+                         double& deltaPyPzMax,
+                         double& maxChi2TrClu,
+                         double& maxChi2NDF);
   double computeTrackToClusterChi2(const NA6PTrack& track,
                                    const NA6PBaseCluster& clu);
   bool fitTrackPointsFast(const std::vector<int>& cluIDs,
                           const std::vector<NA6PBaseCluster>& cluArr,
                           NA6PTrack& fitTrack,
-                          double maxChi2TrClu,
-                          double maxChi2NDF);
+                          double& maxChi2TrClu,
+                          double& maxChi2NDF);
   void findCellsNeighbours(const std::vector<CellCandidate>& cells,
                            const std::vector<int>& firstIndex,
                            const std::vector<int>& lastIndex,
                            std::vector<std::pair<int, int>>& cneigh,
                            const std::vector<NA6PBaseCluster>& cluArr,
-                           double maxChi2TrClu);
+                           double& maxChi2TrClu);
   std::vector<TrackCandidate> prolongSeed(const TrackCandidate& seed,
                                           const std::vector<CellCandidate>& cells,
                                           const std::vector<int>& firstIndex,
                                           const std::vector<int>& lastIndex,
                                           const std::vector<NA6PBaseCluster>& cluArr,
-                                          double maxChi2TrClu,
+                                          double& maxChi2TrClu,
                                           ExtendDirection dir);
   void findRoads(const std::vector<std::pair<int, int>>& cneigh,
                  const std::vector<CellCandidate>& cells,
@@ -152,13 +152,13 @@ class NA6PTrackerCA
                  const std::vector<TrackletCandidate>& tracklets,
                  const std::vector<NA6PBaseCluster>& cluArr,
                  std::vector<TrackCandidate>& trackCands,
-                 double maxChi2TrClu);
+                 double& maxChi2TrClu);
   void fitAndSelectTracks(const std::vector<TrackCandidate>& trackCands,
                           const std::vector<NA6PBaseCluster>& cluArr,
                           std::vector<TrackFitted>& tracks,
-                          double maxChi2TrClu,
-                          int minNClu,
-                          double maxChi2NDF);
+                          double& maxChi2TrClu,
+                          int& minNClu,
+                          double& maxChi2NDF);
   template <typename T>
   void printStats(const std::vector<T>& candidates,
                   const std::vector<NA6PBaseCluster>& cluArr,

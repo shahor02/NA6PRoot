@@ -114,7 +114,7 @@ class NA6PVertexerTracklets
   void setUseStandardKDE() { mKDEOption = kStandardKDE; }
   void setUseAdaptiveKDE() { mKDEOption = kAdaptiveKDE; }
   void setVerbosity(bool opt = true) { mVerbose = opt; }
-  void configureFromRecoParam(const std::string filename = "");
+  void configureFromRecoParam(const std::string& filename = "");
   void printConfiguration() const;
 
   // methods for vertex calculation
