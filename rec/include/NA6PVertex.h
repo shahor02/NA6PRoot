@@ -36,12 +36,12 @@ class NA6PVertex
   
   NA6PVertex() = default;
   NA6PVertex(const ROOT::Math::XYZPointF& pos, const std::array<float, kNCov>& cov, int nCont, float chi2);
-  NA6PVertex(const double *xyz, int nCont);
+  NA6PVertex(const float *xyz, int nCont);
   NA6PVertex(const NA6PVertex&) = default;
   NA6PVertex& operator=(const NA6PVertex&) = default;
   virtual ~NA6PVertex() = default;
 
-  void init(const double *xyz, const double *cov, int nCont, float chi2);
+  void init(const float *xyz, const float *cov, int nCont, float chi2);
   void setX(float x) { mPos.SetX(x); }
   void setY(float y) { mPos.SetY(y); }
   void setZ(float z) { mPos.SetZ(z); }

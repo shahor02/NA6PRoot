@@ -16,7 +16,7 @@ NA6PVertex::NA6PVertex(const ROOT::Math::XYZPointF& pos, const std::array<float,
 {
 }
 //_______________________________________________________________________
-NA6PVertex::NA6PVertex(const double *xyz, int nCont) :
+NA6PVertex::NA6PVertex(const float *xyz, int nCont) :
   mPos{},
   mCov{},
   mChi2{0.0},
@@ -26,7 +26,7 @@ NA6PVertex::NA6PVertex(const double *xyz, int nCont) :
   setXYZ(xyz[0],xyz[1],xyz[2]);  
 }
 //_______________________________________________________________________
-void NA6PVertex::init(const double *xyz, const double *cov, int nCont, float chi2)
+void NA6PVertex::init(const float *xyz, const float *cov, int nCont, float chi2)
 {
   setXYZ(xyz[0],xyz[1],xyz[2]);
   setCov(cov[kCovXX],cov[kCovXY],cov[kCovYY],cov[kCovXZ],cov[kCovYZ],cov[kCovZZ]);

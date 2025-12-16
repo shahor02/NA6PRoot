@@ -607,7 +607,7 @@ bool NA6PVertexerTracklets::findVertexHistoPeak(std::vector<TracklIntersection>&
   } else {
     zMean = (sumW > 0) ? sumZW / sumW : 0.0;
   }
-  double pos[3] = {mBeamX, mBeamY, zMean};
+  float pos[3] = {mBeamX, mBeamY, zMean};
   NA6PVertex vert(pos, nContrib);
   vert.setVertexType(NA6PVertex::kTrackletPrimaryVertex);
   vertices.push_back(vert);
@@ -700,7 +700,7 @@ bool NA6PVertexerTracklets::findVertexKDE(const std::vector<TracklIntersection>&
       mIsClusterUsed[zInt.secondClusterIndex] = true;
     }
   }
-  double pos[3] = {mBeamX, mBeamY, zPeak};
+  float pos[3] = {mBeamX, mBeamY, zPeak};
   NA6PVertex vert(pos, nContrib);
   vert.setVertexType(NA6PVertex::kTrackletPrimaryVertex);
   vertices.push_back(vert);
