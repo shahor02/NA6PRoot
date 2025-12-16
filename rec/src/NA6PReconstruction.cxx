@@ -9,11 +9,11 @@
 
 ClassImp(NA6PReconstruction)
 
-
-bool NA6PReconstruction::init(const char* filename, const char* geoname){
+  bool NA6PReconstruction::init(const char* filename, const char* geoname)
+{
   // initialize magnetic field
   if (mIsInitialized) {
-    LOGP(info,"Reconstruction alreary intialized");
+    LOGP(info, "Reconstruction already intialized");
     return true;
   }
   if (TGeoGlobalMagField::Instance()->GetField() == nullptr) {
@@ -22,22 +22,22 @@ bool NA6PReconstruction::init(const char* filename, const char* geoname){
     magField->setAsGlobalField();
   }
   // load geometry
-  if (gGeoManager){
-    LOGP(info,"Geometry was already loaded");
+  if (gGeoManager) {
+    LOGP(info, "Geometry was already loaded");
     mIsInitialized = true;
     return true;
   }
-  if (gSystem->Exec(Form("ls -l %s > /dev/null",filename)) != 0){
-    LOGP(error,"filename {} does not exist",filename);
+  if (gSystem->Exec(Form("ls -l %s > /dev/null", filename)) != 0) {
+    LOGP(error, "filename {} does not exist", filename);
     return false;
   }
   TFile* f = TFile::Open(filename);
   gGeoManager = (TGeoManager*)f->Get(geoname);
-  if (gGeoManager){
+  if (gGeoManager) {
     mIsInitialized = true;
     return true;
-  }else{
-    LOGP(error,"No geometry with name {} found in file {}",geoname,filename);
+  } else {
+    LOGP(error, "No geometry with name {} found in file {}", geoname, filename);
     return false;
   }
 }
