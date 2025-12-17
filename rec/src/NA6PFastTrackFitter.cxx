@@ -22,9 +22,7 @@ const Double_t NA6PFastTrackFitter::kAlmostZero = 1.e-12;
 // const Double_t NA6PFastTrackFitter::fgkFldEps = 1.e-4;
 
 NA6PFastTrackFitter::NA6PFastTrackFitter() : 
-  mNLayersVT{5},
-  mNLayersMS{0},
-  mNLayersTR{0},
+  mNLayers{5},
   mMaxChi2Cl{10.},
   mIsSeedSet{false},
   mSeedOption{kThreePointSeed},
@@ -49,7 +47,7 @@ NA6PFastTrackFitter::NA6PFastTrackFitter() :
 
 template <typename ClusterType>
 void NA6PFastTrackFitter::addCluster(int jLay, ClusterType* cl) {
-  if (jLay < 0 || jLay >= mNLayersVT) {
+  if (jLay < 0 || jLay >= mNLayers) {
     LOGP(error,"Invalid layer index {}",jLay);
     return;
   }
@@ -270,7 +268,7 @@ void NA6PFastTrackFitter::computeSeed(){
     LOGP(error,"Cannot compute seed with the 3-cluster option and only {} clusters -> resort to 2-point seed",nClus);
   }
 
-  for (int jLay = mNLayersVT-1; jLay>=0; --jLay){
+  for (int jLay = mNLayers-1; jLay>=0; --jLay){
     if(mClusters[jLay]){
       mSeedPos[0] = mClusters[jLay]->getXLab();
       mSeedPos[1] = mClusters[jLay]->getYLab();
@@ -376,12 +374,12 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints(){
   bool propToNext = true;
   // construct bit mask
   uint clusterMask = 0;
-  for (Int_t jLay = 0; jLay < mNLayersVT; ++jLay) {
+  for (Int_t jLay = 0; jLay < mNLayers; ++jLay) {
     if (mClusters[jLay]) clusterMask |= (1 << jLay);
   }
   
   // track fit starts from the outer layer
-  for (Int_t jLay = mNLayersVT - 1; jLay >= 0; jLay --) {
+  for (Int_t jLay = mNLayers - 1; jLay >= 0; jLay --) {
     // update track with point in current layer
     if (mClusters[jLay]){
       if (!updateTrack(currTr, mClusters[jLay].get())){

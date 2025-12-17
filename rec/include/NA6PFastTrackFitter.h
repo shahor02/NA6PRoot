@@ -36,7 +36,7 @@ class NA6PFastTrackFitter
   // setters for configurable parameters
   void   setMaxChi2Cl(double v=10)  {mMaxChi2Cl = v;}
   void   setNLayers(int n) {
-    mNLayersVT = n; mClusters.clear(); mClusters.resize(n);
+    mNLayers = n; mClusters.clear(); mClusters.resize(n);
   }
   void   setParticleHypothesis(int pdg);
   void   enableMaterialCorrections() {mCorrectForMaterial = true;}
@@ -81,9 +81,7 @@ class NA6PFastTrackFitter
   static const Double_t kAlmostZero;
 
  protected:
-  int  mNLayersVT = 5;                   // number of active VT layers in the model
-  int  mNLayersMS = 4;                   // number of active MS layers in the model
-  int  mNLayersTR = 2;                   // number of active Trigger layers in the model
+  int  mNLayers = 5;                   // number of active 
   double mMaxChi2Cl = 10.;               // max cluster-track chi2
   bool   mIsSeedSet = false;             // flag for set seed
   int    mSeedOption = kThreePointSeed;  // seed option (see enum)
@@ -102,7 +100,7 @@ class NA6PFastTrackFitter
   
   int getNumberOfClusters() const{
     int nClus = 0;
-    for (int jLay = 0; jLay < mNLayersVT; ++jLay) if(mClusters[jLay]) nClus++;
+    for (int jLay = 0; jLay < mNLayers; ++jLay) if(mClusters[jLay]) nClus++;
     return nClus;
   }
 
