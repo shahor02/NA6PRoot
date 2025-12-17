@@ -1,0 +1,36 @@
+# MB pp collisions
+
+Beams:idA = 2212       ! first beam, p = 2212, pbar = -2212
+Beams:idB = 2212       ! second beam, p = 2212, pbar = -2212
+Beams:eB = 0.938       ! proton at rest	 
+Beams:frameType = 2    !  
+443:mayDecay = off     ! keep J/psi stable
+   
+SoftQCD:nonDiffractive = on  ! enable soft process
+ 
+// //! --- Turn off multi-parton interactions / UE (not valid at low sqrt(s)) ---
+PartonLevel:MPI = off
+BeamRemnants:remnantMode = 0  ! minimal handling; use carefully for hadron beams
+
+! Disable CR (optional -- retune if needed)
+# ColourReconnection:reconnect = off");
+ 
+# --- Parton shower settings (lower cutoffs) ---
+SpaceShower:pTmin = 0.3	! lower ISR cutoff (GeV) -- reduce radiation phase space
+TimeShower:pTmin  = 0.3 ! lower FSR cutoff (GeV)
+ 
+# --- Fragmentation (start from Monash-like values; then retune) ---
+StringZ:aLund      = 0.68   ! Monash baseline
+StringZ:bLund      = 0.98   ! Monash baseline -- consider increasing slightly if fragmentation too hard
+StringPT:sigma     = 0.335  ! intrinsic pT for fragmentation (GeV)
+
+# suggested adjustments for low energy:
+# soften fragmentation moderately if multiplicity too low:
+#   try aLund in [0.6, 0.8], bLund in [0.9, 1.5], sigma in [0.25, 0.45]
+ 
+#  --- Heavy-flavour/decay handling ---
+HadronLevel:Decay = on
+ParticleDecays:limitTau0 = on
+ParticleDecays:tau0Max = 10.0
+ 
+Random:seed = 0   ! set to 0 for random seeds, or set fixed seed for reproducibility

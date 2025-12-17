@@ -32,16 +32,18 @@ class NA6PVertex
                         kCovZZ };
   static constexpr int kNCov = 6;
 
-  enum vertTypes {kTrackletPrimaryVertex,kTrackPrimaryVertex,kBaseVertex};
-  
+  enum vertTypes { kTrackletPrimaryVertex,
+                   kTrackPrimaryVertex,
+                   kBaseVertex };
+
   NA6PVertex() = default;
   NA6PVertex(const ROOT::Math::XYZPointF& pos, const std::array<float, kNCov>& cov, int nCont, float chi2);
-  NA6PVertex(const double *xyz, int nCont);
+  NA6PVertex(const float* xyz, int nCont);
   NA6PVertex(const NA6PVertex&) = default;
   NA6PVertex& operator=(const NA6PVertex&) = default;
   virtual ~NA6PVertex() = default;
 
-  void init(const double *xyz, const double *cov, int nCont, float chi2);
+  void init(const float* xyz, const float* cov, int nCont, float chi2);
   void setX(float x) { mPos.SetX(x); }
   void setY(float y) { mPos.SetY(y); }
   void setZ(float z) { mPos.SetZ(z); }
@@ -52,7 +54,7 @@ class NA6PVertex
     setZ(z);
   }
   void setPos(const ROOT::Math::XYZPointF& p) { mPos = p; }
-  
+
   void setSigmaX2(float v) { mCov[kCovXX] = v; }
   void setSigmaY2(float v) { mCov[kCovYY] = v; }
   void setSigmaZ2(float v) { mCov[kCovZZ] = v; }
@@ -62,7 +64,7 @@ class NA6PVertex
   void setSigmaX(float val) { setSigmaX2(val * val); }
   void setSigmaY(float val) { setSigmaY2(val * val); }
   void setSigmaZ(float val) { setSigmaZ2(val * val); }
-  
+
   void setCov(float sxx, float sxy, float syy, float sxz, float syz, float szz)
   {
     setSigmaX2(sxx);
@@ -77,7 +79,7 @@ class NA6PVertex
   void addContributor() { mNContributors++; }
   void setChi2(float v) { mChi2 = v; }
   void setVertexType(short t) { mVertexType = t; }
-  
+
   float getX() const { return mPos.X(); }
   float getY() const { return mPos.Y(); }
   float getZ() const { return mPos.Z(); }
@@ -91,23 +93,22 @@ class NA6PVertex
   float getSigmaY() const { return std::sqrt(getSigmaY2()); }
   float getSigmaZ() const { return std::sqrt(getSigmaZ2()); }
   std::array<float, kNCov> getCov() const { return mCov; }
-  ROOT::Math::XYZPointF getXYZ() const { return mPos; }  
-  int   getNContributors() const { return mNContributors; }
+  ROOT::Math::XYZPointF getXYZ() const { return mPos; }
+  int getNContributors() const { return mNContributors; }
   float getChi2() const { return mChi2; }
   short getVertexType() const { return mVertexType; }
-  
-  virtual void  print() const;
+
+  virtual void print() const;
   std::string asString() const;
 
  protected:
-  ROOT::Math::XYZPointF mPos{0., 0., 0.}; 
-  std::array<float, kNCov> mCov{};     
-  float mChi2 = 0.0;           
-  int   mNContributors = 0; 
+  ROOT::Math::XYZPointF mPos{0., 0., 0.};
+  std::array<float, kNCov> mCov{};
+  float mChi2 = 0.0;
+  int mNContributors = 0;
   short mVertexType = kBaseVertex;
-  
-  ClassDefNV(NA6PVertex,1);
+
+  ClassDefNV(NA6PVertex, 1);
 };
 
 #endif
-

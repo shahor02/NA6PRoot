@@ -192,11 +192,15 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
     th->GetEvent(jEv);
     int nPart = mcArr->size();
     int nHits = hits.size();
+    double xvert = 0;
+    double yvert = 0;
     double zvert = 0;
     // get primary vertex position from the Kine Tree
     for (int jp = 0; jp < nPart; jp++) {
       auto curPart = mcArr->at(jp);
       if (curPart.IsPrimary()) {
+        xvert = curPart.Vx();
+        yvert = curPart.Vy();
         zvert = curPart.Vz();
         break;
       }
@@ -298,8 +302,8 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
           double phitr = std::atan2(pytr, pxtr);
           double thetatr = std::acos(pztr / momtr);
           double etatr = -std::log(std::tan(thetatr / 2.));
-          double impparX = currTr->getXLab();
-          double impparY = currTr->getYLab();
+          double impparX = currTr->getXLab() - xvert;
+          double impparY = currTr->getYLab() - yvert;
           hEtaReco->Fill(etatr);
           hDeltaPx->Fill(pxtr - pxPart);
           hDeltaPy->Fill(pytr - pyPart);

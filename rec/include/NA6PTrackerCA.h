@@ -39,7 +39,7 @@ struct CellCandidate {
   int startingLayer;
   int firstTrackletIndex;
   int secondTrackletIndex;
-  std::array<int,3> cluIDs;
+  std::array<int, 3> cluIDs;
   NA6PTrack trackFitFast;
   //    genfit::Track trackFit;
 };
@@ -52,7 +52,7 @@ struct TrackCandidate {
   std::vector<int> cluIDs;
 };
 
-struct TrackFitted{
+struct TrackFitted {
   int innerLayer;
   int outerLayer;
   int nClus;
@@ -62,11 +62,12 @@ struct TrackFitted{
   double chi2ndf;
 };
 
-enum class ExtendDirection { kInward, kOutward };
+enum class ExtendDirection { kInward,
+                             kOutward };
 
 class NA6PTrackerCA
 {
-public:
+ public:
   static constexpr int kMaxIterationsCA = 10;
 
   NA6PTrackerCA();
@@ -74,25 +75,25 @@ public:
 
   // setters for configurable parameters
   void setNLayers(int n);
-  void setMaxNumberOfSharedClusters(int n) {mMaxSharedClusters = n;}
-  void setStartLayer(int start) {mLayerStart = start;}
+  void setStartLayer(int start) { mLayerStart = start; }
+  void setMaxNumberOfSharedClusters(int n) { mMaxSharedClusters = n; }
   void setNumberOfIterations(int nIter);
   void setIterationParams(int iter,
-			  double maxDeltaThetaTracklets,
-			  double maxDeltaPhiTracklets,
-			  double maxDeltaTanLCells,
-			  double maxDeltaPhiCells,
-			  double maxDeltaPxPzCells,
-			  double maxDeltaPyPzCells,
-			  double maxChi2TrClCells,
-			  double maxChi2ndfCells,
-			  double maxChi2ndfTracks,
-			  int    minNClusTracks);
-  void configureFromRecoParam(const std::string filename = "");
-  void setVerbosity(bool opt = true) {mVerbose = opt;}
+                          double maxDeltaThetaTracklets,
+                          double maxDeltaPhiTracklets,
+                          double maxDeltaTanLCells,
+                          double maxDeltaPhiCells,
+                          double maxDeltaPxPzCells,
+                          double maxDeltaPyPzCells,
+                          double maxChi2TrClCells,
+                          double maxChi2ndfCells,
+                          double maxChi2ndfTracks,
+                          int minNClusTracks);
+  void configureFromRecoParam(const std::string& filename = "");
+  void setVerbosity(bool opt = true) { mVerbose = opt; }
 
   void printConfiguration() const;
-  int  getNIterations() const {return mNIterationsCA;}
+  int getNIterations() const { return mNIterationsCA; }
   bool loadGeometry(const char* filename, const char* geoname = "NA6P");
   
   template<typename ClusterType>
@@ -100,7 +101,6 @@ public:
   
   std::vector<NA6PTrack> getTracks();
 
-  
 protected:
   // methods used in tracking
   template<typename ClusterType>
@@ -179,19 +179,16 @@ protected:
 		  const std::string& label,
 		  int requiredClus = -1);
 
-
-
-
-private:
-  int  mLayerStart = 0;
-  int  mNLayers = 5;
+ private:
+  int mNLayers = 5;
+  int mLayerStart = 0;
   double mPrimVertPos[3] = {};
   NA6PFastTrackFitter* mTrackFitter = nullptr;
   std::vector<bool> mIsClusterUsed = {};
   std::vector<TrackFitted> mFinalTracks = {};
-  int    mMaxSharedClusters = 0;
-  bool   mVerbose = false;
-  int    mNIterationsCA = 2;
+  int mMaxSharedClusters = 0;
+  bool mVerbose = false;
+  int mNIterationsCA = 2;
   double mMaxDeltaThetaTrackletsCA[kMaxIterationsCA] = {0.04, 0.1, 0.15, 0.3, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   double mMaxDeltaPhiTrackletsCA[kMaxIterationsCA] = {0.1, 0.2, 0.25, 0.5, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   double mMaxDeltaTanLCellsCA[kMaxIterationsCA] = {4., 9., 18., 40., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};

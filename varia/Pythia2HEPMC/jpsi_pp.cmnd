@@ -1,0 +1,26 @@
+--- Generation of J/psi (only)
+
+Beams:idA = 2212       ! first beam, p = 2212, pbar = -2212
+Beams:idB = 2212       ! second beam, p = 2212, pbar = -2212
+Beams:eB = 0.938       ! proton at rest	 
+Beams:frameType = 2    !  
+443:mayDecay = off     ! keep J/psi stable
+
+HardQCD:all = off
+SoftQCD:all = off
+WeakBosonExchange:all = off
+Top:all = off 
+Charmonium:states(3S1) = {443,100443}
+Charmonium:gg2ccbar(3S1)[3S1(1)]g = {on,off}   ! direct J/psi (color singlet)
+Charmonium:gg2ccbar(3S1)[3S1(8)]g = {on,off}   ! direct J/psi (color octet)
+Charmonium:qg2ccbar(3S1)[3S1(8)]q = {on,off}
+Charmonium:qqbar2ccbar(3S1)[3S1(8)]g = {on,off}
+Charmonium:gg2ccbar(3S1)[3S1(1)]gm = {on,off}  
+Charmonium:gg2ccbar(3S1)[1S0(8)]g = {on,off}   
+Charmonium:qg2ccbar(3S1)[1S0(8)]q = {on,off}
+Charmonium:qqbar2ccbar(3S1)[1S0(8)]g = {on,off}
+Charmonium:gg2ccbar(3S1)[3PJ(8)]g = {on,off} 
+Charmonium:qg2ccbar(3S1)[3PJ(8)]q = {on,off}
+Charmonium:qqbar2ccbar(3S1)[3PJ(8)]g = {on,off}
+PhaseSpace:pTHatMin = 0.
+PhaseSpace:pTHatMinDiverge = 0.5
