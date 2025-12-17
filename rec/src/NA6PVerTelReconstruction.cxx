@@ -21,6 +21,8 @@ bool NA6PVerTelReconstruction::init(const char* filename, const char* geoname)
 {
   NA6PReconstruction::init(filename, geoname);
   mVTTracker = new NA6PTrackerCA();
+  mVTTracker->setNLayers(5);
+  mVTTracker->setStartLayer(0);
   mVTTracker->configureFromRecoParam();
   createTracksOutput();
   return true;
@@ -81,10 +83,9 @@ void NA6PVerTelReconstruction::hitsToRecPoints(const std::vector<NA6PVerTelHit>&
       clusiz = 4;
     int nDet = hit.getDetectorID();
     int idPart = hit.getTrackID();
-    mClusters.emplace_back(x, y, z, clusiz);
+    mClusters.emplace_back(x, y, z, clusiz, nDet);
     auto& clu = mClusters.back();
     clu.setErr(ex2clu, 0., ey2clu);
-    clu.setDetectorID(nDet);
     clu.setParticleID(idPart);
     clu.setHitID(jHit);
   }

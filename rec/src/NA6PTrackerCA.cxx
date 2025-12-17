@@ -18,7 +18,8 @@ ClassImp(NA6PTrackerCA)
 //______________________________________________________________________
 
 NA6PTrackerCA::NA6PTrackerCA() :
-  mNLayers(5),
+  mLayerStart{0},
+  mNLayers{5},
   mPrimVertPos{0.,0.,0.},
   mTrackFitter{nullptr},
   mIsClusterUsed{false},
@@ -155,7 +156,7 @@ void NA6PTrackerCA::sortClustersByLayerAndEta(std::vector<ClusterType>& cluArr,
   std::vector<int> count(mNLayers, 0);
   for (const auto& clu : cluArr) {
     int jDet=clu.getDetectorID();
-    int jLay=clu.getLayer(); 
+    int jLay=clu.getLayer() - mLayerStart; 
     if (jLay >= 0 && jLay < mNLayers) {
       count[jLay]++;
     }
@@ -173,7 +174,7 @@ void NA6PTrackerCA::sortClustersByLayerAndEta(std::vector<ClusterType>& cluArr,
   std::vector<int> countReord = firstIndex;
   std::vector<ClusterType> reordered(cluArr.size());
   for (const auto& clu : cluArr) {
-    int jLay=clu.getLayer();
+    int jLay=clu.getLayer() - mLayerStart;
     if(jLay >= 0 && jLay < mNLayers) reordered[countReord[jLay]++] = clu;
   }
   cluArr = std::move(reordered);
@@ -446,7 +447,7 @@ bool NA6PTrackerCA::fitTrackPointsFast(const std::vector<int>& cluIDs,
   for (int jClu = 0; jClu < nClus; jClu++){
     int cluID =  cluIDs[jClu];
     const auto& clu = cluArr[cluID];
-    int nLay=clu.getLayer();
+    int nLay=clu.getLayer() - mLayerStart;
     ClusterType* cluForFit = new ClusterType(clu);
     // no need to delete these pointer: the fitter will take ownership
     clusters.push_back(cluForFit);
@@ -579,12 +580,12 @@ std::vector<TrackCandidate> NA6PTrackerCA::prolongSeed(const TrackCandidate& see
 	if (dir == ExtendDirection::kInward) {
 	  extended.innerCellIndex = jCe;
 	  extended.innerLayer = ccNext.startingLayer;
-	  int nLay = cluArr[ccNext.cluIDs[0]].getLayer();
+	  int nLay = cluArr[ccNext.cluIDs[0]].getLayer() - mLayerStart;
 	  extended.cluIDs[nLay] = ccNext.cluIDs[0];
 	} else {
 	  extended.outerCellIndex = jCe;
 	  extended.outerLayer = ccNext.startingLayer;
-	  int nLay = cluArr[ccNext.cluIDs[2]].getLayer();
+	  int nLay = cluArr[ccNext.cluIDs[2]].getLayer() - mLayerStart;
 	  extended.cluIDs[nLay] = ccNext.cluIDs[2];
 	}
 	next.push_back(std::move(extended));
@@ -631,7 +632,7 @@ void NA6PTrackerCA::findRoads(const std::vector<std::pair<int,int>>& cneigh,
     int innerLay = 99;
     for(int jClu = 0; jClu < nClusIn; jClu++){
       int cluID =  inner.cluIDs[jClu];
-      int nLay = cluArr[cluID].getLayer();
+      int nLay = cluArr[cluID].getLayer() - mLayerStart;
       cluIDsFull[nLay] = cluID;
       if (nLay < innerLay) innerLay = nLay;
     }
@@ -639,7 +640,7 @@ void NA6PTrackerCA::findRoads(const std::vector<std::pair<int,int>>& cneigh,
     int outerLay = 0;
     for(int jClu = 0; jClu < nClusOut; jClu++){
       int cluID =  outer.cluIDs[jClu];
-      int nLay = cluArr[cluID].getLayer();
+      int nLay = cluArr[cluID].getLayer() - mLayerStart;
       if(cluIDsFull[nLay] != -1 && cluIDsFull[nLay] != cluID){
 	LOGP(error,"clu mismatch in layer {}",nLay);
 	continue;
@@ -885,7 +886,7 @@ void NA6PTrackerCA::printStats(const std::vector<T>& candidates,
       if(cluID >= 0){
 	++nTrueClus;
 	const auto& clu = cluArr[cluID];
-	int jLay = clu.getLayer();
+	int jLay = clu.getLayer() - mLayerStart;
 	if (jClu == 0 && jLay != startLay)
 	  LOGP(error,"mismatch in {} layers: {} {}",label.c_str(), jLay, startLay);
 	int idPartClu = clu.getParticleID();

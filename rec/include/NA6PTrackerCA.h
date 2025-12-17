@@ -75,6 +75,7 @@ public:
   // setters for configurable parameters
   void setNLayers(int n);
   void setMaxNumberOfSharedClusters(int n) {mMaxSharedClusters = n;}
+  void setStartLayer(int start) {mLayerStart = start;}
   void setNumberOfIterations(int nIter);
   void setIterationParams(int iter,
 			  double maxDeltaThetaTracklets,
@@ -182,8 +183,8 @@ protected:
 
 
 private:
-  
-  int    mNLayers = 5;
+  int  mLayerStart = 0;
+  int  mNLayers = 5;
   double mPrimVertPos[3] = {};
   NA6PFastTrackFitter* mTrackFitter = nullptr;
   std::vector<bool> mIsClusterUsed = {};

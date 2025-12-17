@@ -30,7 +30,8 @@ class NA6PBaseCluster
   NA6PBaseCluster& operator=(const NA6PBaseCluster&) = default;
   virtual ~NA6PBaseCluster() {}
 
-  virtual int getLayer() const { return -1; } // to be overridden in derived classes
+  int getLayer() const { return mLayer; }
+  int   getClusterSize() const { return mCluSiz; }
   // Lab frame coordinates
   auto getXLab()       const {return mPos[0];}
   auto getYLab()       const {return mPos[1];}
@@ -75,6 +76,7 @@ class NA6PBaseCluster
   short mDetectorID = 0;       // the detector/sensor id
   int   mParticleID = 0;       // particle ID in Kine tree (MC truth)
   int   mHitID = -1;           // hit ID (for test of hitsToRecPoints)
+  int8_t mLayer = -1;
 
   ClassDefNV(NA6PBaseCluster, 1);
 };

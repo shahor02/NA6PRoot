@@ -24,12 +24,10 @@ class NA6PVerTelCluster : public NA6PBaseCluster
  public:
 
   NA6PVerTelCluster() = default;
-  NA6PVerTelCluster(float x, float y, float z, int clusiz) : NA6PBaseCluster(x, y, z, clusiz) {}
+  NA6PVerTelCluster(float x, float y, float z, int clusiz, int nDet);
   NA6PVerTelCluster(const NA6PVerTelCluster&) = default;
   NA6PVerTelCluster& operator=(const NA6PVerTelCluster&) = default;
   virtual ~NA6PVerTelCluster() {}
-
-  int getLayer() const override;
 
   ClassDefNV(NA6PVerTelCluster, 1);
 };

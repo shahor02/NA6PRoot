@@ -27,7 +27,7 @@ class NA6PTrack
 {
  public:
   
-  enum {kNDOF=5, kMaxVTLr=16};
+  enum {kNDOF=5, kMaxLr=16};
   enum {kY2=0,kZ2=2,kSnp2=5,kTgl2=9,kPtI2=14};
   enum {kY,kZ,kSnp,kTgl,kPtI};
 
@@ -43,8 +43,9 @@ class NA6PTrack
   void    resetCovariance(float err=-1.);
 
   double        getMass()                  const {return mMass;}
-  int           getNLayers()             const {return mNLayers;}
   double        getChi2()                  const {return mChi2;}
+  double        getChi2VT()                const { return mChi2VT; }
+  double        getChi2MS()                const { return mChi2MS; }
   const ExtTrackPar& getTrackExtParam()    const {return mExtTrack; }
   const double* getCovariance()            const {return mExtTrack.getCovariance(); }
   int          getNVTHits()                const {return mNClustersVT;}
@@ -52,9 +53,8 @@ class NA6PTrack
   int          getNTRHits()                const {return mNClustersTR;}
   int          getNHits()                  const {return mNClusters;}
   uint32_t     getClusterMap()             const {return mClusterMap;}
-  bool         hasClusterOnLayer(int lr) const {return (lr<mNLayers) ?  mClusterMap&(1<<lr) : false;}
-  int          getClusterIndex(int lr)   const {return lr < kMaxVTLr ? mClusterIndices[lr] : -1; }
-  int          getParticleLabel(int lr)    const {return lr < kMaxVTLr ? mClusterPartID[lr] : -2; }
+  int          getClusterIndex(int lr)   const {return lr < kMaxLr ? mClusterIndices[lr] : -1; }
+  int          getParticleLabel(int lr)    const {return lr < kMaxLr ? mClusterPartID[lr] : -2; }
   int          getParticleID()             const {return mParticleID;}
   int          getCAIteration()            const {return mCAIteration;}
   
@@ -82,17 +82,19 @@ class NA6PTrack
   double       getPredictedChi2(double* p, double* cov) const {return mExtTrack.getPredictedChi2(p,cov);}
   
   void   setMass(double m)         {mMass = m;}
-  void   setNLayers(int n)       {mNLayers = n;}
   void   setChi2(double chi2)      {mChi2 = chi2;}
-  void   setParticleLabel(int idx, int lr)  { if (lr < kMaxVTLr) mClusterPartID[lr] = idx;}
-  void   setVTClusterIndex(int idx, int lr) { if (lr < kMaxVTLr) mClusterIndices[lr] = idx;}
+  void   setChi2VT(double chi2)    {mChi2VT = chi2;}
+  void   setChi2MS(double chi2)    {mChi2MS = chi2;}
+  void   setParticleLabel(int idx, int lr)  { if (lr < kMaxLr) mClusterPartID[lr] = idx;}
+  void   setClusterIndex(int idx, int lr) { if (lr < kMaxLr) mClusterIndices[lr] = idx;}
   void   setParticleID(int idx)    {mParticleID = idx;}
   void   setCAIteration(int iter)  {mCAIteration = iter;}
 
   static void lab2trk(const double *vLab, double *vTrk); 
   static void trk2lab(const double *vTrk, double *vLab); 
 
-  void   addCluster(const NA6PBaseCluster* clu, int cluIndex, double chi2);
+  template <typename ClusterType>
+  void   addCluster(const ClusterType* clu, int cluIndex, double chi2);
   bool   correctForMeanMaterial(double xOverX0, double xTimesRho, bool anglecorr = false){
     return mExtTrack.correctForMeanMaterial(xOverX0, xTimesRho, mMass, anglecorr);
   }
@@ -108,14 +110,15 @@ class NA6PTrack
  protected:
   double   mMass = 0.140;                        // particle mass
   double   mChi2 = 0.f;                          // total chi2
-  int      mNLayers = 6;                       // number of layers
+  double   mChi2VT = 0.f;                        // total chi2 VT
+  double   mChi2MS = 0.f;                        // total chi2 MS
   uint32_t mClusterMap = 0;                      // pattern of clusters per layer
   int      mNClusters = 0;                       // total hits
   int      mNClustersVT = 0;                     // total VT hits
   int      mNClustersMS = 0;                     // total MS hits
   int      mNClustersTR = 0;                     // total TR hits
-  std::array<int, kMaxVTLr> mClusterIndices{};   // cluster indices
-  std::array<int, kMaxVTLr> mClusterPartID{};    // particle ID (per cluster)
+  std::array<int, kMaxLr> mClusterIndices{};   // cluster indices
+  std::array<int, kMaxLr> mClusterPartID{};    // particle ID (per cluster)
   int      mParticleID = -1;                     // particle ID (MC truth)
   int      mCAIteration = -1;                    //! CA iteration (for debug)
   ExtTrackPar mExtTrack;                         // track params

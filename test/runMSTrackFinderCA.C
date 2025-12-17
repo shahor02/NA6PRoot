@@ -56,6 +56,7 @@ void runMSTrackFinderCA(int firstEv = 0,
 
   NA6PTrackerCA* tracker = new NA6PTrackerCA();
   tracker->setNLayers(6);
+  tracker->setStartLayer(5);
   //tracker->setVerbosity(true);
   if (!tracker->loadGeometry(Form("%s/geometry.root", dirSimu)))
     return;
