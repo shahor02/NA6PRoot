@@ -79,10 +79,9 @@ void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecM
     int clusiz = 1;
     int nDet = hit.getDetectorID();
     int idPart = hit.getTrackID();
-    mClusters.emplace_back(x, y, z, clusiz);
+    mClusters.emplace_back(x, y, z, clusiz, nDet);
     auto& clu = mClusters.back();
     clu.setErr(ex2clu, 0., ey2clu);
-    clu.setDetectorID(nDet);
     clu.setParticleID(idPart);
     clu.setHitID(jHit);
   }

@@ -36,7 +36,9 @@ class NA6PFastTrackFitter
   // setters for configurable parameters
   void   setMaxChi2Cl(double v=10)  {mMaxChi2Cl = v;}
   void   setNLayers(int n) {
-    mNLayers = n; mClusters.clear(); mClusters.resize(n);
+    mNLayers = n;
+    mClusters.clear();
+    mClusters.resize(n);
   }
   void   setParticleHypothesis(int pdg);
   void   enableMaterialCorrections() {mCorrectForMaterial = true;}
@@ -53,8 +55,7 @@ class NA6PFastTrackFitter
   void   computeSeed();
   void   printSeed() const;
   
-  template <typename ClusterType>
-  void   addCluster(int jLay, ClusterType* cl);
+  void   addCluster(int jLay, NA6PBaseCluster* cl);
   void   resetClusters() {
     // deletes the owned cluster and sets pointer to nullptr
     for (auto& clPtr : mClusters) clPtr.reset();
@@ -67,8 +68,7 @@ class NA6PFastTrackFitter
   bool   loadGeometry(const char* filename = "geometry.root", const char* geoname = "NA6P");
   
   NA6PTrack*  fitTrackPoints();
-  template <typename ClusterType>
-  bool   updateTrack(NA6PTrack* trc, ClusterType* cl) const;
+  bool   updateTrack(NA6PTrack* trc, NA6PBaseCluster* cl) const;
   int    propagateToZ(NA6PTrack* trc, double zFrom, double zTo, int dir) const;
   int    propagateToZ(NA6PTrack* trc, double zTo) const;
   void   getMeanMaterialBudgetFromGeom(double* start, double* end, double *mparam) const;

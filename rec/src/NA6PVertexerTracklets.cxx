@@ -149,14 +149,14 @@ void NA6PVertexerTracklets::sortClustersByLayerAndEta(std::vector<NA6PVerTelClus
     auto first = cluArr.begin() + firstIndex[jLay];
     auto last = cluArr.begin() + lastIndex[jLay];
     std::sort(first, last, [](const NA6PVerTelCluster& a, const NA6PVerTelCluster& b) {
-      double xa = a.getX();
-      double ya = a.getY();
-      double za = a.getZ();
-      double xb = b.getX();
-      double yb = b.getY();
-      double zb = b.getZ();
-      double r2a = xa * xa + ya * ya;
-      double r2b = xb * xb + yb * yb;
+      float xa = a.getX();
+      float ya = a.getY();
+      float za = a.getZ();
+      float xb = b.getX();
+      float yb = b.getY();
+      float zb = b.getZ();
+      float r2a = xa * xa + ya * ya;
+      float r2b = xb * xb + yb * yb;
       return za * za * r2b < zb * zb * r2a;
     });
   }

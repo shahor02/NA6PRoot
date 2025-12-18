@@ -4,9 +4,10 @@
 #include "NA6PLayoutParam.h"
 #include <cmath>
 
-NA6PMuonSpecCluster::NA6PMuonSpecCluster(float x, float y, float z, int clusiz)
+NA6PMuonSpecCluster::NA6PMuonSpecCluster(float x, float y, float z, int clusiz, int nDet)
   : NA6PBaseCluster(x, y, z, clusiz)
 {
+  mDetectorID = nDet;
   // Set layer based on Z position and layout parameters
   float zCluster = getZLab();
   const auto& layout = NA6PLayoutParam::Instance();
