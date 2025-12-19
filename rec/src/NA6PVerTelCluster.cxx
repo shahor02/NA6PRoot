@@ -1,12 +1,12 @@
 // NA6PCCopyright
 
 #include "NA6PVerTelCluster.h"
-#include "NA6PLayoutParam.h"
 
+// NA6PCCopyright
 
-NA6PVerTelCluster::NA6PVerTelCluster(float x, float y, float z, int clusiz, int nDet)
-  : NA6PBaseCluster(x, y, z, clusiz)
+#include "NA6PVerTelCluster.h"
+
+NA6PVerTelCluster::NA6PVerTelCluster(float x, float y, float z, int clusiz, int layer)
+  : NA6PBaseCluster(x, y, z, clusiz, layer)
 {
-	mDetectorID = nDet;
-	mLayer = nDet / 4;
 }

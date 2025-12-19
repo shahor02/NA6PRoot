@@ -84,9 +84,11 @@ void NA6PVerTelReconstruction::hitsToRecPoints(const std::vector<NA6PVerTelHit>&
       clusiz = 4;
     int nDet = hit.getDetectorID();
     int idPart = hit.getTrackID();
-    mClusters.emplace_back(x, y, z, clusiz, nDet);
+    int layer = nDet / 4;
+    mClusters.emplace_back(x, y, z, clusiz, layer);
     auto& clu = mClusters.back();
     clu.setErr(ex2clu, 0., ey2clu);
+    clu.setDetectorID(nDet);
     clu.setParticleID(idPart);
     clu.setHitID(jHit);
   }

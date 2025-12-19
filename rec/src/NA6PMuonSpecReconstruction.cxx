@@ -8,6 +8,7 @@
 #include "NA6PTrackerCA.h"
 #include "NA6PVertexerTracklets.h"
 #include "NA6PMuonSpecReconstruction.h"
+#include "NA6PLayoutParam.h"
 
 ClassImp(NA6PMuonSpecReconstruction)
 
@@ -59,6 +60,7 @@ void NA6PMuonSpecReconstruction::closeClustersOutput()
 void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecModularHit>& hits)
 {
   int nHits = hits.size();
+  const auto& layout = NA6PLayoutParam::Instance();
   for (int jHit = 0; jHit < nHits; ++jHit) {
     const auto& hit = hits[jHit];
     double x = hit.getX();
@@ -79,9 +81,22 @@ void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecM
     int clusiz = 1;
     int nDet = hit.getDetectorID();
     int idPart = hit.getTrackID();
-    mClusters.emplace_back(x, y, z, clusiz, nDet);
+    // Set layer based on Z position - find closest plane
+        
+    float minDist = std::abs(z - layout.posMSPlaneZ[0]);
+    int layer = layout.nVerTelPlanes;
+    
+    for (int i = 1; i < layout.nMSPlanes; ++i) {
+      float dist = std::abs(z - layout.posMSPlaneZ[i]);
+      if (dist < minDist) {
+        minDist = dist;
+        layer = i + layout.nVerTelPlanes;
+      }
+    }
+    mClusters.emplace_back(x, y, z, clusiz, layer);
     auto& clu = mClusters.back();
     clu.setErr(ex2clu, 0., ey2clu);
+    clu.setDetectorID(nDet);
     clu.setParticleID(idPart);
     clu.setHitID(jHit);
   }

@@ -25,7 +25,7 @@ class NA6PBaseCluster
  public:
 
   NA6PBaseCluster() = default;
-  NA6PBaseCluster(float x, float y, float z, int clusiz);
+  NA6PBaseCluster(float x, float y, float z, int clusiz, int layer);
   NA6PBaseCluster(const NA6PBaseCluster&) = default;
   NA6PBaseCluster& operator=(const NA6PBaseCluster&) = default;
   virtual ~NA6PBaseCluster() {}

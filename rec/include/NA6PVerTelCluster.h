@@ -24,7 +24,7 @@ class NA6PVerTelCluster : public NA6PBaseCluster
  public:
 
   NA6PVerTelCluster() = default;
-  NA6PVerTelCluster(float x, float y, float z, int clusiz, int nDet);
+  NA6PVerTelCluster(float x, float y, float z, int clusiz, int layer);
   NA6PVerTelCluster(const NA6PVerTelCluster&) = default;
   NA6PVerTelCluster& operator=(const NA6PVerTelCluster&) = default;
 
