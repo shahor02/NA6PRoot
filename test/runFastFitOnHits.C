@@ -105,20 +105,19 @@ void FillMeanAndRms(TH2F* hImpParVsP, TH1F* hImpParMean, TH1F* hImpParRms, TH1F*
   }
 }
 
-
 // Template function to run fast fit on hits - works with both NA6PVerTelHit and NA6PMuonSpecModularHit
 template <typename HitType>
 void runFastFitOnHitsTemplate(int firstEv = 0,
-                               int lastEv = 99999999,
-                               double cluresx = 5.e-4,
-                               double cluresy = 5.e-4,
-                               const char* dirSimu = "../tst",
-                               const char* hitFileName = "HitsVerTel.root",
-                               const char* hitTreeName = "hitsVerTel",
-                               const char* hitBranchName = "VerTel",
-                               int nLayers = 5,
-                               int minHits = 5,
-                               bool useVT = true)
+                              int lastEv = 99999999,
+                              double cluresx = 5.e-4,
+                              double cluresy = 5.e-4,
+                              const char* dirSimu = "../testN6PRoot/pions/latesttag",
+                              const char* hitFileName = "HitsVerTel.root",
+                              const char* hitTreeName = "hitsVerTel",
+                              const char* hitBranchName = "VerTel",
+                              int nLayers = 5,
+                              int minHits = 5,
+                              bool useVT = true)
 {
 
   // na6p::conf::ConfigurableParam::updateFromFile(Form("%s/na6pLayout.ini",dirSimu),"",true);
@@ -136,7 +135,7 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
   th->SetBranchAddress(hitBranchName, &hitsPtr);
 
   int nMomBins = 20;
-  double maxP = 20.;
+  double maxP = 10.;
   TH1F* hEtaGen = new TH1F("hEtaGen", ";#eta;counts", 20, 0., 5.);
   TH1F* hEtaReco = new TH1F("hEtaReco", ";#eta;counts", 20, 0., 5.);
   TH1F* hDeltaPx = new TH1F("hDeltaPx", ";p_{x}^{rec}-p_{x}^{gen} (GeV/c);counts", 100, -0.2, 0.2);
@@ -145,9 +144,9 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
   TH1F* hDeltaP = new TH1F("hDeltaP", ";p^{rec}-p^{gen} (GeV/c);counts", 100, -0.5, 0.5);
   TH1F* hDeltaPhi = new TH1F("hDeltaPhi", ";#varphi^{rec}-#varphi^{gen};counts", 100, -M_PI / 4., M_PI / 4.);
   double impMax = 60000.; // in microns
-  double deltaMax = 1; // in GeV/c
-  if(useVT){
-    impMax = 500.; // in microns
+  double deltaMax = 1;    // in GeV/c
+  if (useVT) {
+    impMax = 500.;  // in microns
     deltaMax = 0.5; // in GeV/c
   }
   TH1F* hDeltaEta = new TH1F("hDeltaEta", ";#eta^{rec}-#eta^{gen};counts", 100, -0.5, 0.5);
@@ -179,7 +178,7 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
   NA6PFastTrackFitter* fitter = new NA6PFastTrackFitter();
   fitter->loadGeometry(Form("%s/geometry.root", dirSimu));
   fitter->setNLayers(nLayers);
-  fitter->setMaxChi2Cl(10000);
+  fitter->setMaxChi2Cl(100.);
   fitter->setPropagateToPrimaryVertex(true);
   // fitter->setSeedFromTwoOutermostHits();
   // fitter->setCharge(2);
@@ -215,10 +214,11 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
       double phiPart = curPart.Phi();
       double thetaPart = std::acos(pzPart / momPart);
       double etaPart = -std::log(std::tan(thetaPart / 2.));
-      std::vector<double> xclu(nLayers), yclu(nLayers), zclu(nLayers);        
-      int maskHits = 0;
-      if (curPart.GetPdgCode()==13) {
+      std::array<std::unique_ptr<NA6PBaseCluster>, 5> clusters{nullptr, nullptr, nullptr, nullptr, nullptr};
+      double xclu[5], yclu[5], zclu[5];
+      if (curPart.IsPrimary()) {
         hEtaGen->Fill(etaPart);
+        int maskHits = 0;
         fitter->cleanupAndStartFit();
         for (const auto& hit : hits) {
           int idPart = hit.getTrackID();
@@ -230,7 +230,7 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
             } else {
               // Lookup layer from layout parameters for MS
               float hitZ = (hit.getZIn() + hit.getZOut()) / 2.f; // use average Z
-              const float dzWindow = 20.f; // half-width window
+              const float dzWindow = 20.f;                       // half-width window
               for (int i = 0; i < layout.nMSPlanes; ++i) {
                 float zPlane = layout.posMSPlaneZ[i];
                 if (hitZ > (zPlane - dzWindow) && hitZ < (zPlane + dzWindow)) {
@@ -241,7 +241,8 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
               if (nLay < 0)
                 continue; // skip hits not in expected z ranges
             }
-            if (nLay < 0 || nLay >= nLayers) continue; // safety check: skip if layer index out of bounds
+            if (nLay < 0 || nLay >= nLayers)
+              continue;              // safety check: skip if layer index out of bounds
             maskHits |= (1 << nLay); // use bitmask instead of counter
             if (cluresx > 0 && cluresy > 0) {
               xclu[nLay] = gRandom->Gaus(hit.getX(), cluresx);
@@ -252,22 +253,25 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
               yclu[nLay] = hit.getY();
               zclu[nLay] = hit.getZ();
             }
-            NA6PBaseCluster* clu = new NA6PBaseCluster(xclu[nLay], yclu[nLay], zclu[nLay], idPart);
-            clu->setDetectorID(nLay);
+            clusters[nLay] = std::make_unique<NA6PBaseCluster>(xclu[nLay], yclu[nLay], zclu[nLay], idPart, nLay);
+            clusters[nLay]->setDetectorID(nDet);
             if (cluresx > 0 && cluresy > 0)
-              clu->setErr(cluresx * cluresx, 0., cluresy * cluresy);
+              clusters[nLay]->setErr(cluresx * cluresx, 0., cluresy * cluresy);
             else
-              clu->setErr(1.e-6, 0., 1e-6);
-            std::cout << "Adding cluster at layer " << nLay << " (det " << nDet << ") for track " << jp << "\n";
-            fitter->addCluster(nLay, clu);
-            
-            // else fitter->addClusterMS(nLay, clu); // TODO: add support for MS
+              clusters[nLay]->setErr(1.e-6, 0., 1e-6);
           }
         }
         int expectedMask = (1 << nLayers) - 1; // e.g., for 6 layers: 63 = 0b111111
 
         if (maskHits != expectedMask) {
           continue;
+        }
+
+        for (int nLay = 0; nLay < (int)clusters.size(); ++nLay) {
+          if (clusters[nLay]) {
+            std::cout << "Adding cluster at layer " << nLay << " for track " << jp << "\n";
+            fitter->addCluster(nLay, *clusters[nLay]);
+          }
         }
 
         // Uncomment the next lines to use the MC truth as seed for the track
@@ -285,11 +289,10 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
           hIsGood->Fill(1);
           int nClusters = currTr->getNHits();
           hNclu->Fill(nClusters);
-          if (nClusters != minHits){
+          if (nClusters != minHits) {
             std::cout << "Skipping track with only " << nClusters << " hits (minHits=" << minHits << ")\n";
             continue;
-          }
-          else
+          } else
             std::cout << "Fitted track with " << nClusters << " hits\n";
           chiFit = currTr->getChi2();
           //	  printf("chi2 = %f  chi2/ndf = %f\n",chiFit,currTr->GetNormChi2());
@@ -336,7 +339,8 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
           trFit.SetMomentum(v);
           trFit.SetProductionVertex(currTr->getXLab(), currTr->getYLab(), currTr->getZLab(), 0);
         }
-        outTr << "out" << "mcTr=" << curPart << "fitTr=" << trFit << "fitChi2=" << chiFit << "\n";
+        outTr << "out"
+              << "mcTr=" << curPart << "fitTr=" << trFit << "fitChi2=" << chiFit << "\n";
       }
     }
   }
@@ -558,10 +562,10 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
 
 // Original function signature for Vertex Telescope hits
 void runFastFitOnVerTelHits(int firstEv = 0,
-                      int lastEv = 99999999,
-                      double clures = 5.e-4,
-                      const char* dirSimu = "../tst",
-                      int minHits = 5)
+                            int lastEv = 99999999,
+                            double clures = 5.e-4,
+                            const char* dirSimu = "../testN6Proot/pions/latesttag",
+                            int minHits = 5)
 {
   runFastFitOnHitsTemplate<NA6PVerTelHit>(firstEv, lastEv, clures, clures, dirSimu,
                                           "HitsVerTel.root", "hitsVerTel", "VerTel",
@@ -570,14 +574,13 @@ void runFastFitOnVerTelHits(int firstEv = 0,
 
 // New function for Muon Spectrometer Modular hits
 void runFastFitOnMuonSpecHits(int firstEv = 0,
-                               int lastEv = 99999999,
-                               double cluresx = 500.e-4,
-                               double cluresy = 1000.e-4,
-                               const char* dirSimu = "../tst",
-                               int minHits = 6)
+                              int lastEv = 99999999,
+                              double cluresx = 500.e-4,
+                              double cluresy = 1000.e-4,
+                              const char* dirSimu = "../tst",
+                              int minHits = 6)
 {
   runFastFitOnHitsTemplate<NA6PMuonSpecModularHit>(firstEv, lastEv, cluresx, cluresy, dirSimu,
-                                                    "HitsMuonSpecModular.root", "hitsMuonSpecModular", "MuonSpecModular",
-                                                    6, minHits, false);
+                                                   "HitsMuonSpecModular.root", "hitsMuonSpecModular", "MuonSpecModular",
+                                                   6, minHits, false);
 }
-
