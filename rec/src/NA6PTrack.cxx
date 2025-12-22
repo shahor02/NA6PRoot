@@ -3,8 +3,10 @@
 #include <fmt/format.h>
 #include <fairlogger/Logger.h>
 #include <TGeoGlobalMagField.h>
-#include "NA6PBaseCluster.h"
+#include "NA6PVerTelCluster.h"
+#include "NA6PMuonSpecCluster.h"
 #include "NA6PTrack.h"
+#include "NA6PLayoutParam.h"
 
 ClassImp(NA6PTrack)
 
@@ -12,8 +14,6 @@ ClassImp(NA6PTrack)
 NA6PTrack::NA6PTrack() :
   mMass{0.140},
   mChi2{0.0},
-  mChi2VT{0.0},
-  mNVTLayers{5},
   mClusterMap{0},
   mNClusters{0},
   mNClustersVT{0},
@@ -32,8 +32,6 @@ NA6PTrack::NA6PTrack() :
 NA6PTrack::NA6PTrack(const double* xyz, const double* pxyz, int sign, double errLoose) :
   mMass{0.140},
   mChi2{0.0},
-  mChi2VT{0.0},
-  mNVTLayers{5},
   mClusterMap{0},
   mNClusters{0},
   mNClustersVT{0},
@@ -56,14 +54,13 @@ void NA6PTrack::reset()
 {
   mMass = 0.14; 
   mChi2 = 0; 
-  mChi2VT = 0;
   mClusterMap = 0;
   mExtTrack.Reset();
   resetCovariance();
   mParticleID = -2;
   mClusterIndices.fill(-1);
   mClusterPartID.fill(-2);
-  mNClusters = mNClustersVT = mNClustersMS = mNClustersTR = 0;
+  mNClusters = mNClusters = mNClustersMS = mNClustersTR = 0;
 }
   
 //_______________________________________________________________________
@@ -228,8 +225,8 @@ std::string NA6PTrack::asString() const
 {
   double pxyz[3];
   getPXYZ(pxyz);
-  return fmt::format("Track: Nclusters:{} NVTclusters:{}  chi2:{} pos:{:.4f},{:.4f},{:.4f} mom:{:.3f},{:.3f},{:.3f}",
-                     mNClusters,mNClustersVT,mChi2,getXLab(),getYLab(),getZLab(),pxyz[0],pxyz[1],pxyz[2]);
+  return fmt::format("Track: Nclusters:{} NVTclusters:{} NMSclusters:{} NTRclusters:{} chi2:{} chi2VT:{} chi2MS:{} pos:{:.4f},{:.4f},{:.4f} mom:{:.3f},{:.3f},{:.3f}",
+                     mNClusters,mNClustersVT,mNClustersMS,mNClustersTR,mChi2,mChi2VT,mChi2MS,getXLab(),getYLab(),getZLab(),pxyz[0],pxyz[1],pxyz[2]);
 }
 
 //_______________________________________________________________________
@@ -239,23 +236,35 @@ void NA6PTrack::print() const
 }
 
 //_______________________________________
-void NA6PTrack::addCluster(const NA6PBaseCluster* clu, int cluIndex, double chi2) {
+template <typename ClusterType>
+void NA6PTrack::addCluster(const ClusterType* clu, int cluIndex, double chi2) {
 
   mNClusters++;
   mChi2 += chi2;
-  int nDet = clu->getDetectorID();
   int trackID = clu->getParticleID();
-  if (nDet < mNVTLayers * 4) {
-    int nLay = nDet / 4;
-    mChi2VT += chi2;
+  
+  int nLay = clu->getLayer();
+  mClusterPartID[nLay] = trackID;
+  mClusterIndices[nLay] = cluIndex;
+  mClusterMap |= (1<<nLay);
+
+  if (nLay < NA6PLayoutParam::Instance().nVerTelPlanes) {
     mNClustersVT++;
-    mClusterPartID[nLay] = trackID;
-    mClusterIndices[nLay] = cluIndex;
-    mClusterMap |= (1<<nLay);
+    mChi2VT += chi2;
   }
-  else if (nDet >= 20 && nDet < 24) mNClustersMS++;
-  else if (nDet >= 24) mNClustersTR++;
+  else if (nLay >= NA6PLayoutParam::Instance().nVerTelPlanes + NA6PLayoutParam::Instance().nMSPlanes - 2) {
+    mNClustersMS++;
+    mChi2MS += chi2;
+  }
+  else {
+    mNClustersTR++;
+    mChi2MS += chi2;
+  }
 }
+
+template void NA6PTrack::addCluster<NA6PBaseCluster>(const NA6PBaseCluster*, int, double);
+template void NA6PTrack::addCluster<NA6PVerTelCluster>(const NA6PVerTelCluster*, int, double);
+template void NA6PTrack::addCluster<NA6PMuonSpecCluster>(const NA6PMuonSpecCluster*, int, double);
 
 //____________________________________________
 void NA6PTrack::imposeKinematics(const double* xyzLab,const double* cosinesLab,

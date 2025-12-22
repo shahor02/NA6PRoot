@@ -25,11 +25,13 @@ class NA6PBaseCluster
  public:
 
   NA6PBaseCluster() = default;
-  NA6PBaseCluster(float x, float y, float z, int clusiz);
+  NA6PBaseCluster(float x, float y, float z, int clusiz, int layer);
   NA6PBaseCluster(const NA6PBaseCluster&) = default;
   NA6PBaseCluster& operator=(const NA6PBaseCluster&) = default;
   virtual ~NA6PBaseCluster() {}
 
+  int getLayer() const { return mLayer; }
+  int   getClusterSize() const { return mCluSiz; }
   // Lab frame coordinates
   auto getXLab()       const {return mPos[0];}
   auto getYLab()       const {return mPos[1];}
@@ -64,7 +66,6 @@ class NA6PBaseCluster
 
   virtual void print() const;
   std::string asString() const;
-
   
  protected:
   float mPos[3] = {};          // cartesian position of cluster in lab frame
@@ -72,9 +73,10 @@ class NA6PBaseCluster
   float mSigYZ = 0.f;          // covariance matrix elements
   float mSigZZ = 0.f;          // covariance matrix elements
   int   mCluSiz = 0;           // cluster size
-  short mDetectorID = 0;       // the detector/sensor id
   int   mParticleID = 0;       // particle ID in Kine tree (MC truth)
   int   mHitID = -1;           // hit ID (for test of hitsToRecPoints)
+  short mDetectorID = 0;       // the detector/sensor id
+  int8_t mLayer = -1;
 
   ClassDefNV(NA6PBaseCluster, 1);
 };

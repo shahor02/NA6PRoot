@@ -17,7 +17,7 @@
 #include <TVectorD.h>
 #include <TRandom3.h>
 #include <TStopwatch.h>
-#include "NA6PBaseCluster.h"
+#include "NA6PVerTelCluster.h"
 #include "NA6PVertex.h"
 #include "NA6PVerTelReconstruction.h"
 #endif
@@ -33,10 +33,10 @@ void runVertexerTracklets(int firstEv = 0,
   std::vector<TParticle>* mcArr = nullptr;
   mcTree->SetBranchAddress("tracks", &mcArr);
 
-  TFile* fc = new TFile(Form("%s/ClustersVerTel.root", dirSimu));
-  printf("Open cluster file: %s\n", fc->GetName());
-  TTree* tc = (TTree*)fc->Get("clustersVerTel");
-  std::vector<NA6PBaseCluster> vtClus, *vtClusPtr = &vtClus;
+  TFile* fc=new TFile(Form("%s/ClustersVerTel.root",dirSimu));
+  printf("Open cluster file: %s\n",fc->GetName());
+  TTree* tc=(TTree*)fc->Get("clustersVerTel");
+  std::vector<NA6PVerTelCluster> vtClus, *vtClusPtr = &vtClus;
   tc->SetBranchAddress("VerTel", &vtClusPtr);
 
   if (lastEv > nEv || lastEv < 0)

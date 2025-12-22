@@ -20,12 +20,15 @@ add_library(${LIB_NAME} SHARED ${THIS_SOURCES} ${THIS_HEADERS} )
 
 set(DICTIONARY_HEADERS
   NA6PBaseCluster.h
+  NA6PMuonSpecCluster.h
+  NA6PVerTelCluster.h
   ExtTrackPar.h
   NA6PTrack.h
   NA6PVertex.h
   NA6PRecoParam.h
   NA6PReconstruction.h
   NA6PVerTelReconstruction.h
+  NA6PMuonSpecReconstruction.h
   NA6PVertexerTracklets.h
   NA6PTrackerCA.h
   NA6PFastTrackFitter.h

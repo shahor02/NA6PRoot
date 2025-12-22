@@ -11,7 +11,7 @@ struct NA6PRecoParam : public na6p::conf::ConfigurableParamHelper<NA6PRecoParam>
   static constexpr int MaxIterationsTrackerCA = 10;
 
   // VerTel reconstruction parameters
-  int nVerTelLayers = 5;
+  int nLayers = 5;
   // tracklet vertexer
   int vertexerLayerToStart = 0;
   float vertexerMaxDeltaThetaTracklet = 0.6;

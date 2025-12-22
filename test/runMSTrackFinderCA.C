@@ -1,3 +1,16 @@
+/*
+  CA Track Finder Macro
+
+  Usage:
+    root -l
+    root [0] .L setup_macros.C     // Load NA6PRoot libraries and setup paths
+    root [1] .L runMSTrackFinderCA.C+  // Compile the macro with ACLiC
+    root [2] runMSTrackFinderCA()      // Run with default parameters
+
+  Or with custom parameters:
+    root [2] runMSTrackFinderCA(0, 100, "../fullgeo", 5)
+*/
+
 #if !defined(__CINT__) || defined(__MAKECINT__)
 #include <TTree.h>
 #include <TFile.h>
@@ -6,19 +19,19 @@
 #include <TParticle.h>
 #include <TCanvas.h>
 #include <TLegend.h>
-#include "NA6PBaseCluster.h"
+#include "NA6PMuonSpecCluster.h"
 #include "NA6PTrack.h"
 #include "NA6PTrackerCA.h"
 #include "MagneticField.h"
-#include "NA6PVerTelHit.h"
+#include "NA6PMuonSpecModularHit.h"
 #endif
 
 const int maxIterationsCA = NA6PTrackerCA::kMaxIterationsCA;
 
-void runTrackFinderCA(int firstEv = 0,
-                      int lastEv = 9999,
-                      const char* dirSimu = "../testN6Proot/pions/latesttag",
-                      int nLayers = 5)
+void runMSTrackFinderCA(int firstEv = 0,
+                        int lastEv = 9999,
+                        const char* dirSimu = "../tst",
+                        int nLayers = 6)
 {
 
   auto magField = new MagneticField();
@@ -26,44 +39,49 @@ void runTrackFinderCA(int firstEv = 0,
   magField->setAsGlobalField();
 
   int nMomBins = 40;
-  TH1F* hMomGen = new TH1F("hMomGen", ";p (GeV/c);counts", nMomBins, 0., 10.);
+  float pMax = 30.0;
+  TH1F* hMomGen = new TH1F("hMomGen", ";p (GeV/c);counts", nMomBins, 0., pMax);
   TH1F* hEtaGen = new TH1F("hEtaGen", ";#eta;counts", 20, 1., 5.);
-  TH1F* hMomReco = new TH1F("hMomReco", ";p (GeV/c);counts", nMomBins, 0., 10.);
+  TH1F* hMomReco = new TH1F("hMomReco", ";p (GeV/c);counts", nMomBins, 0., pMax);
   TH1F* hEtaReco = new TH1F("hEtaReco", ";#eta;counts", 20, 1., 5.);
-  TH1F* hMomGoodReco = new TH1F("hMomGoodReco", ";p (GeV/c);counts", nMomBins, 0., 10.);
+  TH1F* hMomGoodReco = new TH1F("hMomGoodReco", ";p (GeV/c);counts", nMomBins, 0., pMax);
   TH1F* hEtaGoodReco = new TH1F("hEtaGoodReco", ";#eta;counts", 20, 1., 5.);
   TH1F** hMomRecoIterCA = new TH1F*[maxIterationsCA];
   TH1F** hEtaRecoIterCA = new TH1F*[maxIterationsCA];
   int colors[maxIterationsCA] = {kMagenta + 1, kBlue, kGreen + 1, kOrange + 1, kRed + 1, kRed, kRed - 9, kGray + 2, kGray + 1, kGray};
   for (int jIteration = 0; jIteration < maxIterationsCA; ++jIteration) {
-    hMomRecoIterCA[jIteration] = new TH1F(Form("hMomRecoIterCA%d", jIteration), ";p (GeV/c);counts", nMomBins, 0., 10.);
+    hMomRecoIterCA[jIteration] = new TH1F(Form("hMomRecoIterCA%d", jIteration), ";p (GeV/c);counts", nMomBins, 0., pMax);
     hEtaRecoIterCA[jIteration] = new TH1F(Form("hEtaRecoIterCA%d", jIteration), ";#eta;counts", 20, 1., 5.);
   }
 
   NA6PTrackerCA* tracker = new NA6PTrackerCA();
+  tracker->setNLayers(6);
+  tracker->setStartLayer(5);
+  //tracker->setVerbosity(true);
   if (!tracker->loadGeometry(Form("%s/geometry.root", dirSimu)))
     return;
   // pass here the configuration of the tracker via an ini file
-  tracker->configureFromRecoParam(/* filename.ini */);
+  //tracker->configureFromRecoParam(/* filename.ini */);
   // alternatively the configuration can be set calling setters for the iterations
-  // tracker->setNumberOfIterations(3);
-  // tracker->setIterationParams(0,0.04,0.1,4.,0.4,0.02,2e-3,5.,5.,5.,5);
+  tracker->setNumberOfIterations(2);
+  tracker->setIterationParams(0,0.06,0.1,6.,0.6,0.05,0.05,5.,5.,5.,6);
+  tracker->setIterationParams(1,0.1,0.6,9.,0.8,0.08,0.08,10.,10.,10.,6);
   tracker->printConfiguration();
   TFile* fk = new TFile(Form("%s/MCKine.root", dirSimu));
   TTree* mcTree = (TTree*)fk->Get("mckine");
   std::vector<TParticle>* mcArr = nullptr;
   mcTree->SetBranchAddress("tracks", &mcArr);
 
-  TFile* fh = new TFile(Form("%s/HitsVerTel.root", dirSimu));
-  TTree* th = (TTree*)fh->Get("hitsVerTel");
-  std::vector<NA6PVerTelHit> vtHits, *vtHitsPtr = &vtHits;
-  th->SetBranchAddress("VerTel", &vtHitsPtr);
+  TFile* fh = new TFile(Form("%s/HitsMuonSpecModular.root", dirSimu));
+  TTree* th = (TTree*)fh->Get("hitsMuonSpecModular");
+  std::vector<NA6PMuonSpecModularHit> msHits, *msHitsPtr = &msHits;
+  th->SetBranchAddress("MuonSpecModular", &msHitsPtr);
 
-  TFile* fc = new TFile(Form("%s/ClustersVerTel.root", dirSimu));
+  TFile* fc = new TFile(Form("%s/ClustersMuonSpec.root", dirSimu));
   printf("Open cluster file: %s\n", fc->GetName());
-  TTree* tc = (TTree*)fc->Get("clustersVerTel");
-  std::vector<NA6PBaseCluster> vtClus, *vtClusPtr = &vtClus;
-  tc->SetBranchAddress("VerTel", &vtClusPtr);
+  TTree* tc = (TTree*)fc->Get("clustersMuonSpec");
+  std::vector<NA6PMuonSpecCluster> msClus, *msClusPtr = &msClus;
+  tc->SetBranchAddress("MuonSpec", &msClusPtr);
   int nEv = tc->GetEntries();
   if (lastEv > nEv || lastEv < 0)
     lastEv = nEv;
@@ -87,19 +105,19 @@ void runTrackFinderCA(int firstEv = 0,
       }
     }
     primVert.SetZ(zvert);
-    uint nHits = vtHits.size();
+    uint nHits = msHits.size();
     for (int jp = 0; jp < nPart; jp++) {
       auto curPart = mcArr->at(jp);
       int maskHits = 0;
+      int counter = 0;
       for (size_t jHit = 0; jHit < nHits; ++jHit) {
-        const auto& hit = vtHits.at(jHit);
+        const auto& hit = msHits.at(jHit);
         int idPart = hit.getTrackID();
         if (idPart == jp) {
-          int nLay = hit.getDetectorID() / 4;
-          maskHits += (1 << nLay);
+          counter++;
         }
       }
-      if (maskHits == (1 << nLayers) - 1) {
+      if (nLayers == counter) {
         double pxPart = curPart.Px();
         double pyPart = curPart.Py();
         double pzPart = curPart.Pz();
@@ -112,14 +130,14 @@ void runTrackFinderCA(int firstEv = 0,
       }
     }
     tc->GetEvent(jEv);
-    tracker->findTracks(vtClus, primVert);
+    tracker->findTracks(msClus, primVert);
     std::vector<NA6PTrack> trks = tracker->getTracks();
     int nTrks = trks.size();
     for (int jT = 0; jT < nTrks; jT++) {
       NA6PTrack tr = trks[jT];
       int idPartTrack = tr.getParticleID();
       int jIteration = tr.getCAIteration();
-      if (tr.getNHits() == 5) {
+      if (tr.getNHits() == 6) {
         auto curPart = mcArr->at(std::abs(idPartTrack));
         double pxPart = curPart.Px();
         double pyPart = curPart.Py();
@@ -182,13 +200,13 @@ void runTrackFinderCA(int firstEv = 0,
   hMomReco->SetLineWidth(2);
   hMomReco->Draw("same");
   TLegend* leg = new TLegend(0.5, 0.6, 0.89, 0.8);
-  leg->AddEntry(hMomGen, "Generated, 5 hits in VT");
+  leg->AddEntry(hMomGen, "Generated, 6 hits in MS");
   for (int jIteration = 0; jIteration < nIterationsCA; ++jIteration) {
     if (hMomRecoIterCA[jIteration]->GetEntries() > 0) {
       hMomRecoIterCA[jIteration]->SetLineColor(colors[jIteration]);
       hMomRecoIterCA[jIteration]->SetLineWidth(2);
       hMomRecoIterCA[jIteration]->Draw("same");
-      leg->AddEntry(hMomRecoIterCA[jIteration], Form("Reconstructed Interation %d, 5 hits in VT", jIteration));
+      leg->AddEntry(hMomRecoIterCA[jIteration], Form("Reconstructed Interation %d, 6 hits in MS", jIteration));
     }
   }
   leg->Draw();
@@ -224,24 +242,20 @@ void runTrackFinderCA(int firstEv = 0,
   hMomReco->Draw();
   hMomGoodReco->SetLineColor(kGreen + 1);
   ;
-  hMomGoodReco->SetLineWidth(2);
   hMomGoodReco->Draw("same");
   cpu->cd(2);
   hPurityMom->GetYaxis()->SetTitle("Purity");
-  hPurityMom->SetMinimum(0.8);
+  hPurityMom->SetMinimum(0);
   hPurityMom->SetStats(0);
-  hPurityMom->SetLineWidth(2);
   hPurityMom->Draw();
   cpu->cd(3);
   hEtaReco->Draw();
   hEtaGoodReco->SetLineColor(kGreen + 1);
   ;
-  hEtaGoodReco->SetLineWidth(2);
   hEtaGoodReco->Draw("same");
   cpu->cd(4);
   hPurityEta->GetYaxis()->SetTitle("Purity");
-  hPurityEta->SetMinimum(0.8);
+  hPurityEta->SetMinimum(0);
   hPurityEta->SetStats(0);
-  hPurityEta->SetLineWidth(2);
   hPurityEta->Draw();
 }

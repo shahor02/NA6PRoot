@@ -4,8 +4,10 @@
 #include <fmt/format.h>
 #include <fairlogger/Logger.h>
 
-NA6PBaseCluster::NA6PBaseCluster(float x, float y, float z, int clusiz) : mPos{x, y, z}, mSigYY(0.),mSigYZ(0.),mSigZZ(0.),mCluSiz(clusiz),mDetectorID(0),mParticleID(0)
-{}
+NA6PBaseCluster::NA6PBaseCluster(float x, float y, float z, int clusiz, int layer)
+  : mPos{x, y, z}, mCluSiz(clusiz), mLayer(layer)
+{
+}
 
 std::string NA6PBaseCluster::asString() const
 {

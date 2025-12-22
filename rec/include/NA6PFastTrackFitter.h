@@ -17,12 +17,12 @@
 
 #include <string>
 #include <Rtypes.h>
+#include "NA6PBaseCluster.h"
 
 // Fast track fit based on Kalman filter
 
 class TGeoManager;
 class NA6PTrack;
-class NA6PBaseCluster;
 
 class NA6PFastTrackFitter
 {
@@ -35,8 +35,10 @@ class NA6PFastTrackFitter
 
   // setters for configurable parameters
   void   setMaxChi2Cl(double v=10)  {mMaxChi2Cl = v;}
-  void   setNLayersVT(int n) {
-    mNLayersVT = n; mClusters.clear(); mClusters.resize(n);
+  void   setNLayers(int n) {
+    mNLayers = n;
+    mClusters.clear();
+    mClusters.resize(n);
   }
   void   setParticleHypothesis(int pdg);
   void   enableMaterialCorrections() {mCorrectForMaterial = true;}
@@ -53,7 +55,7 @@ class NA6PFastTrackFitter
   void   computeSeed();
   void   printSeed() const;
   
-  void   addClusterVT(int jLay, NA6PBaseCluster* cl);
+  void   addCluster(int jLay, NA6PBaseCluster* cl);
   void   resetClusters() {
     // deletes the owned cluster and sets pointer to nullptr
     for (auto& clPtr : mClusters) clPtr.reset();
@@ -65,7 +67,7 @@ class NA6PFastTrackFitter
 
   bool   loadGeometry(const char* filename = "geometry.root", const char* geoname = "NA6P");
   
-  NA6PTrack*  fitTrackPointsVT();
+  NA6PTrack*  fitTrackPoints();
   bool   updateTrack(NA6PTrack* trc, NA6PBaseCluster* cl) const;
   int    propagateToZ(NA6PTrack* trc, double zFrom, double zTo, int dir) const;
   int    propagateToZ(NA6PTrack* trc, double zTo) const;
@@ -79,9 +81,7 @@ class NA6PFastTrackFitter
   static const Double_t kAlmostZero;
 
  protected:
-  int  mNLayersVT = 5;                   // number of active VT layers in the model
-  int  mNLayersMS = 4;                   // number of active MS layers in the model
-  int  mNLayersTR = 2;                   // number of active Trigger layers in the model
+  int  mNLayers = 5;                   // number of active 
   double mMaxChi2Cl = 10.;               // max cluster-track chi2
   bool   mIsSeedSet = false;             // flag for set seed
   int    mSeedOption = kThreePointSeed;  // seed option (see enum)
@@ -100,7 +100,7 @@ class NA6PFastTrackFitter
   
   int getNumberOfClusters() const{
     int nClus = 0;
-    for (int jLay = 0; jLay < mNLayersVT; ++jLay) if(mClusters[jLay]) nClus++;
+    for (int jLay = 0; jLay < mNLayers; ++jLay) if(mClusters[jLay]) nClus++;
     return nClus;
   }
 

@@ -19,6 +19,7 @@
 #include <TVector3.h>
 #include <TRandom3.h>
 #include "NA6PVerTelHit.h"
+#include "NA6PMuonSpecModularHit.h"
 #include "NA6PTrack.h"
 #include "NA6PBaseCluster.h"
 #include "NA6PFastTrackFitter.h"
@@ -104,11 +105,20 @@ void FillMeanAndRms(TH2F* hImpParVsP, TH1F* hImpParMean, TH1F* hImpParRms, TH1F*
   }
 }
 
-void runFastFitOnHits(int firstEv = 0,
-                      int lastEv = 99999999,
-                      double clures = 5.e-4,
-                      const char* dirSimu = "../../testN6Proot/pions/latesttag",
-                      int minITShits = 5)
+
+// Template function to run fast fit on hits - works with both NA6PVerTelHit and NA6PMuonSpecModularHit
+template <typename HitType>
+void runFastFitOnHitsTemplate(int firstEv = 0,
+                               int lastEv = 99999999,
+                               double cluresx = 5.e-4,
+                               double cluresy = 5.e-4,
+                               const char* dirSimu = "../tst",
+                               const char* hitFileName = "HitsVerTel.root",
+                               const char* hitTreeName = "hitsVerTel",
+                               const char* hitBranchName = "VerTel",
+                               int nLayers = 5,
+                               int minHits = 5,
+                               bool useVT = true)
 {
 
   // na6p::conf::ConfigurableParam::updateFromFile(Form("%s/na6pLayout.ini",dirSimu),"",true);
@@ -120,13 +130,13 @@ void runFastFitOnHits(int firstEv = 0,
   std::vector<TParticle>* mcArr = nullptr;
   mcTree->SetBranchAddress("tracks", &mcArr);
 
-  TFile* fh = new TFile(Form("%s/HitsVerTel.root", dirSimu));
-  TTree* th = (TTree*)fh->Get("hitsVerTel");
-  std::vector<NA6PVerTelHit> vtHits, *vtHitsPtr = &vtHits;
-  th->SetBranchAddress("VerTel", &vtHitsPtr);
+  TFile* fh = new TFile(Form("%s/%s", dirSimu, hitFileName));
+  TTree* th = (TTree*)fh->Get(hitTreeName);
+  std::vector<HitType> hits, *hitsPtr = &hits;
+  th->SetBranchAddress(hitBranchName, &hitsPtr);
 
   int nMomBins = 20;
-  double maxP = 10.;
+  double maxP = 20.;
   TH1F* hEtaGen = new TH1F("hEtaGen", ";#eta;counts", 20, 0., 5.);
   TH1F* hEtaReco = new TH1F("hEtaReco", ";#eta;counts", 20, 0., 5.);
   TH1F* hDeltaPx = new TH1F("hDeltaPx", ";p_{x}^{rec}-p_{x}^{gen} (GeV/c);counts", 100, -0.2, 0.2);
@@ -134,19 +144,25 @@ void runFastFitOnHits(int firstEv = 0,
   TH1F* hDeltaPz = new TH1F("hDeltaPz", ";p_{z}^{rec}-p_{z}^{gen} (GeV/c);counts", 100, -0.5, 0.5);
   TH1F* hDeltaP = new TH1F("hDeltaP", ";p^{rec}-p^{gen} (GeV/c);counts", 100, -0.5, 0.5);
   TH1F* hDeltaPhi = new TH1F("hDeltaPhi", ";#varphi^{rec}-#varphi^{gen};counts", 100, -M_PI / 4., M_PI / 4.);
+  double impMax = 60000.; // in microns
+  double deltaMax = 1; // in GeV/c
+  if(useVT){
+    impMax = 500.; // in microns
+    deltaMax = 0.5; // in GeV/c
+  }
   TH1F* hDeltaEta = new TH1F("hDeltaEta", ";#eta^{rec}-#eta^{gen};counts", 100, -0.5, 0.5);
-  TH1F* hImpParX = new TH1F("hImpParX", ";Track Imp. Par. X (#mum)};counts", 100, -500, 500);
-  TH1F* hImpParY = new TH1F("hImpParY", ";Track Imp. Par. Y (#mum)};counts", 100, -500, 500);
-  TH2F* hImpParXVsP = new TH2F("hImpParXVsP", ";p (GeV/c);Track Imp. Par. X (#mum)};counts", nMomBins, 0., maxP, 100, -500., 500.);
-  TH2F* hImpParYVsP = new TH2F("hImpParYVsP", ";p (GeV/c);Track Imp. Par. Y (#mum)};counts", nMomBins, 0., maxP, 100, -500., 500.);
-  TH2F* hDeltaPxVsP = new TH2F("hDeltaPxVsP", ";p (GeV/c);p_{x}^{rec}-p_{x}^{gen} (GeV/c);counts", nMomBins, 0., maxP, 500, -0.5, 0.5);
-  TH2F* hDeltaPyVsP = new TH2F("hDeltaPyVsP", ";p (GeV/c);p_{y}^{rec}-p_{y}^{gen} (GeV/c);counts", nMomBins, 0., maxP, 500, -0.5, 0.5);
-  TH2F* hDeltaPzVsP = new TH2F("hDeltaPzVsP", ";p (GeV/c);p_{z}^{rec}-p_{z}^{gen} (GeV/c);counts", nMomBins, 0., maxP, 500, -0.5, 0.5);
-  TH2F* hDeltaPVsP = new TH2F("hDeltaPVsP", ";p (GeV/c);p^{rec}-p^{gen} (GeV/c);counts", nMomBins, 0., maxP, 100, -0.5, 0.5);
-  TH2F* hRelDeltaPxVsP = new TH2F("hRelDeltaPxVsP", ";p (GeV/c);(p_{x}^{rec}-p_{x}^{gen})/p_{x}^{gen};counts", nMomBins, 0., maxP, 100, -0.5, 0.5);
-  TH2F* hRelDeltaPyVsP = new TH2F("hRelDeltaPyVsP", ";p (GeV/c);(p_{y}^{rec}-p_{y}^{gen})/p_{y}^{gen};counts", nMomBins, 0., maxP, 100, -0.5, 0.5);
-  TH2F* hRelDeltaPzVsP = new TH2F("hRelDeltaPzVsP", ";p (GeV/c);(p_{z}^{rec}-p_{z}^{gen})/p_{z}^{gen};counts", nMomBins, 0., maxP, 100, -0.5, 0.5);
-  TH2F* hRelDeltaPVsP = new TH2F("hRelDeltaPVsP", ";p (GeV/c);(p^{rec}-p^{gen})/p_{gen};counts", nMomBins, 0., maxP, 100, -0.5, 0.5);
+  TH1F* hImpParX = new TH1F("hImpParX", ";Track Imp. Par. X (#mum)};counts", 100, -impMax, impMax);
+  TH1F* hImpParY = new TH1F("hImpParY", ";Track Imp. Par. Y (#mum)};counts", 100, -impMax, impMax);
+  TH2F* hImpParXVsP = new TH2F("hImpParXVsP", ";p (GeV/c);Track Imp. Par. X (#mum)};counts", nMomBins, 0., maxP, 100, -impMax, impMax);
+  TH2F* hImpParYVsP = new TH2F("hImpParYVsP", ";p (GeV/c);Track Imp. Par. Y (#mum)};counts", nMomBins, 0., maxP, 100, -impMax, impMax);
+  TH2F* hDeltaPxVsP = new TH2F("hDeltaPxVsP", ";p (GeV/c);p_{x}^{rec}-p_{x}^{gen} (GeV/c);counts", nMomBins, 0., maxP, 500, -deltaMax, deltaMax);
+  TH2F* hDeltaPyVsP = new TH2F("hDeltaPyVsP", ";p (GeV/c);p_{y}^{rec}-p_{y}^{gen} (GeV/c);counts", nMomBins, 0., maxP, 500, -deltaMax, deltaMax);
+  TH2F* hDeltaPzVsP = new TH2F("hDeltaPzVsP", ";p (GeV/c);p_{z}^{rec}-p_{z}^{gen} (GeV/c);counts", nMomBins, 0., maxP, 500, -deltaMax, deltaMax);
+  TH2F* hDeltaPVsP = new TH2F("hDeltaPVsP", ";p (GeV/c);p^{rec}-p^{gen} (GeV/c);counts", nMomBins, 0., maxP, 100, -deltaMax, deltaMax);
+  TH2F* hRelDeltaPxVsP = new TH2F("hRelDeltaPxVsP", ";p (GeV/c);(p_{x}^{rec}-p_{x}^{gen})/p_{x}^{gen};counts", nMomBins, 0., maxP, 100, -deltaMax, deltaMax);
+  TH2F* hRelDeltaPyVsP = new TH2F("hRelDeltaPyVsP", ";p (GeV/c);(p_{y}^{rec}-p_{y}^{gen})/p_{y}^{gen};counts", nMomBins, 0., maxP, 100, -deltaMax, deltaMax);
+  TH2F* hRelDeltaPzVsP = new TH2F("hRelDeltaPzVsP", ";p (GeV/c);(p_{z}^{rec}-p_{z}^{gen})/p_{z}^{gen};counts", nMomBins, 0., maxP, 100, -deltaMax, deltaMax);
+  TH2F* hRelDeltaPVsP = new TH2F("hRelDeltaPVsP", ";p (GeV/c);(p^{rec}-p^{gen})/p_{gen};counts", nMomBins, 0., maxP, 100, -deltaMax, deltaMax);
   TH1F* hIsGood = new TH1F("hIsGood", "", 2, -0.5, 1.5);
   hIsGood->GetXaxis()->SetBinLabel(1, "bad");
   hIsGood->GetXaxis()->SetBinLabel(2, "good");
@@ -162,18 +178,20 @@ void runFastFitOnHits(int firstEv = 0,
 
   NA6PFastTrackFitter* fitter = new NA6PFastTrackFitter();
   fitter->loadGeometry(Form("%s/geometry.root", dirSimu));
-  fitter->setNLayersVT(5);
-  fitter->setMaxChi2Cl(100.);
+  fitter->setNLayers(nLayers);
+  fitter->setMaxChi2Cl(10000);
   fitter->setPropagateToPrimaryVertex(true);
   // fitter->setSeedFromTwoOutermostHits();
   // fitter->setCharge(2);
   // fitter->setParticleHypothesis(2212);
   // fitter->disableMaterialCorrections();
+  const auto& layout = NA6PLayoutParam::Instance();
+
   for (int jEv = firstEv; jEv < lastEv; jEv++) {
     mcTree->GetEvent(jEv);
     th->GetEvent(jEv);
     int nPart = mcArr->size();
-    int nHits = vtHits.size();
+    int nHits = hits.size();
     double xvert = 0;
     double yvert = 0;
     double zvert = 0;
@@ -197,21 +215,37 @@ void runFastFitOnHits(int firstEv = 0,
       double phiPart = curPart.Phi();
       double thetaPart = std::acos(pzPart / momPart);
       double etaPart = -std::log(std::tan(thetaPart / 2.));
-      std::array<std::unique_ptr<NA6PBaseCluster>, 5> clusters{nullptr, nullptr, nullptr, nullptr, nullptr};
-      double xclu[5], yclu[5], zclu[5];
-      if (curPart.IsPrimary()) {
+      std::vector<double> xclu(nLayers), yclu(nLayers), zclu(nLayers);        
+      int maskHits = 0;
+      if (curPart.GetPdgCode()==13) {
         hEtaGen->Fill(etaPart);
-        int maskHits = 0;
         fitter->cleanupAndStartFit();
-        for (const auto& hit : vtHits) {
+        for (const auto& hit : hits) {
           int idPart = hit.getTrackID();
           if (idPart == jp) {
             int nDet = hit.getDetectorID();
-            int nLay = nDet / 4;
-            maskHits += (1 << nLay);
-            if (clures > 0) {
-              xclu[nLay] = gRandom->Gaus(hit.getX(), clures);
-              yclu[nLay] = gRandom->Gaus(hit.getY(), clures);
+            int nLay = -1; // initialize to invalid value
+            if (useVT) {
+              nLay = nDet / 4; // Get layer from detector ID for VT
+            } else {
+              // Lookup layer from layout parameters for MS
+              float hitZ = (hit.getZIn() + hit.getZOut()) / 2.f; // use average Z
+              const float dzWindow = 20.f; // half-width window
+              for (int i = 0; i < layout.nMSPlanes; ++i) {
+                float zPlane = layout.posMSPlaneZ[i];
+                if (hitZ > (zPlane - dzWindow) && hitZ < (zPlane + dzWindow)) {
+                  nLay = i;
+                  break;
+                }
+              }
+              if (nLay < 0)
+                continue; // skip hits not in expected z ranges
+            }
+            if (nLay < 0 || nLay >= nLayers) continue; // safety check: skip if layer index out of bounds
+            maskHits |= (1 << nLay); // use bitmask instead of counter
+            if (cluresx > 0 && cluresy > 0) {
+              xclu[nLay] = gRandom->Gaus(hit.getX(), cluresx);
+              yclu[nLay] = gRandom->Gaus(hit.getY(), cluresy);
               zclu[nLay] = hit.getZ();
             } else {
               xclu[nLay] = hit.getX();
@@ -219,34 +253,44 @@ void runFastFitOnHits(int firstEv = 0,
               zclu[nLay] = hit.getZ();
             }
             NA6PBaseCluster* clu = new NA6PBaseCluster(xclu[nLay], yclu[nLay], zclu[nLay], idPart);
-            clu->setDetectorID(nDet);
-            if (clures > 0)
-              clu->setErr(clures * clures, 0., clures * clures);
+            clu->setDetectorID(nLay);
+            if (cluresx > 0 && cluresy > 0)
+              clu->setErr(cluresx * cluresx, 0., cluresy * cluresy);
             else
               clu->setErr(1.e-6, 0., 1e-6);
-            fitter->addClusterVT(nLay, clu);
+            std::cout << "Adding cluster at layer " << nLay << " (det " << nDet << ") for track " << jp << "\n";
+            fitter->addCluster(nLay, clu);
+            
+            // else fitter->addClusterMS(nLay, clu); // TODO: add support for MS
           }
         }
-        // track only particles with 5 hits in the VT
-        if (maskHits != 31)
+        int expectedMask = (1 << nLayers) - 1; // e.g., for 6 layers: 63 = 0b111111
+
+        if (maskHits != expectedMask) {
           continue;
+        }
 
         // Uncomment the next lines to use the MC truth as seed for the track
-        //	double xyz0[3]={xclu[4],yclu[4],zclu[4]};
+        //	double xyz0[3]={xclu[nLayers-1],yclu[nLayers-1],zclu[nLayers-1]};
         //	double pxyz0[3]={curPart.Px(),curPart.Py(),curPart.Pz()};
         //	printf("Initialize seed at %f %f %f p = %f %f %f\n",xyz0[0],xyz0[1],xyz0[2],pxyz0[0],pxyz0[1],pxyz0[2]);
         //	int sign = curPart.GetPdgCode() > 0 ? 1 : -1;
         //	fitter->setSeed(xyz0,pxyz0,sign);
 
-        NA6PTrack* currTr = fitter->fitTrackPointsVT();
-        //  fitter->propagateToZ(currTr,zvert);
+        NA6PTrack* currTr = fitter->fitTrackPoints();
+        std::cout << "Track fit done.\n";
+        //	fitter->propagateToZ(currTr,zvert);
         double chiFit = -1.;
         if (currTr) {
           hIsGood->Fill(1);
-          int nClusters = currTr->getNVTHits();
+          int nClusters = currTr->getNHits();
           hNclu->Fill(nClusters);
-          if (nClusters < 5)
+          if (nClusters != minHits){
+            std::cout << "Skipping track with only " << nClusters << " hits (minHits=" << minHits << ")\n";
             continue;
+          }
+          else
+            std::cout << "Fitted track with " << nClusters << " hits\n";
           chiFit = currTr->getChi2();
           //	  printf("chi2 = %f  chi2/ndf = %f\n",chiFit,currTr->GetNormChi2());
           double pxyz[3];
@@ -292,8 +336,7 @@ void runFastFitOnHits(int firstEv = 0,
           trFit.SetMomentum(v);
           trFit.SetProductionVertex(currTr->getXLab(), currTr->getYLab(), currTr->getZLab(), 0);
         }
-        outTr << "out"
-              << "mcTr=" << curPart << "fitTr=" << trFit << "fitChi2=" << chiFit << "\n";
+        outTr << "out" << "mcTr=" << curPart << "fitTr=" << trFit << "fitChi2=" << chiFit << "\n";
       }
     }
   }
@@ -353,6 +396,9 @@ void runFastFitOnHits(int firstEv = 0,
   ct->cd(3);
   hChi2NDF->Draw();
 
+  float deltaMaxImp = 60000.;
+  if (useVT)
+    deltaMaxImp = 500.;
   TCanvas* cip = new TCanvas("cip", "", 1200, 800);
   cip->Divide(2, 2);
   cip->cd(1);
@@ -361,8 +407,8 @@ void runFastFitOnHits(int firstEv = 0,
   hImpParXMean->SetMarkerStyle(25);
   hImpParXMean->SetMarkerColor(1);
   hImpParXMean->SetLineColor(1);
-  hImpParXMean->SetMinimum(-20);
-  hImpParXMean->SetMaximum(20);
+  hImpParXMean->SetMinimum(-deltaMaxImp);
+  hImpParXMean->SetMaximum(deltaMaxImp);
   hImpParXMean->Draw("P");
   cip->cd(2);
   gPad->SetTickx();
@@ -371,7 +417,7 @@ void runFastFitOnHits(int firstEv = 0,
   hImpParXSig->SetMarkerColor(1);
   hImpParXSig->SetLineColor(1);
   hImpParXSig->SetMinimum(0);
-  hImpParXSig->SetMaximum(120);
+  hImpParXSig->SetMaximum(deltaMaxImp);
   hImpParXSig->Draw("P");
   cip->cd(3);
   gPad->SetTickx();
@@ -379,8 +425,8 @@ void runFastFitOnHits(int firstEv = 0,
   hImpParYMean->SetMarkerStyle(25);
   hImpParYMean->SetMarkerColor(1);
   hImpParYMean->SetLineColor(1);
-  hImpParYMean->SetMinimum(-20);
-  hImpParYMean->SetMaximum(20);
+  hImpParYMean->SetMinimum(-deltaMaxImp);
+  hImpParYMean->SetMaximum(deltaMaxImp);
   hImpParYMean->Draw("P");
   cip->cd(4);
   gPad->SetTickx();
@@ -389,9 +435,12 @@ void runFastFitOnHits(int firstEv = 0,
   hImpParYSig->SetMarkerColor(1);
   hImpParYSig->SetLineColor(1);
   hImpParYSig->SetMinimum(0);
-  hImpParYSig->SetMaximum(120);
+  hImpParYSig->SetMaximum(deltaMaxImp);
   hImpParYSig->Draw("P");
 
+  float maxDelP = 0.75;
+  if (useVT)
+    maxDelP = 0.05;
   TCanvas* cmom = new TCanvas("cmom", "", 1400, 900);
   cmom->Divide(3, 3);
   cmom->cd(1);
@@ -400,8 +449,8 @@ void runFastFitOnHits(int firstEv = 0,
   hDeltaPxMean->SetMarkerStyle(25);
   hDeltaPxMean->SetMarkerColor(1);
   hDeltaPxMean->SetLineColor(1);
-  hDeltaPxMean->SetMinimum(-0.05);
-  hDeltaPxMean->SetMaximum(0.05);
+  hDeltaPxMean->SetMinimum(-maxDelP);
+  hDeltaPxMean->SetMaximum(maxDelP);
   hDeltaPxMean->Draw("P");
   cmom->cd(2);
   gPad->SetTickx();
@@ -410,7 +459,7 @@ void runFastFitOnHits(int firstEv = 0,
   hDeltaPxSig->SetMarkerColor(1);
   hDeltaPxSig->SetLineColor(1);
   hDeltaPxSig->SetMinimum(0);
-  hDeltaPxSig->SetMaximum(0.05);
+  hDeltaPxSig->SetMaximum(maxDelP);
   hDeltaPxSig->Draw("P");
   cmom->cd(3);
   gPad->SetTickx();
@@ -419,7 +468,7 @@ void runFastFitOnHits(int firstEv = 0,
   hRelDeltaPxSig->SetMarkerColor(1);
   hRelDeltaPxSig->SetLineColor(1);
   hRelDeltaPxSig->SetMinimum(0);
-  hRelDeltaPxSig->SetMaximum(0.1);
+  hRelDeltaPxSig->SetMaximum(maxDelP);
   hRelDeltaPxSig->Draw("P");
   cmom->cd(4);
   gPad->SetTickx();
@@ -427,8 +476,8 @@ void runFastFitOnHits(int firstEv = 0,
   hDeltaPyMean->SetMarkerStyle(25);
   hDeltaPyMean->SetMarkerColor(1);
   hDeltaPyMean->SetLineColor(1);
-  hDeltaPyMean->SetMinimum(-0.05);
-  hDeltaPyMean->SetMaximum(0.05);
+  hDeltaPyMean->SetMinimum(-maxDelP);
+  hDeltaPyMean->SetMaximum(maxDelP);
   hDeltaPyMean->Draw("P");
   cmom->cd(5);
   gPad->SetTickx();
@@ -437,7 +486,7 @@ void runFastFitOnHits(int firstEv = 0,
   hDeltaPySig->SetMarkerColor(1);
   hDeltaPySig->SetLineColor(1);
   hDeltaPySig->SetMinimum(0);
-  hDeltaPySig->SetMaximum(0.05);
+  hDeltaPySig->SetMaximum(maxDelP);
   hDeltaPySig->Draw("P");
   cmom->cd(6);
   gPad->SetTickx();
@@ -446,7 +495,7 @@ void runFastFitOnHits(int firstEv = 0,
   hRelDeltaPySig->SetMarkerColor(1);
   hRelDeltaPySig->SetLineColor(1);
   hRelDeltaPySig->SetMinimum(0);
-  hRelDeltaPySig->SetMaximum(0.1);
+  hRelDeltaPySig->SetMaximum(maxDelP);
   hRelDeltaPySig->Draw("P");
   cmom->cd(7);
   gPad->SetTickx();
@@ -454,8 +503,8 @@ void runFastFitOnHits(int firstEv = 0,
   hDeltaPzMean->SetMarkerStyle(25);
   hDeltaPzMean->SetMarkerColor(1);
   hDeltaPzMean->SetLineColor(1);
-  hDeltaPzMean->SetMinimum(-0.05);
-  hDeltaPzMean->SetMaximum(0.05);
+  hDeltaPzMean->SetMinimum(-maxDelP);
+  hDeltaPzMean->SetMaximum(maxDelP);
   hDeltaPzMean->Draw("P");
   cmom->cd(8);
   gPad->SetTickx();
@@ -464,14 +513,14 @@ void runFastFitOnHits(int firstEv = 0,
   hDeltaPzSig->SetMarkerColor(1);
   hDeltaPzSig->SetLineColor(1);
   hDeltaPzSig->SetMinimum(0);
-  hDeltaPzSig->SetMaximum(0.2);
+  hDeltaPzSig->SetMaximum(maxDelP);
   hDeltaPzSig->Draw("P");
   cmom->cd(9);
   hRelDeltaPzSig->SetMarkerStyle(25);
   hRelDeltaPzSig->SetMarkerColor(1);
   hRelDeltaPzSig->SetLineColor(1);
   hRelDeltaPzSig->SetMinimum(0);
-  hRelDeltaPzSig->SetMaximum(0.05);
+  hRelDeltaPzSig->SetMaximum(maxDelP);
   hRelDeltaPzSig->Draw("P");
 
   TCanvas* ce = new TCanvas("ce", "", 1200, 600);
@@ -504,3 +553,31 @@ void runFastFitOnHits(int firstEv = 0,
   hEtaReco->Write();
   outFFit->Close();
 }
+
+// Wrapper functions for backward compatibility and ease of use
+
+// Original function signature for Vertex Telescope hits
+void runFastFitOnVerTelHits(int firstEv = 0,
+                      int lastEv = 99999999,
+                      double clures = 5.e-4,
+                      const char* dirSimu = "../tst",
+                      int minHits = 5)
+{
+  runFastFitOnHitsTemplate<NA6PVerTelHit>(firstEv, lastEv, clures, clures, dirSimu,
+                                          "HitsVerTel.root", "hitsVerTel", "VerTel",
+                                          5, minHits, true);
+}
+
+// New function for Muon Spectrometer Modular hits
+void runFastFitOnMuonSpecHits(int firstEv = 0,
+                               int lastEv = 99999999,
+                               double cluresx = 500.e-4,
+                               double cluresy = 1000.e-4,
+                               const char* dirSimu = "../tst",
+                               int minHits = 6)
+{
+  runFastFitOnHitsTemplate<NA6PMuonSpecModularHit>(firstEv, lastEv, cluresx, cluresy, dirSimu,
+                                                    "HitsMuonSpecModular.root", "hitsMuonSpecModular", "MuonSpecModular",
+                                                    6, minHits, false);
+}
+

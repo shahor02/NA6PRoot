@@ -2,7 +2,7 @@
 
 #include <fmt/format.h>
 #include <fairlogger/Logger.h>
-#include "NA6PBaseCluster.h"
+#include "NA6PVerTelCluster.h"
 #include "NA6PVertex.h"
 #include "NA6PRecoParam.h"
 #include "NA6PVertexerTracklets.h"
@@ -20,7 +20,7 @@ void NA6PVertexerTracklets::configureFromRecoParam(const std::string& filename)
     na6p::conf::ConfigurableParamHelper<NA6PRecoParam>::updateFromFile(filename);
   }
   const auto& param = NA6PRecoParam::Instance();
-  mNLayersVT = param.nVerTelLayers;
+  mNLayersVT = param.nLayers;
   mLayerToStart = param.vertexerLayerToStart;
   mMaxDeltaThetaTracklet = param.vertexerMaxDeltaThetaTracklet;
   mMaxDeltaPhiTracklet = param.vertexerMaxDeltaPhiTracklet;
@@ -114,15 +114,14 @@ void NA6PVertexerTracklets::printConfiguration() const
 
 //______________________________________________________________________
 
-void NA6PVertexerTracklets::sortClustersByLayerAndEta(std::vector<NA6PBaseCluster>& cluArr,
+void NA6PVertexerTracklets::sortClustersByLayerAndEta(std::vector<NA6PVerTelCluster>& cluArr,
                                                       std::vector<int>& firstIndex,
                                                       std::vector<int>& lastIndex)
 {
   // count hits per layer
   std::vector<int> count(mNLayersVT, 0);
   for (const auto& clu : cluArr) {
-    int jDet = clu.getDetectorID();
-    int jLay = jDet / 4;
+    int jLay = clu.getLayer();
     if (jLay >= 0 && jLay < mNLayersVT) {
       count[jLay]++;
     }
@@ -138,9 +137,9 @@ void NA6PVertexerTracklets::sortClustersByLayerAndEta(std::vector<NA6PBaseCluste
   }
   // Create a reordered vector based on layer grouping
   std::vector<int> countReord = firstIndex;
-  std::vector<NA6PBaseCluster> reordered(cluArr.size());
+  std::vector<NA6PVerTelCluster> reordered(cluArr.size());
   for (const auto& clu : cluArr) {
-    int jLay = clu.getDetectorID() / 4;
+    int jLay = clu.getLayer();
     if (jLay >= 0 && jLay < mNLayersVT)
       reordered[countReord[jLay]++] = clu;
   }
@@ -149,7 +148,7 @@ void NA6PVertexerTracklets::sortClustersByLayerAndEta(std::vector<NA6PBaseCluste
   for (int jLay = 0; jLay < mNLayersVT; jLay++) {
     auto first = cluArr.begin() + firstIndex[jLay];
     auto last = cluArr.begin() + lastIndex[jLay];
-    std::sort(first, last, [](const NA6PBaseCluster& a, const NA6PBaseCluster& b) {
+    std::sort(first, last, [](const NA6PVerTelCluster& a, const NA6PVerTelCluster& b) {
       float xa = a.getX();
       float ya = a.getY();
       float za = a.getZ();
@@ -207,7 +206,7 @@ void NA6PVertexerTracklets::sortTrackletsByLayerAndIndex(std::vector<TrackletFor
 
 //______________________________________________________________________
 
-void NA6PVertexerTracklets::computeLayerTracklets(const std::vector<NA6PBaseCluster>& cluArr,
+void NA6PVertexerTracklets::computeLayerTracklets(const std::vector<NA6PVerTelCluster>& cluArr,
                                                   const std::vector<int>& firstIndex,
                                                   const std::vector<int>& lastIndex,
                                                   std::vector<TrackletForVertex>& tracklets)
@@ -219,45 +218,45 @@ void NA6PVertexerTracklets::computeLayerTracklets(const std::vector<NA6PBaseClus
     auto layerBegin = cluArr.begin() + firstIndex[iLayer + 1];
     auto layerEnd = cluArr.begin() + lastIndex[iLayer + 1];
     for (int jClu1 = firstIndex[iLayer]; jClu1 < lastIndex[iLayer]; ++jClu1) {
-      const NA6PBaseCluster& clu1 = cluArr[jClu1];
-      float x1 = clu1.getX();
-      float y1 = clu1.getY();
-      float z1 = clu1.getZ();
-      float r1 = std::sqrt(x1 * x1 + y1 * y1);
-      float theta1 = std::atan2(z1, r1);
-      float phi1 = std::atan2(y1, x1);
-      float tanth2Min = std::max(0., std::tan(theta1 - 1.2 * mMaxDeltaThetaTracklet)); // 1.2 is a safety margin
-      float tanth2Max = std::tan(std::min(M_PI / 2.001, theta1 + 1.2 * mMaxDeltaThetaTracklet));
+      const NA6PVerTelCluster& clu1 = cluArr[jClu1];
+      double x1 = clu1.getX();
+      double y1 = clu1.getY();
+      double z1 = clu1.getZ();
+      double r1 = std::sqrt(x1 * x1 + y1 * y1);
+      double theta1 = std::atan2(z1, r1);
+      double phi1 = std::atan2(y1, x1);
+      double tanth2Min = std::max(0., std::tan(theta1 - 1.2 * mMaxDeltaThetaTracklet)); // 1.2 is a safety margin
+      double tanth2Max = std::tan(std::min(M_PI / 2.001, theta1 + 1.2 * mMaxDeltaThetaTracklet));
       auto lower = std::partition_point(layerBegin, layerEnd,
-                                        [&](const NA6PBaseCluster& clu) {
-                                          float x = clu.getX();
-                                          float y = clu.getY();
-                                          float z = clu.getZ();
-                                          float r2 = x * x + y * y;
-                                          float tan2 = z * z / r2;
+                                        [&](const NA6PVerTelCluster& clu) {
+                                          double x = clu.getX();
+                                          double y = clu.getY();
+                                          double z = clu.getZ();
+                                          double r2 = x * x + y * y;
+                                          double tan2 = z * z / r2;
                                           return tan2 < tanth2Min * tanth2Min;
                                         });
 
       auto upper = std::partition_point(layerBegin, layerEnd,
-                                        [&](const NA6PBaseCluster& clu) {
-                                          float x = clu.getX();
-                                          float y = clu.getY();
-                                          float z = clu.getZ();
-                                          float r2 = x * x + y * y;
-                                          float tan2 = z * z / r2;
+                                        [&](const NA6PVerTelCluster& clu) {
+                                          double x = clu.getX();
+                                          double y = clu.getY();
+                                          double z = clu.getZ();
+                                          double r2 = x * x + y * y;
+                                          double tan2 = z * z / r2;
                                           return tan2 <= tanth2Max * tanth2Max;
                                         });
       int lowerIdx = std::distance(cluArr.begin(), lower);
       int upperIdx = std::distance(cluArr.begin(), upper);
       for (int jClu2 = lowerIdx; jClu2 < upperIdx; ++jClu2) {
-        const NA6PBaseCluster& clu2 = cluArr[jClu2];
-        float x2 = clu2.getX();
-        float y2 = clu2.getY();
-        float z2 = clu2.getZ();
-        float r2 = std::sqrt(x2 * x2 + y2 * y2);
-        float theta2 = std::atan2(z2, r2);
-        float phi2 = std::atan2(y2, x2);
-        float dphi = phi2 - phi1;
+        const NA6PVerTelCluster& clu2 = cluArr[jClu2];
+        double x2 = clu2.getX();
+        double y2 = clu2.getY();
+        double z2 = clu2.getZ();
+        double r2 = std::sqrt(x2 * x2 + y2 * y2);
+        double theta2 = std::atan2(z2, r2);
+        double phi2 = std::atan2(y2, x2);
+        double dphi = phi2 - phi1;
         if (dphi > M_PI)
           dphi -= 2 * M_PI;
         else if (dphi < -M_PI)
@@ -282,7 +281,7 @@ void NA6PVertexerTracklets::computeLayerTracklets(const std::vector<NA6PBaseClus
 void NA6PVertexerTracklets::selectTracklets(const std::vector<TrackletForVertex>& tracklets,
                                             const std::vector<int>& firstIndex,
                                             const std::vector<int>& lastIndex,
-                                            const std::vector<NA6PBaseCluster>& cluArr,
+                                            const std::vector<NA6PVerTelCluster>& cluArr,
                                             std::vector<TrackletForVertex>& selTracklets)
 {
 
@@ -342,7 +341,7 @@ void NA6PVertexerTracklets::filterOutUsedTracklets(const std::vector<TrackletFor
 //______________________________________________________________________
 
 void NA6PVertexerTracklets::computeIntersections(const std::vector<TrackletForVertex>& selTracklets,
-                                                 const std::vector<NA6PBaseCluster>& cluArr,
+                                                 const std::vector<NA6PVerTelCluster>& cluArr,
                                                  std::vector<TracklIntersection>& zIntersec)
 {
   zIntersec.clear();
@@ -709,7 +708,7 @@ bool NA6PVertexerTracklets::findVertexKDE(const std::vector<TracklIntersection>&
 
 //______________________________________________________________________
 
-void NA6PVertexerTracklets::findVertices(std::vector<NA6PBaseCluster>& cluArr,
+void NA6PVertexerTracklets::findVertices(std::vector<NA6PVerTelCluster>& cluArr,
                                          std::vector<NA6PVertex>& vertices)
 {
 
@@ -764,7 +763,7 @@ void NA6PVertexerTracklets::findVertices(std::vector<NA6PBaseCluster>& cluArr,
 
 //______________________________________________________________________
 void NA6PVertexerTracklets::printStats(const std::vector<TrackletForVertex>& candidates,
-                                       const std::vector<NA6PBaseCluster>& cluArr,
+                                       const std::vector<NA6PVerTelCluster>& cluArr,
                                        const std::string& label)
 {
 
@@ -784,7 +783,7 @@ void NA6PVertexerTracklets::printStats(const std::vector<TrackletForVertex>& can
       if (cluID >= 0) {
         ++nTrueClus;
         const auto& clu = cluArr[cluID];
-        int jLay = clu.getDetectorID() / 4;
+        int jLay = clu.getLayer();
         if (jClu == 0 && jLay != startLay)
           LOGP(error, "mismatch in {} layers: {} {}", label.c_str(), jLay, startLay);
         int idPartClu = clu.getParticleID();
