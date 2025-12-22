@@ -49,7 +49,8 @@ void runVertexerTracklets(int firstEv = 0,
   TH1F* hnvert = new TH1F("hnvert", "; N_{vertices}; counts", 11, -0.5, 10.5);
 
   NA6PVerTelReconstruction* vtrec = new NA6PVerTelReconstruction();
-
+  vtrec->setRecoParamFile("test2.ini");
+  vtrec->initVertexer();
   for (int jEv = firstEv; jEv < lastEv; jEv++) {
     mcTree->GetEvent(jEv);
     tc->GetEvent(jEv);

@@ -33,6 +33,12 @@ struct NA6PRecoParam : public na6p::conf::ConfigurableParamHelper<NA6PRecoParam>
   std::string vertexerKDEOption = "Standard";
   int vertexerNGridKDE = 500;
   float vertexerKDEBandwidth = 0.5;
+  float vertexerMaxPairDCA = 0.1;
+  float vertexerMaxPairVertRadius = 0.5;
+  float vertexerMinCandidateDistanceZ = 0.1;
+  float vertexerMinCandidateDistance3D = 0.2;
+  std::string vertexerMultiVertexMode = "Iterative";
+  bool vertexerAllowSingleConstribClusters = false;
   // CA tracker
   int nIterationsTrackerCA = 2;
   float maxDeltaThetaTrackletsCA[MaxIterationsTrackerCA] = {0.04, 0.1, 0.15, 0.3, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};

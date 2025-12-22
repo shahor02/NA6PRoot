@@ -235,7 +235,6 @@ void runVTTrackFinderCA(int firstEv = 0,
   cpu->cd(1);
   hMomReco->Draw();
   hMomGoodReco->SetLineColor(kGreen + 1);
-  ;
   hMomGoodReco->SetLineWidth(2);
   hMomGoodReco->Draw("same");
   cpu->cd(2);
@@ -247,7 +246,6 @@ void runVTTrackFinderCA(int firstEv = 0,
   cpu->cd(3);
   hEtaReco->Draw();
   hEtaGoodReco->SetLineColor(kGreen + 1);
-  ;
   hEtaGoodReco->SetLineWidth(2);
   hEtaGoodReco->Draw("same");
   cpu->cd(4);
