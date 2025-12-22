@@ -63,11 +63,11 @@ void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecM
   const auto& layout = NA6PLayoutParam::Instance();
   for (int jHit = 0; jHit < nHits; ++jHit) {
     const auto& hit = hits[jHit];
-    double x = hit.getX();
-    double y = hit.getY();
-    double z = hit.getZ();
-    double ex2clu = 5.e-4;
-    double ey2clu = 5.e-4;
+    float x = hit.getX();
+    float y = hit.getY();
+    float z = hit.getZ();
+    float ex2clu = 5.e-4;
+    float ey2clu = 5.e-4;
     if (mCluResX > 0) {
       x = gRandom->Gaus(hit.getX(), mCluResX);
       ex2clu = mCluResX * mCluResX;
@@ -76,7 +76,7 @@ void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecM
       y = gRandom->Gaus(hit.getY(), mCluResY);
       ey2clu = mCluResY * mCluResY;
     }
-    double eloss = hit.getHitValue();
+    float eloss = hit.getHitValue();
     // very rough cluster size settings
     int clusiz = 1;
     int nDet = hit.getDetectorID();

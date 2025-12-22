@@ -58,12 +58,12 @@ struct ClusterLines {
 
   bool operator==(const ClusterLines&) const;
 
-  std::array<double, 6> lineCluAMatrix = {0.0};  // AX=B
-  std::array<double, 3> lineCluBMatrix = {0.0};  // AX=B
+  std::array<float, 6> lineCluAMatrix{};  // AX=B
+  std::array<float, 3> lineCluBMatrix{};  // AX=B
   std::vector<int> lineLabels;                   // labels
-  std::array<float, 9> lineWeightMatrix = {0.f}; // weight matrix
-  std::array<float, 3> lineCluVertex = {0.f};    // cluster centroid position
-  std::array<float, 6> lineCluRMS2 = {0.f};      // symmetric matrix: diagonal is RMS2
+  std::array<float, 9> lineWeightMatrix{}; // weight matrix
+  std::array<float, 3> lineCluVertex{};    // cluster centroid position
+  std::array<float, 6> lineCluRMS2{};      // symmetric matrix: diagonal is RMS2
   float lineCluAvgDistance2 = 0.f;               // substitute for chi2
 };
 

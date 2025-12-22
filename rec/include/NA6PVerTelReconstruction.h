@@ -54,11 +54,11 @@ class NA6PVerTelReconstruction : public NA6PReconstruction
   void writeClusters() override;
   void closeClustersOutput() override;
   // fast method to smear the hits bypassing digitization and cluster finder
-  void setClusterSpaceResolution(double clures) { mCluRes = clures; }
+  void setClusterSpaceResolution(float clures) { mCluRes = clures; }
   void hitsToRecPoints(const std::vector<NA6PVerTelHit>& hits);
   NA6PTrackerCA* getTracker() const { return mVTTracker; }
 
-  void setPrimaryVertexPosition(double x, double y, double z)
+  void setPrimaryVertexPosition(float x, float y, float z)
   {
     mPrimaryVertex.SetXYZ(x, y, z);
   }
@@ -88,7 +88,7 @@ class NA6PVerTelReconstruction : public NA6PReconstruction
   std::string mRecoParFilName{};                                  // name of reco param file
   TFile* mClusFile = nullptr;                                     // file with clusters
   TTree* mClusTree = nullptr;                                     // tree of clusters
-  double mCluRes = 5.e-4;                                         // cluster resolution, cm (for fast simu)
+  float mCluRes = 5.e-4f;                                         // cluster resolution, cm (for fast simu)
   std::vector<NA6PVertex> mVertices, *hVerticesPtr = &mVertices;  // vector of vertices
   TFile* mVertexFile = nullptr;                                   // file with vertices
   TTree* mVertexTree = nullptr;                                   // tree of vertices

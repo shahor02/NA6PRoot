@@ -38,8 +38,8 @@ NA6PFastTrackFitter::NA6PFastTrackFitter() : mNLayers{5},
   } else {
     LOGP(info, "NA6PFastTrackFitter: TGeoGlobalMagField already initialized");
   }
-  mSeedPos[0] = mSeedPos[1] = mSeedPos[2] = 0.;
-  mSeedMom[0] = mSeedMom[1] = mSeedMom[2] = 1.; // 1 GeV for default momentum seed
+  mSeedPos[0] = mSeedPos[1] = mSeedPos[2] = 0.f;
+  mSeedMom[0] = mSeedMom[1] = mSeedMom[2] = 1.f; // 1 GeV for default momentum seed
 }
 
 void NA6PFastTrackFitter::addCluster(int jLay, const NA6PBaseCluster& cl)
@@ -280,6 +280,9 @@ void NA6PFastTrackFitter::computeSeed()
   for (int jLay = mNLayers - 1; jLay >= 0; --jLay) {
     if (mClusters[jLay]) {
       double pos[3] = {mClusters[jLay]->getX(), mClusters[jLay]->getY(), mClusters[jLay]->getZ()}, bxyz[3] = {};
+      for (int i=0;i<3;i++) {
+	mSeedPos[i] = pos[3];
+      }
       TGeoGlobalMagField::Instance()->Field(pos, bxyz);
       bool useTwoPoint = (mSeedOption == kTwoPointSeed) || (nClus == 2) || (std::abs(bxyz[1]) < kAlmostZero);
       for (int kLay = jLay - 1; kLay >= 0; --kLay) {
