@@ -440,10 +440,10 @@ double NA6PTrackerCA::computeTrackToClusterChi2(const NA6PTrack& track,
                                                 const ClusterType& clu)
 {
 
-  double meas[2] = {clu.getYTF(), clu.getZTF()}; // ideal cluster coordinate, tracking (AliExtTrParam frame)
-  double measErr2[3] = {clu.getSigYY(), clu.getSigYZ(), clu.getSigZZ()};
+  double meas[2] = {clu.getX(), clu.getY()};
+  double measErr2[3] = {clu.getSigXX(), clu.getSigYX(), clu.getSigYY()};
   NA6PTrack copyToProp = track;
-  copyToProp.propagateToZBxByBz(clu.getZ()); // no material correction temporarily
+  copyToProp.propagateToZBxByBz(clu.getZ());
   double cluchi2 = copyToProp.getTrackExtParam().getPredictedChi2(meas, measErr2);
   return cluchi2;
 }

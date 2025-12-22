@@ -255,9 +255,8 @@ bool NA6PFastTrackFitter::updateTrack(NA6PTrack* trc, const NA6PBaseCluster* cl)
 {
   // update track with measured cluster
   // propagate to cluster
-  // Note: we are working in the tracking frame: Lab X,Y,Z  <->  Tracking -Z,Y,X
-  double meas[2] = {cl->getYTF(), cl->getZTF()}; // ideal cluster coordinate, tracking (AliExtTrParam frame)
-  double measErr2[3] = {cl->getSigYY(), cl->getSigYZ(), cl->getSigZZ()};
+  double meas[2] = {cl->getX(), cl->getY()};
+  double measErr2[3] = {clu.getSigXX(), clu.getSigYX(), clu.getSigYY()};
 
   double chi2 = trc->getTrackExtParam().getPredictedChi2(meas, measErr2);
   if (chi2 > mMaxChi2Cl)
