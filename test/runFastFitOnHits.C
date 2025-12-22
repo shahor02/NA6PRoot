@@ -305,8 +305,8 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
           double phitr = std::atan2(pytr, pxtr);
           double thetatr = std::acos(pztr / momtr);
           double etatr = -std::log(std::tan(thetatr / 2.));
-          double impparX = currTr->getXLab() - xvert;
-          double impparY = currTr->getYLab() - yvert;
+          double impparX = currTr->getX() - xvert;
+          double impparY = currTr->getY() - yvert;
           hEtaReco->Fill(etatr);
           hDeltaPx->Fill(pxtr - pxPart);
           hDeltaPy->Fill(pytr - pyPart);
@@ -337,7 +337,7 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
           TLorentzVector v;
           v.SetXYZM(mom[0], mom[1], mom[2], 0.14);
           trFit.SetMomentum(v);
-          trFit.SetProductionVertex(currTr->getXLab(), currTr->getYLab(), currTr->getZLab(), 0);
+          trFit.SetProductionVertex(currTr->getX(), currTr->getY(), currTr->getZ(), 0);
         }
         outTr << "out"
               << "mcTr=" << curPart << "fitTr=" << trFit << "fitChi2=" << chiFit << "\n";

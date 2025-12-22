@@ -61,10 +61,10 @@ class NA6PTrack
   double       getAlpha()                  const {return mExtTrack.getAlpha();}
   double       getCharge()                 const {return mExtTrack.Charge();}
   bool         negDir()                    const {return std::abs(mExtTrack.getAlpha()) > M_PI/2.;}
-  double       getXLab()                   const {return mExtTrack.getY();} 
-  double       getYLab()                   const {return mExtTrack.getZ();} 
-  double       getZLab()                   const {return negDir() ? -mExtTrack.getX():mExtTrack.getX();}
-  double       getR()                      const {double x=getXLab(),y=getYLab(),r=x*x+y*y; return r>0? std::sqrt(r):0;}
+  double       getX()                   const {return mExtTrack.getY();} 
+  double       getY()                   const {return mExtTrack.getZ();} 
+  double       getZ()                   const {return negDir() ? -mExtTrack.getX():mExtTrack.getX();}
+  double       getR()                      const {double x=getX(),y=getY(),r=x*x+y*y; return r>0? std::sqrt(r):0;}
   double       getXTF()                    const {return mExtTrack.getX();}
   double       getYTF()                    const {return mExtTrack.getY();}
   double       getZTF()                    const {return mExtTrack.getZ();}

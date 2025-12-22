@@ -214,7 +214,7 @@ void NA6PFastTrackFitter::getMeanMaterialBudgetFromGeom(double* start, double* e
 
 int NA6PFastTrackFitter::propagateToZ(NA6PTrack* trc, double zTo) const
 {
-  double zCurr = trc->getZLab();
+  double zCurr = trc->getZ();
   int dir = (zTo - zCurr) > 0 ? 1 : -1;
   return propagateToZ(trc, zCurr, zTo, dir);
 }
@@ -224,8 +224,8 @@ int NA6PFastTrackFitter::propagateToZ(NA6PTrack* trc, double zFrom, double zTo, 
 
   if (trc->getTrackExtParam().getAlpha() < 0)
     return -1;
-  if (std::abs(trc->getZLab() - zFrom) > 1.e-4) {
-    LOGP(fatal, "Track is not in the expected z position: {} vs {}", zFrom, trc->getZLab());
+  if (std::abs(trc->getZ() - zFrom) > 1.e-4) {
+    LOGP(fatal, "Track is not in the expected z position: {} vs {}", zFrom, trc->getZ());
     return -1;
   }
   if (dir * (zTo - zFrom) < 0) {
@@ -256,7 +256,7 @@ bool NA6PFastTrackFitter::updateTrack(NA6PTrack* trc, const NA6PBaseCluster* cl)
   // update track with measured cluster
   // propagate to cluster
   double meas[2] = {cl->getX(), cl->getY()};
-  double measErr2[3] = {clu.getSigXX(), clu.getSigYX(), clu.getSigYY()};
+  double measErr2[3] = {cl->getSigXX(), cl->getSigYX(), cl->getSigYY()};
 
   double chi2 = trc->getTrackExtParam().getPredictedChi2(meas, measErr2);
   if (chi2 > mMaxChi2Cl)
@@ -285,17 +285,17 @@ void NA6PFastTrackFitter::computeSeed()
 
   for (int jLay = mNLayers - 1; jLay >= 0; --jLay) {
     if (mClusters[jLay]) {
-      mSeedPos[0] = mClusters[jLay]->getXLab();
-      mSeedPos[1] = mClusters[jLay]->getYLab();
-      mSeedPos[2] = mClusters[jLay]->getZLab();
+      mSeedPos[0] = mClusters[jLay]->getX();
+      mSeedPos[1] = mClusters[jLay]->getY();
+      mSeedPos[2] = mClusters[jLay]->getZ();
       double bxyz[3] = {0.0, 0.0, 0.0};
       TGeoGlobalMagField::Instance()->Field(mSeedPos, bxyz);
       bool useTwoPoint = (mSeedOption == kTwoPointSeed) || (nClus == 2) || (std::abs(bxyz[1]) < kAlmostZero);
       for (int kLay = jLay - 1; kLay >= 0; --kLay) {
         if (mClusters[kLay]) {
-          double ux = mClusters[jLay]->getXLab() - mClusters[kLay]->getXLab();
-          double uy = mClusters[jLay]->getYLab() - mClusters[kLay]->getYLab();
-          double uz = mClusters[jLay]->getZLab() - mClusters[kLay]->getZLab();
+          double ux = mClusters[jLay]->getX() - mClusters[kLay]->getX();
+          double uy = mClusters[jLay]->getY() - mClusters[kLay]->getY();
+          double uz = mClusters[jLay]->getZ() - mClusters[kLay]->getZ();
           double norm = std::sqrt(ux * ux + uy * uy + uz * uz);
           if (norm > kAlmostZero) {
             ux /= norm;
@@ -311,12 +311,12 @@ void NA6PFastTrackFitter::computeSeed()
           }
           for (int lLay = kLay - 1; lLay >= 0; --lLay) {
             if (mClusters[lLay]) {
-              double x1 = mClusters[lLay]->getXLab();
-              double z1 = mClusters[lLay]->getZLab();
-              double x2 = mClusters[kLay]->getXLab();
-              double z2 = mClusters[kLay]->getZLab();
-              double x3 = mClusters[jLay]->getXLab();
-              double z3 = mClusters[jLay]->getZLab();
+              double x1 = mClusters[lLay]->getX();
+              double z1 = mClusters[lLay]->getZ();
+              double x2 = mClusters[kLay]->getX();
+              double z2 = mClusters[kLay]->getZ();
+              double x3 = mClusters[jLay]->getX();
+              double z3 = mClusters[jLay]->getZ();
               // circle fit: compute center (cx, cz) and radius
               double determ = 2.0 * (x1 * (z2 - z3) - z1 * (x2 - x3) + (x2 * z3 - x3 * z2));
               double cx = 0.0, cz = 0.0, radius = 1e6;
@@ -409,7 +409,7 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints()
         isGoodFit = false;
         break;
       } else {
-        zCurr = mClusters[jLay]->getZLab();
+        zCurr = mClusters[jLay]->getZ();
         bool isInnermostHit = (clusterMask & ((1 << jLay) - 1)) == 0;
         if (jLay == 0 || isInnermostHit) {
           if (mPropagateToPrimVert && mIsPrimVertSet)
@@ -417,7 +417,7 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints()
           else
             propToNext = false;
         } else
-          zNext = mClusters[jLay - 1]->getZLab();
+          zNext = mClusters[jLay - 1]->getZ();
       }
     }
     // propagate to next layer

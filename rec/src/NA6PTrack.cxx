@@ -89,7 +89,7 @@ Bool_t NA6PTrack::propagateToZBxByBz(double z, double maxDZ, double xOverX0, dou
 {
   // propagate the track to position Z in uniform material with xOverX0 rad lgt and xTimesRho lgt*density
   //
-  double zCurr = getZLab();
+  double zCurr = getZ();
   double dz = z - zCurr;
   if (TMath::Abs(dz)<kAlmost0) return true;
   int nz = TMath::Abs(dz)/maxDZ + 1;
@@ -226,7 +226,7 @@ std::string NA6PTrack::asString() const
   double pxyz[3];
   getPXYZ(pxyz);
   return fmt::format("Track: Nclusters:{} NVTclusters:{} NMSclusters:{} NTRclusters:{} chi2:{} chi2VT:{} chi2MS:{} pos:{:.4f},{:.4f},{:.4f} mom:{:.3f},{:.3f},{:.3f}",
-                     mNClusters,mNClustersVT,mNClustersMS,mNClustersTR,mChi2,mChi2VT,mChi2MS,getXLab(),getYLab(),getZLab(),pxyz[0],pxyz[1],pxyz[2]);
+                     mNClusters,mNClustersVT,mNClustersMS,mNClustersTR,mChi2,mChi2VT,mChi2MS,getX(),getY(),getZ(),pxyz[0],pxyz[1],pxyz[2]);
 }
 
 //_______________________________________________________________________
