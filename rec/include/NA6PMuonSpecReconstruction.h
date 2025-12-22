@@ -46,12 +46,12 @@ class NA6PMuonSpecReconstruction : public NA6PReconstruction
   void writeClusters() override;
   void closeClustersOutput() override;
   // fast method to smear the hits bypassing digitization and cluster finder
-  void setClusterSpaceResolutionX(double clures) { mCluResX = clures; }
-  void setClusterSpaceResolutionY(double clures) { mCluResY = clures; }
+  void setClusterSpaceResolutionX(float clures) { mCluResX = clures; }
+  void setClusterSpaceResolutionY(float clures) { mCluResY = clures; }
   void hitsToRecPoints(const std::vector<NA6PMuonSpecModularHit>& hits);
   NA6PTrackerCA* getTracker() const { return mMSTracker; }
 
-  void setPrimaryVertexPosition(double x, double y, double z)
+  void setPrimaryVertexPosition(float x, float y, float z)
   {
     mPrimaryVertex.SetXYZ(x, y, z);
   }
@@ -72,8 +72,8 @@ class NA6PMuonSpecReconstruction : public NA6PReconstruction
   std::vector<NA6PMuonSpecCluster> mClusters, *hClusPtr = &mClusters; // vector of clusters
   TFile* mClusFile = nullptr;                                     // file with clusters
   TTree* mClusTree = nullptr;                                     // tree of clusters
-  double mCluResX = 100.e-4;                                      // cluster resolution, cm (for fast simu)
-  double mCluResY = 500.e-4;                                      // cluster resolution, cm (for fast simu)
+  float mCluResX = 100.e-4;                                      // cluster resolution, cm (for fast simu)
+  float mCluResY = 500.e-4;                                      // cluster resolution, cm (for fast simu)
   TVector3 mPrimaryVertex{0.0, 0.0, 0.0};                         // primary vertex position
   std::vector<NA6PTrack> mTracks, *hTrackPtr = &mTracks;          // vector of tracks
   TFile* mTrackFile = nullptr;                                    // file with tracks

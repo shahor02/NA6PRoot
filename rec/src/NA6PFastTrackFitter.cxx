@@ -11,18 +11,16 @@
 #include "NA6PVerTelCluster.h"
 #include "NA6PMuonSpecCluster.h"
 
-ClassImp(NA6PFastTrackFitter)
-
-  const double NA6PFastTrackFitter::kMassP = 0.938;
-const double NA6PFastTrackFitter::kMassK = 0.4937;
-const double NA6PFastTrackFitter::kMassPi = 0.1396;
-const double NA6PFastTrackFitter::kMassMu = 0.1057;
-const double NA6PFastTrackFitter::kMassE = 0.0005;
-const double NA6PFastTrackFitter::kAlmostZero = 1.e-12;
-// const double NA6PFastTrackFitter::fgkFldEps = 1.e-4;
+const float NA6PFastTrackFitter::kMassP = 0.938f;
+const float NA6PFastTrackFitter::kMassK = 0.4937f;
+const float NA6PFastTrackFitter::kMassPi = 0.1396f;
+const float NA6PFastTrackFitter::kMassMu = 0.1057f;
+const float NA6PFastTrackFitter::kMassE = 0.0005f;
+const float NA6PFastTrackFitter::kAlmostZero = 1.e-12f;
+// const float NA6PFastTrackFitter::fgkFldEps = 1.e-4f;
 
 NA6PFastTrackFitter::NA6PFastTrackFitter() : mNLayers{5},
-                                             mMaxChi2Cl{10.},
+                                             mMaxChi2Cl{10.f},
                                              mIsSeedSet{false},
                                              mSeedOption{kThreePointSeed},
                                              mCharge{1},
@@ -53,7 +51,7 @@ void NA6PFastTrackFitter::addCluster(int jLay, const NA6PBaseCluster& cl)
   mClusters[jLay] = &cl;
 }
 
-void NA6PFastTrackFitter::setSeed(const double* pos, const double* mom, int charge)
+void NA6PFastTrackFitter::setSeed(const float* pos, const float* mom, int charge)
 {
   if (!pos || !mom) {
     LOGP(error, "Null pointers passer seed");
@@ -105,7 +103,7 @@ bool NA6PFastTrackFitter::loadGeometry(const char* filename, const char* geoname
   }
 }
 
-void NA6PFastTrackFitter::getMeanMaterialBudgetFromGeom(double* start, double* end, double* mparam) const
+void NA6PFastTrackFitter::getMeanMaterialBudgetFromGeom(float* startF, float* endF, float* mparam) const
 {
 
   // "mparam" - parameters used for the energy and multiple scattering
@@ -131,36 +129,33 @@ void NA6PFastTrackFitter::getMeanMaterialBudgetFromGeom(double* start, double* e
     LOGP(info, "No geometry was loaded, won't apply materical corrections");
     return;
   }
-  double tolerance = 1e-9;
-  double length = std::sqrt((end[0] - start[0]) * (end[0] - start[0]) +
-                            (end[1] - start[1]) * (end[1] - start[1]) +
-                            (end[2] - start[2]) * (end[2] - start[2]));
+  float tolerance = 1e-9f;
+  float length = std::sqrt((endF[0] - startF[0]) * (endF[0] - startF[0]) +
+			   (endF[1] - startF[1]) * (endF[1] - startF[1]) +
+			   (endF[2] - startF[2]) * (endF[2] - startF[2]));
   mparam[4] = length;
   if (length < tolerance)
     return;
-  double invlen = 1. / length;
-  double dir[3];
-  dir[0] = (end[0] - start[0]) * invlen;
-  dir[1] = (end[1] - start[1]) * invlen;
-  dir[2] = (end[2] - start[2]) * invlen;
-
+  float invlen = 1.f / length;
+  double dir[3] = { dir[0] = (endF[0] - startF[0]) * invlen, dir[1] = (endF[1] - startF[1]) * invlen, dir[2] = (endF[2] - startF[2]) * invlen };
+  double start[3] = {startF[0],startF[1],startF[2]};
   TGeoNode* currNode = gGeoManager->InitTrack(start, dir);
-  double sumSteps = 0.0;
-  double minStep = 1e-4; // 1 micron
+  float sumSteps = 0.0f;
+  float minStep = 1e-4f; // 1 micron
 
-  double bparam[6]; // total parameters
-  double lparam[6]; // local parameters
+  float bparam[6]; // total parameters
+  float lparam[6]; // local parameters
   for (int i = 0; i < 6; i++)
     bparam[i] = 0;
 
   while (sumSteps < length) {
-    double stepMax = length - sumSteps;
+    float stepMax = length - sumSteps;
 
     // Find next boundary (or max step to end point)
     TGeoNode* nextNode = gGeoManager->FindNextBoundaryAndStep(stepMax, false);
     if (!nextNode)
       break;
-    double snext = gGeoManager->GetStep();
+    float snext = gGeoManager->GetStep();
     // Handle numerical zero-step
     if (snext < tolerance) {
       gGeoManager->Step(minStep);
@@ -187,8 +182,8 @@ void NA6PFastTrackFitter::getMeanMaterialBudgetFromGeom(double* start, double* e
     lparam[5] = lparam[3] / lparam[2];
     if (mat->IsMixture()) {
       TGeoMixture* mixture = (TGeoMixture*)mat;
-      lparam[5] = 0;
-      double sum = 0;
+      lparam[5] = 0.f;
+      float sum = 0.f;
       for (int iel = 0; iel < mixture->GetNelements(); iel++) {
         sum += mixture->GetWmixt()[iel];
         lparam[5] += mixture->GetZmixt()[iel] * mixture->GetWmixt()[iel] / mixture->GetAmixt()[iel];
@@ -212,41 +207,41 @@ void NA6PFastTrackFitter::getMeanMaterialBudgetFromGeom(double* start, double* e
   mparam[5] = bparam[5] / sumSteps;
 }
 
-int NA6PFastTrackFitter::propagateToZ(NA6PTrack* trc, double zTo) const
+int NA6PFastTrackFitter::propagateToZ(NA6PTrack* trc, float zTo) const
 {
-  double zCurr = trc->getZ();
+  float zCurr = trc->getZ();
   int dir = (zTo - zCurr) > 0 ? 1 : -1;
   return propagateToZ(trc, zCurr, zTo, dir);
 }
 
-int NA6PFastTrackFitter::propagateToZ(NA6PTrack* trc, double zFrom, double zTo, int dir) const
+int NA6PFastTrackFitter::propagateToZ(NA6PTrack* trc, float zFrom, float zTo, int dir) const
 {
 
-  if (trc->getTrackExtParam().getAlpha() < 0)
+  if (trc->getTrackExtParam().getAlpha() < 0.f)
     return -1;
-  if (std::abs(trc->getZ() - zFrom) > 1.e-4) {
+  if (std::abs(trc->getZ() - zFrom) > 1.e-4f) {
     LOGP(fatal, "Track is not in the expected z position: {} vs {}", zFrom, trc->getZ());
     return -1;
   }
-  if (dir * (zTo - zFrom) < 0) {
+  if (dir * (zTo - zFrom) < 0.f) {
     LOGP(fatal, "Wrong coordinates: Dir:{} Zstart:{} Zend:{}", dir, zFrom, zTo);
     return -1;
   }
-  double start[3], end[3];
+  float start[3], end[3];
   trc->getXYZ(start);
   NA6PTrack tmpTrc = *trc;
   tmpTrc.propagateToZBxByBz(zTo);
   tmpTrc.getXYZ(end);
-  double p1[3], p2[3];
+  float p1[3], p2[3];
   trc->getXYZ(p1);
   tmpTrc.getXYZ(p2);
-  double mparam[7] = {0.};
+  float mparam[7] = {};
   if (mCorrectForMaterial)
     getMeanMaterialBudgetFromGeom(start, end, mparam);
-  double xrho = mparam[0] * mparam[4];
-  double x2x0 = mparam[1];
-  double corrELoss = 1;
-  if (!trc->propagateToZBxByBz(zTo, 1., x2x0, -dir * xrho * corrELoss))
+  float xrho = mparam[0] * mparam[4];
+  float x2x0 = mparam[1];
+  float corrELoss = 1;
+  if (!trc->propagateToZBxByBz(zTo, 1.f, x2x0, -dir * xrho * corrELoss))
     return 0;
   return 1;
 }
@@ -255,10 +250,10 @@ bool NA6PFastTrackFitter::updateTrack(NA6PTrack* trc, const NA6PBaseCluster* cl)
 {
   // update track with measured cluster
   // propagate to cluster
-  double meas[2] = {cl->getX(), cl->getY()};
-  double measErr2[3] = {cl->getSigXX(), cl->getSigYX(), cl->getSigYY()};
+  float meas[2] = {cl->getX(), cl->getY()};
+  float measErr2[3] = {cl->getSigXX(), cl->getSigYX(), cl->getSigYY()};
 
-  double chi2 = trc->getTrackExtParam().getPredictedChi2(meas, measErr2);
+  float chi2 = trc->getTrackExtParam().getPredictedChi2(meas, measErr2);
   if (chi2 > mMaxChi2Cl)
     return false; // chi2 is too large
 
@@ -273,7 +268,6 @@ bool NA6PFastTrackFitter::updateTrack(NA6PTrack* trc, const NA6PBaseCluster* cl)
 void NA6PFastTrackFitter::computeSeed()
 {
   // compute track seed from the 3 (or 2) outermost clusters
-
   int nClus = getNumberOfClusters();
   if (nClus < 2) {
     LOGP(error, "Cannot compute seed with {} clusters", nClus);
@@ -285,18 +279,15 @@ void NA6PFastTrackFitter::computeSeed()
 
   for (int jLay = mNLayers - 1; jLay >= 0; --jLay) {
     if (mClusters[jLay]) {
-      mSeedPos[0] = mClusters[jLay]->getX();
-      mSeedPos[1] = mClusters[jLay]->getY();
-      mSeedPos[2] = mClusters[jLay]->getZ();
-      double bxyz[3] = {0.0, 0.0, 0.0};
-      TGeoGlobalMagField::Instance()->Field(mSeedPos, bxyz);
+      double pos[3] = {mClusters[jLay]->getX(), mClusters[jLay]->getY(), mClusters[jLay]->getZ()}, bxyz[3] = {};
+      TGeoGlobalMagField::Instance()->Field(pos, bxyz);
       bool useTwoPoint = (mSeedOption == kTwoPointSeed) || (nClus == 2) || (std::abs(bxyz[1]) < kAlmostZero);
       for (int kLay = jLay - 1; kLay >= 0; --kLay) {
         if (mClusters[kLay]) {
-          double ux = mClusters[jLay]->getX() - mClusters[kLay]->getX();
-          double uy = mClusters[jLay]->getY() - mClusters[kLay]->getY();
-          double uz = mClusters[jLay]->getZ() - mClusters[kLay]->getZ();
-          double norm = std::sqrt(ux * ux + uy * uy + uz * uz);
+          auto ux = mClusters[jLay]->getX() - mClusters[kLay]->getX();
+          auto uy = mClusters[jLay]->getY() - mClusters[kLay]->getY();
+          auto uz = mClusters[jLay]->getZ() - mClusters[kLay]->getZ();
+          auto norm = std::sqrt(ux * ux + uy * uy + uz * uz);
           if (norm > kAlmostZero) {
             ux /= norm;
             uy /= norm;
@@ -311,19 +302,19 @@ void NA6PFastTrackFitter::computeSeed()
           }
           for (int lLay = kLay - 1; lLay >= 0; --lLay) {
             if (mClusters[lLay]) {
-              double x1 = mClusters[lLay]->getX();
-              double z1 = mClusters[lLay]->getZ();
-              double x2 = mClusters[kLay]->getX();
-              double z2 = mClusters[kLay]->getZ();
-              double x3 = mClusters[jLay]->getX();
-              double z3 = mClusters[jLay]->getZ();
+              auto x1 = mClusters[lLay]->getX();
+              auto z1 = mClusters[lLay]->getZ();
+              auto x2 = mClusters[kLay]->getX();
+              auto z2 = mClusters[kLay]->getZ();
+              auto x3 = mClusters[jLay]->getX();
+              auto z3 = mClusters[jLay]->getZ();
               // circle fit: compute center (cx, cz) and radius
-              double determ = 2.0 * (x1 * (z2 - z3) - z1 * (x2 - x3) + (x2 * z3 - x3 * z2));
-              double cx = 0.0, cz = 0.0, radius = 1e6;
+              auto determ = 2.0f * (x1 * prec_t(z2 - z3) - z1 * (x2 - x3) + (x2 * z3 - x3 * z2));
+              float cx = 0.f, cz = 0.f, radius = 1e6f;
               if (std::abs(determ) > kAlmostZero) {
-                double a1 = x1 * x1 + z1 * z1;
-                double a2 = x2 * x2 + z2 * z2;
-                double a3 = x3 * x3 + z3 * z3;
+                auto a1 = x1 * x1 + z1 * z1;
+                auto a2 = x2 * x2 + z2 * z2;
+                auto a3 = x3 * x3 + z3 * z3;
                 cx = (a1 * (z2 - z3) - z1 * (a2 - a3) + (a2 * z3 - a3 * z2)) / determ;
                 cz = (a1 * (x2 - x3) - x1 * (a2 - a3) + (x2 * a3 - x3 * a2)) / (-determ);
                 radius = std::sqrt((x1 - cx) * (x1 - cx) + (z1 - cz) * (z1 - cz));
@@ -336,16 +327,16 @@ void NA6PFastTrackFitter::computeSeed()
                 mIsSeedSet = true;
                 return;
               }
-              double pt = 3.e-4 * std::abs(mCharge * bxyz[1]) * radius; // radius is in cm, By in kG, pt GeV/c
-              double nt = std::sqrt(ux * ux + uz * uz);
+              auto pt = 3.e-4f * std::abs(mCharge * bxyz[1]) * radius; // radius is in cm, By in kG, pt GeV/c
+              auto nt = std::sqrt(ux * ux + uz * uz);
               if (nt < kAlmostZero)
-                nt = 1.0;
+                nt = 1.0f;
               mSeedMom[0] = pt * ux / nt;
               mSeedMom[1] = pt * uy / nt;
               mSeedMom[2] = pt * uz / nt;
-              double crossy = (x2 - x1) * (z3 - z2) - (z2 - z1) * (x3 - x2);
-              int qSign = (crossy * bxyz[1] > 0) ? +1 : -1;
-              if (mCharge * qSign < 0)
+              auto crossy = (x2 - x1) * (z3 - z2) - (z2 - z1) * (x3 - x2);
+              int qSign = (crossy * bxyz[1] > 0.f) ? +1 : -1;
+              if (mCharge * qSign < 0.f)
                 mCharge = -mCharge;
               if (mSeedMom[2] < 0) { // enforce positive pz
                 for (int j = 0; j < 3; ++j)
@@ -390,8 +381,8 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints()
     currTr->init(mSeedPos, mSeedMom, mCharge);
   currTr->setMass(mMass);
   currTr->resetCovariance(-1);
-  double zCurr = -999.;
-  double zNext = zCurr;
+  float zCurr = -999.;
+  float zNext = zCurr;
   bool isGoodFit = true;
   bool propToNext = true;
   // construct bit mask
@@ -422,9 +413,9 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints()
     }
     // propagate to next layer
     if (zCurr > 0 && propToNext) {
-      double pxyzBef[3], pxyzAft[3];
+      float pxyzBef[3], pxyzAft[3];
       currTr->getPXYZ(pxyzBef);
-      double momBef = currTr->getP();
+      float momBef = currTr->getP();
       if (propagateToZ(currTr, zCurr, zNext, -1) != 1) {
         isGoodFit = false;
         break;
