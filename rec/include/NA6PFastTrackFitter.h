@@ -17,6 +17,7 @@
 
 #include <string>
 #include <Rtypes.h>
+#include "PID.h"
 #include "NA6PBaseCluster.h"
 
 // Fast track fit based on Kalman filter
@@ -35,7 +36,7 @@ class NA6PFastTrackFitter
   ~NA6PFastTrackFitter(){};
 
   // setters for configurable parameters
-  void setMaxChi2Cl(double v = 10) { mMaxChi2Cl = v; }
+  void setMaxChi2Cl(float v = 10) { mMaxChi2Cl = v; }
   void setNLayers(int n)
   {
     mNLayers = n;
@@ -46,12 +47,12 @@ class NA6PFastTrackFitter
   void enableMaterialCorrections() { mCorrectForMaterial = true; }
   void disableMaterialCorrections() { mCorrectForMaterial = false; }
   void setPropagateToPrimaryVertex(bool opt = true) { mPropagateToPrimVert = opt; }
-  void setPrimaryVertexZ(double zvert)
+  void setPrimaryVertexZ(float zvert)
   {
     mPrimVertZ = zvert;
     mIsPrimVertSet = true;
   }
-  void setSeed(const double* pos, const double* mom, int charge = 1);
+  void setSeed(const float* pos, const float* mom, int charge = 1);
   void setCharge(int ch)
   {
     if (ch != 0)
@@ -78,30 +79,21 @@ class NA6PFastTrackFitter
 
   NA6PTrack* fitTrackPoints();
   bool updateTrack(NA6PTrack* trc, const NA6PBaseCluster* cl) const;
-  int propagateToZ(NA6PTrack* trc, double zFrom, double zTo, int dir) const;
-  int propagateToZ(NA6PTrack* trc, double zTo) const;
-  void getMeanMaterialBudgetFromGeom(double* start, double* end, double* mparam) const;
-
-  static const Double_t kMassP;
-  static const Double_t kMassK;
-  static const Double_t kMassPi;
-  static const Double_t kMassMu;
-  static const Double_t kMassE;
-  static const Double_t kAlmostZero;
+  static const float kAlmostZero;
 
  protected:
   int mNLayers = 5;                  // number of active
-  double mMaxChi2Cl = 10.;           // max cluster-track chi2
+  float mMaxChi2Cl = 10.f;           // max cluster-track chi2
   bool mIsSeedSet = false;           // flag for set seed
   int mSeedOption = kThreePointSeed; // seed option (see enum)
-  double mSeedPos[3];                // seed for track position
-  double mSeedMom[3];                // seed for track momentum
+  float mSeedPos[3];                 // seed for track position
+  float mSeedMom[3];                 // seed for track momentum
   int mCharge = 1;                   // track charge for seed
-  double mMass = kMassPi;            // mass hypothesis for particle
   bool mPropagateToPrimVert = false; // flag for propagation to primary vertex
-  double mPrimVertZ = 0.0;           // primary vertex z
+  float mPrimVertZ = 0.0f;           // primary vertex z
   bool mIsPrimVertSet = false;       // flag for presence of prim vert z
   bool mCorrectForMaterial = true;   // flag for material corrections
+  PID mPID = PID::Pion;              // PID hypothesis for particle
 
   std::vector<const NA6PBaseCluster*> mClusters; // array with clusters
 
