@@ -24,11 +24,11 @@ NA6PVertex::NA6PVertex(const float* xyz, int nCont) : mPos{},
   setXYZ(xyz[0], xyz[1], xyz[2]);
 }
 //_______________________________________________________________________
-NA6PVertex::NA6PVertex(const std::array<float, 3> xyz, int nCont) : mPos{},
-                                                                    mCov{},
-                                                                    mChi2{0.0},
-                                                                    mNContributors{nCont},
-                                                                    mVertexType{kBaseVertex}
+NA6PVertex::NA6PVertex(const std::array<float, 3>& xyz, int nCont) : mPos{},
+                                                                     mCov{},
+                                                                     mChi2{0.0},
+                                                                     mNContributors{nCont},
+                                                                     mVertexType{kBaseVertex}
 {
   setXYZ(xyz[0], xyz[1], xyz[2]);
 }

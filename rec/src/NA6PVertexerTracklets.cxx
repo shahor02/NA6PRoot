@@ -734,7 +734,7 @@ bool NA6PVertexerTracklets::findVertexKDE(const std::vector<TracklIntersection>&
 //_______________________________________________________________________
 
 bool NA6PVertexerTracklets::compute3DVertices(const std::vector<TrackletForVertex>& selTracklets,
-                                              const std::vector<NA6PBaseCluster>& cluArr,
+                                              const std::vector<NA6PVerTelCluster>& cluArr,
                                               std::vector<NA6PVertex>& vertices)
 {
   const int nTracklets = selTracklets.size();

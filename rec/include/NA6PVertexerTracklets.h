@@ -197,7 +197,7 @@ class NA6PVertexerTracklets
   bool findVertexKDE(const std::vector<TracklIntersection>& zIntersec,
                      std::vector<NA6PVertex>& vertices);
   bool compute3DVertices(const std::vector<TrackletForVertex>& selTracklets,
-                         const std::vector<NA6PBaseCluster>& cluArr,
+                         const std::vector<NA6PVerTelCluster>& cluArr,
                          std::vector<NA6PVertex>& vertices);
   void printStats(const std::vector<TrackletForVertex>& candidates,
                   const std::vector<NA6PVerTelCluster>& cluArr,

@@ -39,7 +39,7 @@ class NA6PVertex
 
   NA6PVertex() = default;
   NA6PVertex(const ROOT::Math::XYZPointF& pos, const std::array<float, kNCov>& cov, int nCont, float chi2);
-  NA6PVertex(const std::array<float, 3> xyz, int nCont);
+  NA6PVertex(const std::array<float, 3>& xyz, int nCont);
   NA6PVertex(const float* xyz, int nCont);
   NA6PVertex(const NA6PVertex&) = default;
   NA6PVertex& operator=(const NA6PVertex&) = default;
