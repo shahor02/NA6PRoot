@@ -32,8 +32,8 @@ set(SIM_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/sim/include)
 add_subdirectory(rec)
 set(REC_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/rec/include)
 
-add_subdirectory(recNative)
-set(REC_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/recNative/include)
+#add_subdirectory(recNative)
+#set(REC_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/recNative/include)
 
 #add_subdirectory(varia/Pythia2HEPMC)
 

@@ -9,14 +9,12 @@
 #include "TRandom.h"
 #include "TParticle.h"
 
-ClassImp(GenMUONLMR)
-
-    GenMUONLMR::GenMUONLMR(Double_t energy, Int_t kLowEnergy) : fNMuMin(2),
-                                                                fGenSingleProc(-1),
-                                                                fCosTheta(0x0),
-                                                                fRhoLineShape(0x0),
-                                                                fHMultMu(0x0),
-                                                                fHNProc(0x0)
+GenMUONLMR::GenMUONLMR(Double_t energy, Int_t kLowEnergy) : fNMuMin(2),
+           fGenSingleProc(-1),
+           fCosTheta(0x0),
+           fRhoLineShape(0x0),
+           fHMultMu(0x0),
+           fHNProc(0x0)
 {
   //
   // default constructor
@@ -142,8 +140,8 @@ ClassImp(GenMUONLMR)
     }
     else
     {
-      //	fMult[i] = new TF1(fnname[i],"gaus(0)+gaus(3)+gaus(6)",0,150);
-      //	for (Int_t j=0; j<9; j++) fMult[i]->SetParameter(j,nparam[i][j]);
+      // fMult[i] = new TF1(fnname[i],"gaus(0)+gaus(3)+gaus(6)",0,150);
+      // for (Int_t j=0; j<9; j++) fMult[i]->SetParameter(j,nparam[i][j]);
       fMult[i] = new TF1("fnname[i]", "[0]*TMath::Poisson(x,[1])", 0, 30);
       fMult[i]->SetParameters(nparam[i][0], nparam[i][1]);
     }
@@ -554,8 +552,8 @@ void GenMUONLMR::Generate()
         mother = fParticle[ipart];
         mother->SetMomentum(px, py, pz, ene);
         mother->SetCalcMass(mass);
-        //	  fParticle[ipart]->SetMomentum(px,py,pz,ene);  // gu
-        //	  if (!KinematicSelection(mother,0)) continue;
+        //   fParticle[ipart]->SetMomentum(px,py,pz,ene);  // gu
+        //   if (!KinematicSelection(mother,0)) continue;
 
         Bool_t hasDecayed = kTRUE;
         if (idDec[iproc] == 0)
@@ -566,40 +564,40 @@ void GenMUONLMR::Generate()
           DecayPiK(mother, hasDecayed);
         if (!hasDecayed)
           continue;
-        // 	  Bool_t isMu0Acc = KinematicSelection(fMu[0],1);
-        // 	  Bool_t isMu1Acc = KinematicSelection(fMu[1],1);
-        // 	  Bool_t isMuFromPiKAcc = kTRUE;
+        //    Bool_t isMu0Acc = KinematicSelection(fMu[0],1);
+        //    Bool_t isMu1Acc = KinematicSelection(fMu[1],1);
+        //    Bool_t isMuFromPiKAcc = kTRUE;
 
-        // 	  if (idDec[iproc] == 2) isMuFromPiKAcc = (mother->GetPdgCode()>0) ? isMu0Acc : isMu1Acc;
-        // 	  // mother
-        // 	  if ((idDec[iproc]  < 2 && (isMu0Acc || isMu1Acc)) ||
-        // 	      (idDec[iproc] == 2 && isMuFromPiKAcc)) {
-        // 	    pdgPushed[npartPushed] = mother->GetPdgCode();
-        // 	    pxPushed[npartPushed] = mother->Px();
-        // 	    pyPushed[npartPushed] = mother->Py();
-        // 	    pzPushed[npartPushed] = mother->Pz();
-        // 	    ePushed[npartPushed] = mother->Energy();
-        // 	    npartPushed++;
-        // 	    if (isMu0Acc && (idDec[iproc] < 2 || mother->GetPdgCode() > 0)) {
-        // 	      pdgPushed[npartPushed] = fMu[0]->GetPdgCode();
-        // 	      pxPushed[npartPushed] = fMu[0]->Px();
-        // 	      pyPushed[npartPushed] = fMu[0]->Py();
-        // 	      pzPushed[npartPushed] = fMu[0]->Pz();
-        // 	      ePushed[npartPushed] = fMu[0]->Energy();
-        // 	      npartPushed++;
-        // 	      nmuons++;
-        // 	    }
+        //    if (idDec[iproc] == 2) isMuFromPiKAcc = (mother->GetPdgCode()>0) ? isMu0Acc : isMu1Acc;
+        //    // mother
+        //    if ((idDec[iproc]  < 2 && (isMu0Acc || isMu1Acc)) ||
+        //        (idDec[iproc] == 2 && isMuFromPiKAcc)) {
+        //      pdgPushed[npartPushed] = mother->GetPdgCode();
+        //      pxPushed[npartPushed] = mother->Px();
+        //      pyPushed[npartPushed] = mother->Py();
+        //      pzPushed[npartPushed] = mother->Pz();
+        //      ePushed[npartPushed] = mother->Energy();
+        //      npartPushed++;
+        //      if (isMu0Acc && (idDec[iproc] < 2 || mother->GetPdgCode() > 0)) {
+        //        pdgPushed[npartPushed] = fMu[0]->GetPdgCode();
+        //        pxPushed[npartPushed] = fMu[0]->Px();
+        //        pyPushed[npartPushed] = fMu[0]->Py();
+        //        pzPushed[npartPushed] = fMu[0]->Pz();
+        //        ePushed[npartPushed] = fMu[0]->Energy();
+        //        npartPushed++;
+        //        nmuons++;
+        //      }
 
-        // 	    if (isMu1Acc && (idDec[iproc] < 2 || mother->GetPdgCode() < 0)) {
-        // 	      pdgPushed[npartPushed] = fMu[1]->GetPdgCode();
-        // 	      pxPushed[npartPushed] = fMu[1]->Px();
-        // 	      pyPushed[npartPushed] = fMu[1]->Py();
-        // 	      pzPushed[npartPushed] = fMu[1]->Pz();
-        // 	      ePushed[npartPushed] = fMu[1]->Energy();
-        // 	      npartPushed++;
-        // 	      nmuons++;
-        // 	    }
-        // 	  }
+        //      if (isMu1Acc && (idDec[iproc] < 2 || mother->GetPdgCode() < 0)) {
+        //        pdgPushed[npartPushed] = fMu[1]->GetPdgCode();
+        //        pxPushed[npartPushed] = fMu[1]->Px();
+        //        pyPushed[npartPushed] = fMu[1]->Py();
+        //        pzPushed[npartPushed] = fMu[1]->Pz();
+        //        ePushed[npartPushed] = fMu[1]->Energy();
+        //        npartPushed++;
+        //        nmuons++;
+        //      }
+        //    }
 
       } // end if BR
     } // end loop on multiplicity
@@ -611,18 +609,18 @@ void GenMUONLMR::Generate()
   //   for (Int_t ipart = 0; ipart < npartPushed; ipart++) {
   //     if (TMath::Abs(pdgPushed[ipart]) != 13) { // particle is not a muon, hence it's a mother
   //       PushTrack(0,-1,pdgPushed[ipart],
-  // 		pxPushed[ipart],pyPushed[ipart],pzPushed[ipart],ePushed[ipart],
-  // 		origin0[0],origin0[1],origin0[2],0.,
-  // 		polar[0],polar[1],polar[2],
-  // 		kPPrimary,ntmother,1,11);
+  //   pxPushed[ipart],pyPushed[ipart],pzPushed[ipart],ePushed[ipart],
+  //   origin0[0],origin0[1],origin0[2],0.,
+  //   polar[0],polar[1],polar[2],
+  //   kPPrimary,ntmother,1,11);
   //       KeepTrack(ntmother);
   //     }
   //     else {
   //       PushTrack(1,ntmother,pdgPushed[ipart],
-  // 		pxPushed[ipart],pyPushed[ipart],pzPushed[ipart],ePushed[ipart],
-  // 		origin0[0],origin0[1],origin0[2],0.,
-  // 		polar[0],polar[1],polar[2],
-  // 		kPDecay,ntchild,1,1);
+  //   pxPushed[ipart],pyPushed[ipart],pzPushed[ipart],ePushed[ipart],
+  //   origin0[0],origin0[1],origin0[2],0.,
+  //   polar[0],polar[1],polar[2],
+  //   kPDecay,ntchild,1,1);
   //       KeepTrack(ntchild);
   //     }
   //   }

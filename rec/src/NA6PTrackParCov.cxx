@@ -5,13 +5,28 @@
 #include <algorithm>
 #include <fairlogger/Logger.h>
 
+NA6PTrackParCov::NA6PTrackParCov(const float* xyz, const float* pxyz, int sign, float errLoose) : NA6PTrackPar(xyz, pxyz, sign)
+{
+  setCov({1e-6f, 0.f, 1e-6f, 0.f, 0.f, 1e-6f, 0.f, 0.f, 0.f, 1e-6f, 0.f, 0.f, 0.f, 0.f, 1e-2f});
+  if (errLoose >= -2)
+    resetCovariance(errLoose);
+}
+
+void NA6PTrackParCov::init(const float* xyz, const float* pxyz, int sign, float errLoose)
+{
+  initParam(xyz, pxyz, sign);
+  setCov({1e-6f, 0.f, 1e-6f, 0.f, 0.f, 1e-6f, 0.f, 0.f, 0.f, 1e-6f, 0.f, 0.f, 0.f, 0.f, 1e-2f});
+  if (errLoose >= -2)
+    resetCovariance(errLoose);
+}
+
 std::string NA6PTrackParCov::asString() const
 {
   return fmt::format("{} Cov=[{:+.3e}, {:+.3e},{:+.3e}, {:+.3e},{:+.3e},{:+.3e}, {:+.3e},{:+.3e},{:+.3e},{:+.3e}, {:+.3e},{:+.3e},{:+.3e},{:+.3e},{:+.3e}]",
                      NA6PTrackPar::asString(), mC[0], mC[1], mC[2], mC[3], mC[4], mC[5], mC[6], mC[7], mC[8], mC[9], mC[10], mC[11], mC[12], mC[13], mC[14]);
 }
 
-bool NA6PTrackParCov::propagate(float z, float by)
+bool NA6PTrackParCov::propagateToZ(float z, float by)
 {
   using prec_t = double;
   const float dz = z - getZ();
@@ -139,7 +154,7 @@ void NA6PTrackParCov::propagateCov(double f02, double f03, double f04, double f1
 }
 
 // calculate chi2 between the track and the cluster
-float NA6PTrackParCov::getPredictedChi2(float xm, float ym, float sx2, float syx, float sy2)
+float NA6PTrackParCov::getPredictedChi2(float xm, float ym, float sx2, float syx, float sy2) const
 {
   auto exx = static_cast<double>(getSigmaX2()) + static_cast<double>(sx2);
   auto eyx = static_cast<double>(getSigmaYX()) + static_cast<double>(syx);
@@ -232,7 +247,7 @@ bool NA6PTrackParCov::update(float xm, float ym, float sx2, float sxy, float sy2
   return true;
 }
 
-void NA6PTrackParCov::resetCovariance(value_t s2)
+void NA6PTrackParCov::resetCovariance(float s2)
 {
   constexpr float
     kCX2max = 100 * 100,    // SigmaX<=100cm
@@ -244,40 +259,116 @@ void NA6PTrackParCov::resetCovariance(value_t s2)
 
   // Reset the covarince matrix to "something big"
   float d0(kCX2max), d1(kCY2max), d2(kCTx2max), d3(kCTy2max), d4(kC1P2max);
-  if (s2 > constants::math::Almost0) {
+  if (s2 > 1e-16f) {
     d0 = getSigmaX2() * s2;
     d1 = getSigmaY2() * s2;
     d2 = getSigmaTx2() * s2;
     d3 = getSigmaTy2() * s2;
     d4 = getSigmaQ2P2() * s2;
-    if (d0 > kCY2max) {
-      d0 = kCY2max;
+    if (d0 > kCX2max) {
+      d0 = kCX2max;
     }
-    if (d1 > kCZ2max) {
-      d1 = kCZ2max;
+    if (d1 > kCY2max) {
+      d1 = kCY2max;
     }
-    if (d2 > kCSnp2max) {
-      d2 = kCSnp2max;
+    if (d2 > kCTx2max) {
+      d2 = kCTx2max;
     }
-    if (d3 > kCTgl2max) {
-      d3 = kCTgl2max;
+    if (d3 > kCTy2max) {
+      d3 = kCTy2max;
     }
-    if (d4 > kC1Pt2max) {
-      d4 = kC1Pt2max;
+    if (d4 > kC1P2max) {
+      d4 = kC1P2max;
     }
   }
   for (int i = 0; i < 15; i++) {
     mC[i] = 0;
   }
-  mC[kSigY2] = d0;
-  mC[kSigZ2] = d1;
-  mC[kSigSnp2] = d2;
-  mC[kSigTgl2] = d3;
-  mC[kSigQ2Pt2] = d4;
+  mC[kXX] = d0;
+  mC[kYY] = d1;
+  mC[kTxTx] = d2;
+  mC[kTyTy] = d3;
+  mC[kQ2PQ2P] = d4;
 }
 
 bool NA6PTrackParCov::correctForMeanMaterial(float xOverX0, float xTimesRho)
 {
-  LOGP(error, "TODO correctForMeanMaterial");
+  // multiple scattering in Rossi param, no log term
+
+  auto p = getP(), p0 = p, p2 = p * p;
+  auto en2 = p * p + mPID.getMass2();
+  auto beta2 = p2 / en2;
+  if (xOverX0 != 0.f) {
+    auto theta2 = kMSConst2 * xOverX0 / (beta2 * p2);
+    mC[kTxTx] += theta2;
+    mC[kTyTy] += theta2;
+  }
+  if (xTimesRho != 0.f) {
+    auto m = mPID.getMass();
+    auto en = std::sqrt(en2), en0 = en, ekin = en - m, betagamma = p * mPID.getMassInv(), dedx = BetheBlochSolidOpt(betagamma);
+#ifdef _BB_NONCONST_CORR_
+    auto dedxDer = 0.f, dedx1 = dedx;
+#endif
+    // if (charge2 != 1) dedx *= charge2;
+    auto dE = dedx * xTimesRho, dETot = 0.f;
+    int na = 1 + int(std::abs(dE) / ekin * ELoss2EKinThreshInv);
+    if (na > MaxELossIter) {
+      na = MaxELossIter;
+    }
+    if (na > 1) {
+      dE /= na;
+      xTimesRho /= na;
+#ifdef _BB_NONCONST_CORR_
+      dedxDer = BetheBlochSolidDerivative(dedx1, betagamma); // require correction for non-constantness of dedx vs betagamma
+                                                             // if (charge2 != 1) dedxDer *= charge2;
+#endif
+    }
+    while (na--) {
+#ifdef _BB_NONCONST_CORR_
+      if (dedxDer != 0.f) { // correction for non-constantness of dedx vs beta*gamma (in linear approximation): for a single step dE -> dE * [(exp(dedxDer) - 1)/dedxDer]
+        if (xTimesRho < 0.f) {
+          dedxDer = -dedxDer; // E.loss ( -> positive derivative)
+        }
+        auto corrC = (std::exp(dedxDer) - 1.f) / dedxDer;
+        dE *= corrC;
+      }
+#endif
+      en += dE;
+      if (en > m) { // stopped
+        p = std::sqrt(en * en - mPID.getMass2());
+      } else {
+        return false;
+      }
+      if (na) {
+        betagamma = p * mPID.getMassInv();
+        dedx = BetheBlochSolidOpt(betagamma);
+#ifdef _BB_NONCONST_CORR_
+        dedxDer = BetheBlochSolidDerivative(dedx, betagamma);
+#endif
+        // if (charge2 != 1) {
+        //   dedx *= charge2;
+        // #ifdef _BB_NONCONST_CORR_
+        //   dedxDer *= charge2;
+        // #endif
+        // }
+        dE = dedx * xTimesRho;
+      }
+    }
+    if (p < kMinP) {
+      return false;
+    }
+    dETot = en - en0;
+    // Linearised transform u' = f(u) for u = q/p:
+    //   u0 = q/p0, p0 = q/u0
+    //   u1 = q/(p0 - dE) = f(u0)
+    //   f'(u0) = (p0 / p1)^2
+    auto q2pscale = p0 / p, der = q2pscale * q2pscale;
+    mC[kQ2PX] = der;
+    mC[kQ2PY] = der;
+    mC[kQ2PTx] = der;
+    mC[kQ2PTy] = der;
+    mC[kQ2PQ2P] = der * der;
+    mP[kQ2P] = getSign() / p;
+  }
   return true;
 }

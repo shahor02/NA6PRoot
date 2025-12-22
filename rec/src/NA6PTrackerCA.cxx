@@ -11,21 +11,17 @@
 #include "NA6PTrackerCA.h"
 #include "NA6PMuonSpecCluster.h"
 #include "NA6PVerTelCluster.h"
+#include "Propagator.h"
 
-ClassImp(NA6PTrackerCA)
-
-  //______________________________________________________________________
-
-  //______________________________________________________________________
-
-  NA6PTrackerCA::NA6PTrackerCA() : mLayerStart{0},
-                                   mNLayers{5},
-                                   mPrimVertPos{0., 0., 0.},
-                                   mTrackFitter{nullptr},
-                                   mIsClusterUsed{false},
-                                   mMaxSharedClusters{0},
-                                   mVerbose{false},
-                                   mNIterationsCA{2}
+//______________________________________________________________________
+NA6PTrackerCA::NA6PTrackerCA() : mLayerStart{0},
+                                 mNLayers{5},
+                                 mPrimVertPos{0., 0., 0.},
+                                 mTrackFitter{nullptr},
+                                 mIsClusterUsed{false},
+                                 mMaxSharedClusters{0},
+                                 mVerbose{false},
+                                 mNIterationsCA{2}
 {
   mTrackFitter = new NA6PFastTrackFitter();
   mTrackFitter->setNLayers(mNLayers);
@@ -55,15 +51,15 @@ void NA6PTrackerCA::setNumberOfIterations(int nIter)
     LOGP(error, "Number of iterations should be <= {}", kMaxIterationsCA);
 }
 void NA6PTrackerCA::setIterationParams(int iter,
-                                       double maxDeltaThetaTracklets,
-                                       double maxDeltaPhiTracklets,
-                                       double maxDeltaTanLCells,
-                                       double maxDeltaPhiCells,
-                                       double maxDeltaPxPzCells,
-                                       double maxDeltaPyPzCells,
-                                       double maxChi2TrClCells,
-                                       double maxChi2ndfCells,
-                                       double maxChi2ndfTracks,
+                                       float maxDeltaThetaTracklets,
+                                       float maxDeltaPhiTracklets,
+                                       float maxDeltaTanLCells,
+                                       float maxDeltaPhiCells,
+                                       float maxDeltaPxPzCells,
+                                       float maxDeltaPyPzCells,
+                                       float maxChi2TrClCells,
+                                       float maxChi2ndfCells,
+                                       float maxChi2ndfTracks,
                                        int minNClusTracks)
 {
   if (iter < 0 || iter >= mNIterationsCA) {
@@ -188,21 +184,21 @@ void NA6PTrackerCA::sortClustersByLayerAndEta(std::vector<ClusterType>& cluArr,
   }
   cluArr = std::move(reordered);
   // sort by theta within each layer (use z^2/r^2 as a proxy of theta to avoid sqrt and atan)
-  const double pvx = mPrimVertPos[0];
-  const double pvy = mPrimVertPos[1];
-  const double pvz = mPrimVertPos[2];
+  const float pvx = mPrimVertPos[0];
+  const float pvy = mPrimVertPos[1];
+  const float pvz = mPrimVertPos[2];
   for (int jLay = 0; jLay < mNLayers; jLay++) {
     auto first = cluArr.begin() + firstIndex[jLay];
     auto last = cluArr.begin() + lastIndex[jLay];
     std::sort(first, last, [pvx, pvy, pvz](const ClusterType& a, const ClusterType& b) {
-      double xa = a.getX() - pvx;
-      double ya = a.getY() - pvy;
-      double za = a.getZ() - pvz;
-      double xb = b.getX() - pvx;
-      double yb = b.getY() - pvy;
-      double zb = b.getZ() - pvz;
-      double r2a = xa * xa + ya * ya;
-      double r2b = xb * xb + yb * yb;
+      float xa = a.getX() - pvx;
+      float ya = a.getY() - pvy;
+      float za = a.getZ() - pvz;
+      float xb = b.getX() - pvx;
+      float yb = b.getY() - pvy;
+      float zb = b.getZ() - pvz;
+      float r2a = xa * xa + ya * ya;
+      float r2b = xb * xb + yb * yb;
       return za * za * r2b < zb * zb * r2a;
     });
   }
@@ -301,14 +297,14 @@ void NA6PTrackerCA::computeLayerTracklets(const std::vector<ClusterType>& cluArr
                                           const std::vector<int>& firstIndex,
                                           const std::vector<int>& lastIndex,
                                           std::vector<TrackletCandidate>& tracklets,
-                                          double deltaThetaMax,
-                                          double deltaPhiMax)
+                                          float deltaThetaMax,
+                                          float deltaPhiMax)
 {
 
   tracklets.clear();
-  const double pvx = mPrimVertPos[0];
-  const double pvy = mPrimVertPos[1];
-  const double pvz = mPrimVertPos[2];
+  const float pvx = mPrimVertPos[0];
+  const float pvy = mPrimVertPos[1];
+  const float pvz = mPrimVertPos[2];
 
   for (int iLayer = 0; iLayer < mNLayers - 1; ++iLayer) {
     auto layerBegin = cluArr.begin() + firstIndex[iLayer + 1];
@@ -317,31 +313,31 @@ void NA6PTrackerCA::computeLayerTracklets(const std::vector<ClusterType>& cluArr
       if (mIsClusterUsed[jClu1])
         continue;
       const ClusterType& clu1 = cluArr[jClu1];
-      double x1 = clu1.getX() - pvx;
-      double y1 = clu1.getY() - pvy;
-      double z1 = clu1.getZ() - pvz;
-      double r1 = std::sqrt(x1 * x1 + y1 * y1);
-      double theta1 = std::atan2(z1, r1);
-      double phi1 = std::atan2(y1, x1);
-      double tanth2Min = std::max(0., std::tan(theta1 - 1.2 * deltaThetaMax)); // 1.2 is a safety margin, the tan(theta) range is limited at zero to protect for the case in which theta1 - 1.2 * deltaThetaMax is <0, which would give a negative tangent. The minimum acceptable value for theta is 0
-      double tanth2Max = std::tan(theta1 + 1.2 * deltaThetaMax);
+      float x1 = clu1.getX() - pvx;
+      float y1 = clu1.getY() - pvy;
+      float z1 = clu1.getZ() - pvz;
+      float r1 = std::sqrt(x1 * x1 + y1 * y1);
+      float theta1 = std::atan2(z1, r1);
+      float phi1 = std::atan2(y1, x1);
+      float tanth2Min = std::max(0.f, std::tan(theta1 - 1.2f * deltaThetaMax)); // 1.2 is a safety margin, the tan(theta) range is limited at zero to protect for the case in which theta1 - 1.2 * deltaThetaMax is <0, which would give a negative tangent. The minimum acceptable value for theta is 0
+      float tanth2Max = std::tan(theta1 + 1.2f * deltaThetaMax);
       auto lower = std::partition_point(layerBegin, layerEnd,
                                         [pvx, pvy, pvz, tanth2Min](const ClusterType& clu) {
-                                          double x = clu.getX() - pvx;
-                                          double y = clu.getY() - pvy;
-                                          double z = clu.getZ() - pvz;
-                                          double r2 = x * x + y * y;
-                                          double tan2 = z * z / r2;
+                                          float x = clu.getX() - pvx;
+                                          float y = clu.getY() - pvy;
+                                          float z = clu.getZ() - pvz;
+                                          float r2 = x * x + y * y;
+                                          float tan2 = z * z / r2;
                                           return tan2 < tanth2Min * tanth2Min;
                                         });
 
       auto upper = std::partition_point(layerBegin, layerEnd,
                                         [pvx, pvy, pvz, tanth2Max](const ClusterType& clu) {
-                                          double x = clu.getX() - pvx;
-                                          double y = clu.getY() - pvy;
-                                          double z = clu.getZ() - pvz;
-                                          double r2 = x * x + y * y;
-                                          double tan2 = z * z / r2;
+                                          float x = clu.getX() - pvx;
+                                          float y = clu.getY() - pvy;
+                                          float z = clu.getZ() - pvz;
+                                          float r2 = x * x + y * y;
+                                          float tan2 = z * z / r2;
                                           return tan2 <= tanth2Max * tanth2Max;
                                         });
       int lowerIdx = std::distance(cluArr.begin(), lower);
@@ -350,22 +346,22 @@ void NA6PTrackerCA::computeLayerTracklets(const std::vector<ClusterType>& cluArr
         if (mIsClusterUsed[jClu2])
           continue;
         const ClusterType& clu2 = cluArr[jClu2];
-        double x2 = clu2.getX() - pvx;
-        double y2 = clu2.getY() - pvy;
-        double z2 = clu2.getZ() - pvz;
-        double r2 = std::sqrt(x2 * x2 + y2 * y2);
-        double theta2 = std::atan2(z2, r2);
-        double phi2 = std::atan2(y2, x2);
-        double dphi = phi2 - phi1;
+        float x2 = clu2.getX() - pvx;
+        float y2 = clu2.getY() - pvy;
+        float z2 = clu2.getZ() - pvz;
+        float r2 = std::sqrt(x2 * x2 + y2 * y2);
+        float theta2 = std::atan2(z2, r2);
+        float phi2 = std::atan2(y2, x2);
+        float dphi = phi2 - phi1;
         if (dphi > M_PI)
           dphi -= 2 * M_PI;
         else if (dphi < -M_PI)
           dphi += 2 * M_PI;
         if (std::abs(theta2 - theta1) < deltaThetaMax && std::abs(dphi) < deltaPhiMax) {
-          double phi = std::atan2(y2 - y1, x2 - x1);
-          double tanL = (z2 - z1) / (r2 - r1);
-          double pxpz = (x2 - x1) / (z2 - z1);
-          double pypz = (y2 - y1) / (z2 - z1);
+          float phi = std::atan2(y2 - y1, x2 - x1);
+          float tanL = (z2 - z1) / (r2 - r1);
+          float pxpz = (x2 - x1) / (z2 - z1);
+          float pypz = (y2 - y1) / (z2 - z1);
           tracklets.emplace_back(iLayer, jClu1, jClu2, tanL, phi, pxpz, pypz);
           // do not assign the clusters as used, it will be done when the tracklets are used into tracks
           // mIsClusterUsed[jClu1] = true;
@@ -384,12 +380,12 @@ void NA6PTrackerCA::computeLayerCells(const std::vector<TrackletCandidate>& trac
                                       const std::vector<int>& lastIndex,
                                       const std::vector<ClusterType>& cluArr,
                                       std::vector<CellCandidate>& cells,
-                                      double deltaTanLMax,
-                                      double deltaPhiMax,
-                                      double deltaPxPzMax,
-                                      double deltaPyPzMax,
-                                      double maxChi2TrClu,
-                                      double maxChi2NDF)
+                                      float deltaTanLMax,
+                                      float deltaPhiMax,
+                                      float deltaPxPzMax,
+                                      float deltaPyPzMax,
+                                      float maxChi2TrClu,
+                                      float maxChi2NDF)
 {
 
   cells.clear();
@@ -407,23 +403,25 @@ void NA6PTrackerCA::computeLayerCells(const std::vector<TrackletCandidate>& trac
                                         [nextLayerClusterIndex](const TrackletCandidate& trkl) {
                                           return trkl.firstClusterIndex <= nextLayerClusterIndex;
                                         });
+      auto xxx = lower;
       for (auto it = lower; it != upper; ++it) {
         int jTrkl2 = it - tracklets.begin();
         const TrackletCandidate& trkl2 = *it;
+        xxx = it; // prev
         if (trkl2.firstClusterIndex != nextLayerClusterIndex)
           continue;
-        const double deltaTanLambda = std::abs(trkl2.tanL - trkl1.tanL);
-        double dphi = trkl2.phi - trkl1.phi;
+        const float deltaTanLambda = std::abs(trkl2.tanL - trkl1.tanL);
+        float dphi = trkl2.phi - trkl1.phi;
         if (dphi > M_PI)
           dphi -= 2 * M_PI;
         else if (dphi < -M_PI)
           dphi += 2 * M_PI;
-        double deltapxpz = std::abs(trkl2.pxpz - trkl1.pxpz);
-        double deltapypz = std::abs(trkl2.pypz - trkl1.pypz);
+        float deltapxpz = std::abs(trkl2.pxpz - trkl1.pxpz);
+        float deltapypz = std::abs(trkl2.pypz - trkl1.pypz);
         if (deltapypz < deltaPyPzMax && deltapxpz < deltaPxPzMax && deltaTanLambda < deltaTanLMax && std::abs(dphi) < deltaPhiMax) {
           std::array<int, 3> cluIDs = {trkl1.firstClusterIndex, trkl2.firstClusterIndex, trkl2.secondClusterIndex};
           NA6PTrack fitTrackFast;
-          //	  genfit::Track fitTrack;
+          //   genfit::Track fitTrack;
           if (fitTrackPointsFast(std::vector<int>(cluIDs.begin(), cluIDs.end()), cluArr, fitTrackFast, maxChi2TrClu, maxChi2NDF)) {
             cells.emplace_back(iLayer, jTrkl1, jTrkl2, std::move(cluIDs), fitTrackFast);
           }
@@ -436,16 +434,14 @@ void NA6PTrackerCA::computeLayerCells(const std::vector<TrackletCandidate>& trac
 //______________________________________________________________________
 
 template <typename ClusterType>
-double NA6PTrackerCA::computeTrackToClusterChi2(const NA6PTrack& track,
-                                                const ClusterType& clu)
+float NA6PTrackerCA::computeTrackToClusterChi2(const NA6PTrack& track,
+                                               const ClusterType& clu)
 {
-
-  double meas[2] = {clu.getYTF(), clu.getZTF()}; // ideal cluster coordinate, tracking (AliExtTrParam frame)
-  double measErr2[3] = {clu.getSigYY(), clu.getSigYZ(), clu.getSigZZ()};
   NA6PTrack copyToProp = track;
-  copyToProp.propagateToZBxByBz(clu.getZ()); // no material correction temporarily
-  double cluchi2 = copyToProp.getTrackExtParam().getPredictedChi2(meas, measErr2);
-  return cluchi2;
+  if (!Propagator::Instance()->propagateToZ(copyToProp, clu.getZ(), Propagator::MatCorrType::USEMatCorrNONE)) {
+    return 1e6;
+  }
+  return copyToProp.getPredictedChi2(clu);
 }
 
 //______________________________________________________________________
@@ -454,8 +450,8 @@ template <typename ClusterType>
 bool NA6PTrackerCA::fitTrackPointsFast(const std::vector<int>& cluIDs,
                                        const std::vector<ClusterType>& cluArr,
                                        NA6PTrack& fitTrack,
-                                       double maxChi2TrClu,
-                                       double maxChi2NDF)
+                                       float maxChi2TrClu,
+                                       float maxChi2NDF)
 {
 
   int nClus = cluIDs.size();
@@ -475,7 +471,7 @@ bool NA6PTrackerCA::fitTrackPointsFast(const std::vector<int>& cluIDs,
   if (!fitTrackPtr)
     return false;
 
-  double chi2ndf = fitTrackPtr->getNormChi2();
+  float chi2ndf = fitTrackPtr->getNormChi2();
   if (chi2ndf > maxChi2NDF)
     return false;
 
@@ -491,7 +487,7 @@ void NA6PTrackerCA::findCellsNeighbours(const std::vector<CellCandidate>& cells,
                                         const std::vector<int>& lastIndex,
                                         std::vector<std::pair<int, int>>& cneigh,
                                         const std::vector<ClusterType>& cluArr,
-                                        double maxChi2TrClu)
+                                        float maxChi2TrClu)
 {
 
   cneigh.clear();
@@ -517,12 +513,12 @@ void NA6PTrackerCA::findCellsNeighbours(const std::vector<CellCandidate>& cells,
         }
         int jClu2 = cell2.cluIDs[2];
         const auto& clu2 = cluArr[jClu2];
-        double cluchi2a = computeTrackToClusterChi2(cell1.trackFitFast, clu2);
+        float cluchi2a = computeTrackToClusterChi2(cell1.trackFitFast, clu2);
         if (cluchi2a > maxChi2TrClu)
           continue;
         int jClu0 = cell1.cluIDs[0];
         const auto& clu0 = cluArr[jClu0];
-        double cluchi2b = computeTrackToClusterChi2(cell2.trackFitFast, clu0);
+        float cluchi2b = computeTrackToClusterChi2(cell2.trackFitFast, clu0);
         if (cluchi2b > maxChi2TrClu)
           continue;
         cneigh.push_back(std::make_pair(jCe1, jCe2));
@@ -539,7 +535,7 @@ std::vector<TrackCandidate> NA6PTrackerCA::prolongSeed(const TrackCandidate& see
                                                        const std::vector<int>& firstIndex,
                                                        const std::vector<int>& lastIndex,
                                                        const std::vector<ClusterType>& cluArr,
-                                                       double maxChi2TrClu,
+                                                       float maxChi2TrClu,
                                                        ExtendDirection dir)
 {
 
@@ -585,13 +581,13 @@ std::vector<TrackCandidate> NA6PTrackerCA::prolongSeed(const TrackCandidate& see
         const auto& fitNext = ccNext.trackFitFast;
         int cluRefIndex = (dir == ExtendDirection::kInward) ? 2 : 0;
         const auto& cluRef = cluArr[refCell.cluIDs[cluRefIndex]];
-        double chi2a = computeTrackToClusterChi2(fitNext, cluRef);
+        float chi2a = computeTrackToClusterChi2(fitNext, cluRef);
         if (chi2a > maxChi2TrClu)
           continue;
         const auto& fitRef = refCell.trackFitFast;
         int cluNextIndex = (dir == ExtendDirection::kInward) ? 0 : 2;
         const auto& cluNext = cluArr[ccNext.cluIDs[cluNextIndex]];
-        double chi2b = computeTrackToClusterChi2(fitRef, cluNext);
+        float chi2b = computeTrackToClusterChi2(fitRef, cluNext);
         if (chi2b > maxChi2TrClu)
           continue;
         // create new prolonged track
@@ -631,7 +627,7 @@ void NA6PTrackerCA::findRoads(const std::vector<std::pair<int, int>>& cneigh,
                               const std::vector<TrackletCandidate>& tracklets,
                               const std::vector<ClusterType>& cluArr,
                               std::vector<TrackCandidate>& trackCands,
-                              double maxChi2TrClu)
+                              float maxChi2TrClu)
 {
 
   trackCands.clear();
@@ -706,9 +702,9 @@ template <typename ClusterType>
 void NA6PTrackerCA::fitAndSelectTracks(const std::vector<TrackCandidate>& trackCands,
                                        const std::vector<ClusterType>& cluArr,
                                        std::vector<TrackFitted>& tracks,
-                                       double maxChi2TrClu,
+                                       float maxChi2TrClu,
                                        int minNClu,
-                                       double maxChi2NDF)
+                                       float maxChi2NDF)
 {
 
   std::vector<TrackFitted> fittedTracks;
@@ -738,7 +734,7 @@ void NA6PTrackerCA::fitAndSelectTracks(const std::vector<TrackCandidate>& trackC
     // double chi2 = fitTrack.getFitStatus(rep)->getChi2();
     // double ndf = fitTrack.getFitStatus(rep)->getNdf();
     // double chi2ndf = (ndf > 0) ? chi2 / ndf : 9999.0;
-    double chi2ndf = fitTrackFast.getNormChi2();
+    float chi2ndf = fitTrackFast.getNormChi2();
     fittedTracks.emplace_back(cand.innerLayer, cand.outerLayer, nClus, cand.cluIDs, std::move(fitTrackFast), chi2ndf);
   }
   // sort by chi2 in view of selection
@@ -888,7 +884,7 @@ void NA6PTrackerCA::printStats(const std::vector<T>& candidates,
     LOGP(info, "Number of {} = {}", label.c_str(), nFound);
   int nGood = 0;
   int nSelected = 0;
-  double aveClus = 0;
+  float aveClus = 0;
   for (int j = 0; j < nFound; ++j) {
     const auto& tr = candidates[j];
     int nClus = -1;
@@ -950,14 +946,16 @@ void NA6PTrackerCA::printStats(const std::vector<T>& candidates,
   if (requiredClus > 0) {
     if (nSelected > 0) {
       LOGP(info, "{} with {} clus: Fraction of good = {} / {} = {}  --- average clus = {}",
-           label.c_str(), requiredClus, nGood, nSelected, (double)nGood / (double)nSelected, aveClus / (double)nSelected);
+           label.c_str(), requiredClus, nGood, nSelected, static_cast<float>(nGood) / static_cast<float>(nSelected),
+           aveClus / static_cast<float>(nSelected));
     } else {
       LOGP(info, "No {} having {} clus", label.c_str(), requiredClus);
     }
   } else {
     if (nFound > 0)
       LOGP(info, "Fraction of good {} = {} / {} = {}  --- average clus = {}",
-           label.c_str(), nGood, nFound, (double)nGood / (double)nFound, aveClus / (double)nFound);
+           label.c_str(), nGood, nFound, static_cast<float>(nGood) / static_cast<float>(nFound),
+           aveClus / static_cast<float>(nFound));
   }
 }
 
