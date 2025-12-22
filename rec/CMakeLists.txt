@@ -25,6 +25,7 @@ set(DICTIONARY_HEADERS
   ExtTrackPar.h
   NA6PTrack.h
   NA6PVertex.h
+  NA6PLine.h
   NA6PRecoParam.h
   NA6PReconstruction.h
   NA6PVerTelReconstruction.h

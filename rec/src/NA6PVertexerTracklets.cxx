@@ -41,7 +41,9 @@ void NA6PVertexerTracklets::configureFromRecoParam(const std::string& filename)
     LOGP(error, "Wrong option {} for reco type: won't apply this setting", rtyp.c_str());
   mMaxDCAxy = param.vertexerMaxDCAxy;
   const std::string& pmet = param.vertexerPeakMethod;
-  if (pmet == "KDE")
+  if (pmet == "Pairs")
+    mMethod = kPairs;
+  else if (pmet == "KDE")
     mMethod = kKDE;
   else if (pmet == "HistoPeak")
     mMethod = kHistoPeak;
@@ -72,14 +74,29 @@ void NA6PVertexerTracklets::configureFromRecoParam(const std::string& filename)
     LOGP(error, "Wrong option {} for KDE: won't apply this setting", kopt.c_str());
   mNGridKDE = param.vertexerNGridKDE;
   mKDEBandwidth = param.vertexerKDEBandwidth;
+  mMaxPairDCA = param.vertexerMaxPairDCA;
+  mMaxPairVertRadius = param.vertexerMaxPairVertRadius;
+  mMinCandidateDistanceZ = param.vertexerMinCandidateDistanceZ;
+  mMinCandidateDistance3D = param.vertexerMinCandidateDistance3D;
+  mAllowSingleConstribClusters = param.vertexerAllowSingleConstribClusters;
+  const std::string& popt = param.vertexerMultiVertexMode;
+  if (popt == "Off")
+    mMultiVertexMode = kMultiVertOff;
+  else if (popt == "Iterative")
+    mMultiVertexMode = kMultiVertIterative;
+  else if (popt == "AllInOneGo")
+    mMultiVertexMode = kAllVerticesInOneGo;
+  else
+    LOGP(error, "Wrong option {} for multiple vertices: won't apply this setting", popt.c_str());
 }
 
 void NA6PVertexerTracklets::printConfiguration() const
 {
   static const char* recoTypeNames[] = {"YZ", "RZ", "3D", "XZ"};
-  static const char* methodNames[] = {"KDE", "HistoPeak"};
+  static const char* methodNames[] = {"KDE", "HistoPeak", "Pairs"};
   static const char* weightedMeanNames[] = {"NoWeight", "TanL", "Sigma"};
   static const char* kdeOptionNames[] = {"StandardKDE", "AdaptiveKDE"};
+  static const char* multiVertexNames[] = {"Off", "Iterative", "AllInOne"};
 
   std::cout << "Tracklet building selections:\n";
   std::cout << "  MaxDeltaThetaTracklet = " << mMaxDeltaThetaTracklet << " rad\n";
@@ -108,7 +125,15 @@ void NA6PVertexerTracklets::printConfiguration() const
     std::cout << "  KDEOption = " << kdeOptionNames[mKDEOption] << "\n";
     std::cout << "  NGridKDE = " << mNGridKDE << "\n";
     std::cout << "  KDEBandwidth = " << mKDEBandwidth << " cm\n";
+  } else if (mMethod == kPairs) {
+    std::cout << "Tracklet-pairs parameters:\n";
+    std::cout << "  MaxPairDCA = " << mMaxPairDCA << "\n";
+    std::cout << "  MaxPairVertRadius = " << mMaxPairVertRadius << "\n";
+    std::cout << "  MinCandidateDistanceZ = " << mMinCandidateDistanceZ << "\n";
+    std::cout << "  MinCandidateDistance3D = " << mMinCandidateDistance3D << "\n";
+    std::cout << "  AllowSingleConstribClusters = " << mAllowSingleConstribClusters << "\n";
   }
+  std::cout << "MultiVertexMode = " << multiVertexNames[mMultiVertexMode] << "\n";
   std::cout << "===================================\n";
 }
 
@@ -608,7 +633,7 @@ bool NA6PVertexerTracklets::findVertexHistoPeak(std::vector<TracklIntersection>&
   }
   float pos[3] = {mBeamX, mBeamY, zMean};
   NA6PVertex vert(pos, nContrib);
-  vert.setVertexType(NA6PVertex::kTrackletPrimaryVertex);
+  vert.setVertexType(NA6PVertex::kTrackletPrimaryVertexZ);
   vertices.push_back(vert);
   return true;
 }
@@ -701,8 +726,185 @@ bool NA6PVertexerTracklets::findVertexKDE(const std::vector<TracklIntersection>&
   }
   float pos[3] = {mBeamX, mBeamY, zPeak};
   NA6PVertex vert(pos, nContrib);
-  vert.setVertexType(NA6PVertex::kTrackletPrimaryVertex);
+  vert.setVertexType(NA6PVertex::kTrackletPrimaryVertexZ);
   vertices.push_back(vert);
+  return true;
+}
+
+//_______________________________________________________________________
+
+bool NA6PVertexerTracklets::compute3DVertices(const std::vector<TrackletForVertex>& selTracklets,
+                                              const std::vector<NA6PVerTelCluster>& cluArr,
+                                              std::vector<NA6PVertex>& vertices)
+{
+  const int nTracklets = selTracklets.size();
+  std::vector<NA6PLine> trackletLines;
+  trackletLines.reserve(nTracklets);
+  // Build lines from tracklets
+  for (auto& trkl : selTracklets) {
+    auto clu0 = cluArr[trkl.firstClusterIndex];
+    auto clu1 = cluArr[trkl.secondClusterIndex];
+    float p0[3] = {clu0.getX(), clu0.getY(), clu0.getZ()};
+    float p1[3] = {clu1.getX(), clu1.getY(), clu1.getZ()};
+    trackletLines.emplace_back(NA6PLine(p0, p1));
+  }
+  // Mark tracklets containing clusters already used in previous vertices
+  std::vector<bool> isTrackletUsed(nTracklets, false);
+  int usable = 0;
+  for (int jTr = 0; jTr < nTracklets; ++jTr) {
+    auto trkl = selTracklets[jTr];
+    if (mIsClusterUsed[trkl.firstClusterIndex] || mIsClusterUsed[trkl.secondClusterIndex])
+      isTrackletUsed[jTr] = true;
+    else
+      usable++;
+  }
+  LOGP(info, "Usable tracklets = {}", usable);
+  if (usable == 0)
+    return false;
+  // Build candidate vertices by pairing tracklets and growing seeds
+  std::vector<ClusterLines> candVertices;
+  for (int jTr1 = 0; jTr1 < nTracklets; ++jTr1) {
+    if (isTrackletUsed[jTr1])
+      continue;
+    const NA6PLine& line1 = trackletLines[jTr1];
+    for (int jTr2 = jTr1 + 1; jTr2 < nTracklets; ++jTr2) {
+      if (isTrackletUsed[jTr2])
+        continue;
+      const NA6PLine& line2 = trackletLines[jTr2];
+      float dca = NA6PLine::getDCA(line1, line2);
+      if (dca < mMaxPairDCA) {
+        // Seed vertex
+        candVertices.emplace_back(jTr1, line1, jTr2, line2);
+        std::array<float, 3> tmpVertex = candVertices.back().getVertex();
+        float rad2 = tmpVertex[0] * tmpVertex[0] + tmpVertex[1] * tmpVertex[1];
+        // Reject seed if outside allowed region
+        if (rad2 > mMaxPairVertRadius * mMaxPairVertRadius || tmpVertex[2] < mZMin || tmpVertex[2] > mZMax) {
+          candVertices.pop_back();
+          break;
+        }
+        // grow the candidate vertex by attaching tracklets compatible with the evolving vertex position
+        // Tracklets used in candidates are excluded from further seeding
+        isTrackletUsed[jTr1] = true;
+        isTrackletUsed[jTr2] = true;
+        for (int jTr3 = 0; jTr3 < nTracklets; ++jTr3) {
+          if (isTrackletUsed[jTr3])
+            continue;
+          const NA6PLine& line3 = trackletLines[jTr3];
+          if (NA6PLine::getDistanceFromPoint(line3, tmpVertex) < mMaxPairDCA) {
+            candVertices.back().add(jTr3, line3);
+            isTrackletUsed[jTr3] = true;
+            tmpVertex = candVertices.back().getVertex();
+          }
+        }
+        // Stop the loop after first valid seed is found
+        // the vertex is fully grown by adding all compatible tracklets
+        break;
+      }
+    }
+  }
+  if (mAllowSingleConstribClusters || nTracklets == 1) {
+    float pb0[3] = {mBeamX, mBeamY, -50.f};
+    float pb1[3] = {mBeamX, mBeamY, 50.f};
+    NA6PLine beamLine(pb0, pb1);
+    for (int jTr = 0; jTr < nTracklets; ++jTr) {
+      if (!isTrackletUsed[jTr]) {
+        const NA6PLine& line = trackletLines[jTr];
+        float dca = NA6PLine::getDCA(line, beamLine);
+        if (dca < mMaxPairDCA) {
+          candVertices.emplace_back(jTr, line, -1, beamLine);
+          std::array<float, 3> tmpVertex = candVertices.back().getVertex();
+          float rad2 = tmpVertex[0] * tmpVertex[0] + tmpVertex[1] * tmpVertex[1];
+          // Reject seed if outside allowed region
+          if (rad2 > mMaxPairVertRadius * mMaxPairVertRadius || tmpVertex[2] < mZMin || tmpVertex[2] > mZMax) {
+            candVertices.pop_back();
+          }
+        }
+      }
+    }
+  }
+  int nCandVertices = candVertices.size();
+  if (nCandVertices == 0)
+    return false;
+  std::sort(candVertices.begin(), candVertices.end(),
+            [](const ClusterLines& cluster1, const ClusterLines& cluster2) {
+              return cluster1.getSize() > cluster2.getSize();
+            });
+  if (mVerbose) {
+    LOGP(info, "Clusters of Tracklets before grouping");
+    int usedTracklets = 0;
+    for (int jCand = 0; jCand < nCandVertices; ++jCand) {
+      std::array<float, 3> vertex1 = candVertices[jCand].getVertex();
+      LOGP(info, "Candidate {}  ncontrib = {}   pos = {} {} {}", jCand, candVertices[jCand].getSize(), vertex1[0], vertex1[1], vertex1[2]);
+      usedTracklets += candVertices[jCand].getSize();
+    }
+    LOGP(info, "Number of used tracklets = {}", usedTracklets);
+  }
+  // merge nearby clusters
+  for (int jCand1 = 0; jCand1 < nCandVertices; ++jCand1) {
+    std::array<float, 3> vertex1 = candVertices[jCand1].getVertex();
+    for (int jCand2 = jCand1 + 1; jCand2 < nCandVertices; ++jCand2) {
+      std::array<float, 3> vertex2 = candVertices[jCand2].getVertex();
+      if (std::abs(vertex1[2] - vertex2[2]) < mMinCandidateDistanceZ) {
+        float distance = (vertex1[0] - vertex2[0]) * (vertex1[0] - vertex2[0]) +
+                         (vertex1[1] - vertex2[1]) * (vertex1[1] - vertex2[1]) +
+                         (vertex1[2] - vertex2[2]) * (vertex1[2] - vertex2[2]);
+        if (distance < mMinCandidateDistance3D) {
+          for (auto label : candVertices[jCand2].getLabels()) {
+            const NA6PLine& line = trackletLines[label];
+            candVertices[jCand1].add(label, line);
+          }
+          vertex1 = candVertices[jCand1].getVertex();
+        }
+        candVertices.erase(candVertices.begin() + jCand2);
+        --jCand2;
+        --nCandVertices;
+      }
+    }
+  }
+  std::sort(candVertices.begin(), candVertices.end(),
+            [](const ClusterLines& cluster1, const ClusterLines& cluster2) {
+              return cluster1.getSize() > cluster2.getSize();
+            });
+  if (mVerbose) {
+    LOGP(info, "Clusters of Tracklets after grouping");
+    int usedTracklets = 0;
+    for (int jCand = 0; jCand < nCandVertices; ++jCand) {
+      std::array<float, 3> vertex1 = candVertices[jCand].getVertex();
+      LOGP(info, "Candidate {}  ncontrib = {}   pos = {} {} {} width = {}", jCand, candVertices[jCand].getSize(), vertex1[0], vertex1[1], vertex1[2], candVertices[jCand].getAvgDistance2());
+      usedTracklets += candVertices[jCand].getSize();
+    }
+    LOGP(info, "Number of used tracklets = {}", usedTracklets);
+  }
+  int contribLargestVert = candVertices[0].getSize();
+  if (contribLargestVert < mMinCountsInPeak)
+    return false;
+  if (mMultiVertexMode == kAllVerticesInOneGo) {
+    // store all vertices
+    for (int jCand = 0; jCand < nCandVertices; ++jCand) {
+      std::array<float, 3> pos = candVertices[jCand].getVertex();
+      int nContrib = candVertices[jCand].getSize();
+      NA6PVertex vert(pos, nContrib);
+      vert.setVertexType(NA6PVertex::kTrackletPrimaryVertex3D);
+      vert.setChi2(candVertices[jCand].getAvgDistance2());
+      vertices.push_back(vert);
+    }
+  } else {
+    if (!candVertices.empty()) {
+      // store the main (highest multiplicity vertex)
+      std::array<float, 3> pos = candVertices[0].getVertex();
+      int nContrib = candVertices[0].getSize();
+      NA6PVertex vert(pos, nContrib);
+      vert.setVertexType(NA6PVertex::kTrackletPrimaryVertex3D);
+      vert.setChi2(candVertices[0].getAvgDistance2());
+      vertices.push_back(vert);
+      // mark as used the hits of the main vertex
+      for (auto label : candVertices[0].getLabels()) {
+        auto trkl = selTracklets[label];
+        mIsClusterUsed[trkl.firstClusterIndex] = true;
+        mIsClusterUsed[trkl.secondClusterIndex] = true;
+      }
+    }
+  }
   return true;
 }
 
@@ -730,27 +932,37 @@ void NA6PVertexerTracklets::findVertices(std::vector<NA6PVerTelCluster>& cluArr,
   selectTracklets(allTracklets, firstTrklPerLay, lastTrklPerLay, cluArr, selTracklets);
   if (mVerbose)
     printStats(selTracklets, cluArr, "selected tracklets");
-  computeIntersections(selTracklets, cluArr, zIntersec);
   bool retCode;
-  if (mMethod == kKDE)
-    retCode = findVertexKDE(zIntersec, vertices);
-  else
-    retCode = findVertexHistoPeak(zIntersec, vertices);
-
-  // pileup detection
-  std::vector<TrackletForVertex> remainingTracklets;
-  for (int jPil = 0; jPil < kMaxPileupVertices; jPil++) {
-    filterOutUsedTracklets(selTracklets, remainingTracklets);
-    if (mVerbose)
-      printStats(remainingTracklets, cluArr, "remaining tracklets");
-    computeIntersections(remainingTracklets, cluArr, zIntersec);
+  if (mMethod == kPairs) {
+    retCode = compute3DVertices(selTracklets, cluArr, vertices);
+  } else {
+    computeIntersections(selTracklets, cluArr, zIntersec);
     if (mMethod == kKDE)
       retCode = findVertexKDE(zIntersec, vertices);
     else
       retCode = findVertexHistoPeak(zIntersec, vertices);
-    if (!retCode)
-      break;
-    selTracklets.swap(remainingTracklets);
+  }
+
+  // pileup detection
+  if (mMultiVertexMode == kMultiVertIterative) {
+    std::vector<TrackletForVertex> remainingTracklets;
+    for (int jPil = 0; jPil < kMaxPileupVertices; jPil++) {
+      filterOutUsedTracklets(selTracklets, remainingTracklets);
+      if (mVerbose)
+        printStats(remainingTracklets, cluArr, "remaining tracklets");
+      if (mMethod == kPairs) {
+        retCode = compute3DVertices(remainingTracklets, cluArr, vertices);
+      } else {
+        computeIntersections(remainingTracklets, cluArr, zIntersec);
+        if (mMethod == kKDE)
+          retCode = findVertexKDE(zIntersec, vertices);
+        else
+          retCode = findVertexHistoPeak(zIntersec, vertices);
+      }
+      if (!retCode)
+        break;
+      selTracklets.swap(remainingTracklets);
+    }
   }
   if (mVerbose) {
     int nVertices = vertices.size();
@@ -800,4 +1012,194 @@ void NA6PVertexerTracklets::printStats(const std::vector<TrackletForVertex>& can
   if (nFound > 0)
     LOGP(info, "Fraction of good {} = {} / {} = {}",
          label.c_str(), nGood, nFound, (float)nGood / (float)nFound);
+}
+
+//_______________________________________________________________________
+
+ClusterLines::ClusterLines(int firstLabel, const NA6PLine& firstLine, int secondLabel, const NA6PLine& secondLine,
+                           const bool weight)
+{
+
+  lineLabels.push_back(firstLabel);
+  if (secondLabel > 0) {
+    lineLabels.push_back(secondLabel); // don't add info in case of beamline used
+  }
+
+  std::array<float, 3> covarianceFirst{1., 1., 1.};
+  std::array<float, 3> covarianceSecond{1., 1., 1.};
+
+  float determinantFirst =
+    firstLine.mCosinesDirector[2] * firstLine.mCosinesDirector[2] * covarianceFirst[0] * covarianceFirst[1] +
+    firstLine.mCosinesDirector[1] * firstLine.mCosinesDirector[1] * covarianceFirst[0] * covarianceFirst[2] +
+    firstLine.mCosinesDirector[0] * firstLine.mCosinesDirector[0] * covarianceFirst[1] * covarianceFirst[2];
+  float determinantSecond =
+    secondLine.mCosinesDirector[2] * secondLine.mCosinesDirector[2] * covarianceSecond[0] * covarianceSecond[1] +
+    secondLine.mCosinesDirector[1] * secondLine.mCosinesDirector[1] * covarianceSecond[0] * covarianceSecond[2] +
+    secondLine.mCosinesDirector[0] * secondLine.mCosinesDirector[0] * covarianceSecond[1] * covarianceSecond[2];
+
+  lineCluAMatrix[0] = (firstLine.mCosinesDirector[2] * firstLine.mCosinesDirector[2] * covarianceFirst[1] +
+                       firstLine.mCosinesDirector[1] * firstLine.mCosinesDirector[1] * covarianceFirst[2]) /
+                        determinantFirst +
+                      (secondLine.mCosinesDirector[2] * secondLine.mCosinesDirector[2] * covarianceSecond[1] +
+                       secondLine.mCosinesDirector[1] * secondLine.mCosinesDirector[1] * covarianceSecond[2]) /
+                        determinantSecond;
+
+  lineCluAMatrix[1] = -firstLine.mCosinesDirector[0] * firstLine.mCosinesDirector[1] * covarianceFirst[2] / determinantFirst -
+                      secondLine.mCosinesDirector[0] * secondLine.mCosinesDirector[1] * covarianceSecond[2] / determinantSecond;
+
+  lineCluAMatrix[2] = -firstLine.mCosinesDirector[0] * firstLine.mCosinesDirector[2] * covarianceFirst[1] / determinantFirst -
+                      secondLine.mCosinesDirector[0] * secondLine.mCosinesDirector[2] * covarianceSecond[1] / determinantSecond;
+
+  lineCluAMatrix[3] = (firstLine.mCosinesDirector[2] * firstLine.mCosinesDirector[2] * covarianceFirst[0] +
+                       firstLine.mCosinesDirector[0] * firstLine.mCosinesDirector[0] * covarianceFirst[2]) /
+                        determinantFirst +
+                      (secondLine.mCosinesDirector[2] * secondLine.mCosinesDirector[2] * covarianceSecond[0] +
+                       secondLine.mCosinesDirector[0] * secondLine.mCosinesDirector[0] * covarianceSecond[2]) /
+                        determinantSecond;
+
+  lineCluAMatrix[4] = -firstLine.mCosinesDirector[1] * firstLine.mCosinesDirector[2] * covarianceFirst[0] / determinantFirst -
+                      secondLine.mCosinesDirector[1] * secondLine.mCosinesDirector[2] * covarianceSecond[0] / determinantSecond;
+
+  lineCluAMatrix[5] = (firstLine.mCosinesDirector[1] * firstLine.mCosinesDirector[1] * covarianceFirst[0] +
+                       firstLine.mCosinesDirector[0] * firstLine.mCosinesDirector[0] * covarianceFirst[1]) /
+                        determinantFirst +
+                      (secondLine.mCosinesDirector[1] * secondLine.mCosinesDirector[1] * covarianceSecond[0] +
+                       secondLine.mCosinesDirector[0] * secondLine.mCosinesDirector[0] * covarianceSecond[1]) /
+                        determinantSecond;
+
+  lineCluBMatrix[0] =
+    (firstLine.mCosinesDirector[1] * covarianceFirst[2] * (-firstLine.mCosinesDirector[1] * firstLine.mOriginPoint[0] + firstLine.mCosinesDirector[0] * firstLine.mOriginPoint[1]) +
+     firstLine.mCosinesDirector[2] * covarianceFirst[1] * (-firstLine.mCosinesDirector[2] * firstLine.mOriginPoint[0] + firstLine.mCosinesDirector[0] * firstLine.mOriginPoint[2])) /
+    determinantFirst;
+
+  lineCluBMatrix[0] +=
+    (secondLine.mCosinesDirector[1] * covarianceSecond[2] * (-secondLine.mCosinesDirector[1] * secondLine.mOriginPoint[0] + secondLine.mCosinesDirector[0] * secondLine.mOriginPoint[1]) +
+     secondLine.mCosinesDirector[2] * covarianceSecond[1] *
+       (-secondLine.mCosinesDirector[2] * secondLine.mOriginPoint[0] +
+        secondLine.mCosinesDirector[0] * secondLine.mOriginPoint[2])) /
+    determinantSecond;
+
+  lineCluBMatrix[1] =
+    (firstLine.mCosinesDirector[0] * covarianceFirst[2] * (-firstLine.mCosinesDirector[0] * firstLine.mOriginPoint[1] + firstLine.mCosinesDirector[1] * firstLine.mOriginPoint[0]) +
+     firstLine.mCosinesDirector[2] * covarianceFirst[0] * (-firstLine.mCosinesDirector[2] * firstLine.mOriginPoint[1] + firstLine.mCosinesDirector[1] * firstLine.mOriginPoint[2])) /
+    determinantFirst;
+
+  lineCluBMatrix[1] +=
+    (secondLine.mCosinesDirector[0] * covarianceSecond[2] * (-secondLine.mCosinesDirector[0] * secondLine.mOriginPoint[1] + secondLine.mCosinesDirector[1] * secondLine.mOriginPoint[0]) +
+     secondLine.mCosinesDirector[2] * covarianceSecond[0] *
+       (-secondLine.mCosinesDirector[2] * secondLine.mOriginPoint[1] +
+        secondLine.mCosinesDirector[1] * secondLine.mOriginPoint[2])) /
+    determinantSecond;
+
+  lineCluBMatrix[2] =
+    (firstLine.mCosinesDirector[0] * covarianceFirst[1] * (-firstLine.mCosinesDirector[0] * firstLine.mOriginPoint[2] + firstLine.mCosinesDirector[2] * firstLine.mOriginPoint[0]) +
+     firstLine.mCosinesDirector[1] * covarianceFirst[0] * (-firstLine.mCosinesDirector[1] * firstLine.mOriginPoint[2] + firstLine.mCosinesDirector[2] * firstLine.mOriginPoint[1])) /
+    determinantFirst;
+
+  lineCluBMatrix[2] +=
+    (secondLine.mCosinesDirector[0] * covarianceSecond[1] * (-secondLine.mCosinesDirector[0] * secondLine.mOriginPoint[2] + secondLine.mCosinesDirector[2] * secondLine.mOriginPoint[0]) +
+     secondLine.mCosinesDirector[1] * covarianceSecond[0] *
+       (-secondLine.mCosinesDirector[1] * secondLine.mOriginPoint[2] +
+        secondLine.mCosinesDirector[2] * secondLine.mOriginPoint[1])) /
+    determinantSecond;
+
+  computeClusterCentroid();
+
+  // RMS2
+  lineCluRMS2 = firstLine.getDCAComponents(lineCluVertex);
+  const std::array<float, 6> tmpRMS2Line2 = secondLine.getDCAComponents(lineCluVertex);
+  std::transform(lineCluRMS2.begin(), lineCluRMS2.end(), tmpRMS2Line2.begin(), lineCluRMS2.begin(), [&](const float a, const float b) { return a + (b - a) / lineLabels.size(); });
+
+  // AvgDistance2
+  float dist1 = NA6PLine::getDistanceFromPoint(firstLine, lineCluVertex);
+  float dist2 = NA6PLine::getDistanceFromPoint(secondLine, lineCluVertex);
+  lineCluAvgDistance2 = dist1 * dist1;
+  lineCluAvgDistance2 += (dist2 * dist2 - lineCluAvgDistance2) / lineLabels.size();
+}
+
+void ClusterLines::add(int lineLabel, const NA6PLine& line, bool weight)
+{
+  lineLabels.push_back(lineLabel);
+  std::array<float, 3> covariance{1., 1., 1.};
+
+  double determinant{line.mCosinesDirector[2] * line.mCosinesDirector[2] * covariance[0] * covariance[1] +
+                     line.mCosinesDirector[1] * line.mCosinesDirector[1] * covariance[0] * covariance[2] +
+                     line.mCosinesDirector[0] * line.mCosinesDirector[0] * covariance[1] * covariance[2]};
+
+  lineCluAMatrix[0] += (line.mCosinesDirector[2] * line.mCosinesDirector[2] * covariance[1] +
+                        line.mCosinesDirector[1] * line.mCosinesDirector[1] * covariance[2]) /
+                       determinant;
+  lineCluAMatrix[1] += -line.mCosinesDirector[0] * line.mCosinesDirector[1] * covariance[2] / determinant;
+  lineCluAMatrix[2] += -line.mCosinesDirector[0] * line.mCosinesDirector[2] * covariance[1] / determinant;
+  lineCluAMatrix[3] += (line.mCosinesDirector[2] * line.mCosinesDirector[2] * covariance[0] +
+                        line.mCosinesDirector[0] * line.mCosinesDirector[0] * covariance[2]) /
+                       determinant;
+  lineCluAMatrix[4] += -line.mCosinesDirector[1] * line.mCosinesDirector[2] * covariance[0] / determinant;
+  lineCluAMatrix[5] += (line.mCosinesDirector[1] * line.mCosinesDirector[1] * covariance[0] +
+                        line.mCosinesDirector[0] * line.mCosinesDirector[0] * covariance[1]) /
+                       determinant;
+
+  lineCluBMatrix[0] += (line.mCosinesDirector[1] * covariance[2] *
+                          (-line.mCosinesDirector[1] * line.mOriginPoint[0] + line.mCosinesDirector[0] * line.mOriginPoint[1]) +
+                        line.mCosinesDirector[2] * covariance[1] *
+                          (-line.mCosinesDirector[2] * line.mOriginPoint[0] + line.mCosinesDirector[0] * line.mOriginPoint[2])) /
+                       determinant;
+  lineCluBMatrix[1] += (line.mCosinesDirector[0] * covariance[2] *
+                          (-line.mCosinesDirector[0] * line.mOriginPoint[1] + line.mCosinesDirector[1] * line.mOriginPoint[0]) +
+                        line.mCosinesDirector[2] * covariance[0] *
+                          (-line.mCosinesDirector[2] * line.mOriginPoint[1] + line.mCosinesDirector[1] * line.mOriginPoint[2])) /
+                       determinant;
+  lineCluBMatrix[2] += (line.mCosinesDirector[0] * covariance[1] *
+                          (-line.mCosinesDirector[0] * line.mOriginPoint[2] + line.mCosinesDirector[2] * line.mOriginPoint[0]) +
+                        line.mCosinesDirector[1] * covariance[0] *
+                          (-line.mCosinesDirector[1] * line.mOriginPoint[2] + line.mCosinesDirector[2] * line.mOriginPoint[1])) /
+                       determinant;
+
+  computeClusterCentroid();
+  float dist = NA6PLine::getDistanceFromPoint(line, lineCluVertex);
+  lineCluAvgDistance2 += (dist * dist - lineCluAvgDistance2) / lineLabels.size();
+}
+
+void ClusterLines::computeClusterCentroid()
+{
+
+  double determinant{lineCluAMatrix[0] * (lineCluAMatrix[3] * lineCluAMatrix[5] - lineCluAMatrix[4] * lineCluAMatrix[4]) -
+                     lineCluAMatrix[1] * (lineCluAMatrix[1] * lineCluAMatrix[5] - lineCluAMatrix[4] * lineCluAMatrix[2]) +
+                     lineCluAMatrix[2] * (lineCluAMatrix[1] * lineCluAMatrix[4] - lineCluAMatrix[2] * lineCluAMatrix[3])};
+
+  if (determinant == 0) {
+    return;
+  }
+
+  lineCluVertex[0] = -(lineCluBMatrix[0] * (lineCluAMatrix[3] * lineCluAMatrix[5] - lineCluAMatrix[4] * lineCluAMatrix[4]) -
+                       lineCluAMatrix[1] * (lineCluBMatrix[1] * lineCluAMatrix[5] - lineCluAMatrix[4] * lineCluBMatrix[2]) +
+                       lineCluAMatrix[2] * (lineCluBMatrix[1] * lineCluAMatrix[4] - lineCluBMatrix[2] * lineCluAMatrix[3])) /
+                     determinant;
+  lineCluVertex[1] = -(lineCluAMatrix[0] * (lineCluBMatrix[1] * lineCluAMatrix[5] - lineCluBMatrix[2] * lineCluAMatrix[4]) -
+                       lineCluBMatrix[0] * (lineCluAMatrix[1] * lineCluAMatrix[5] - lineCluAMatrix[4] * lineCluAMatrix[2]) +
+                       lineCluAMatrix[2] * (lineCluAMatrix[1] * lineCluBMatrix[2] - lineCluAMatrix[2] * lineCluBMatrix[1])) /
+                     determinant;
+  lineCluVertex[2] = -(lineCluAMatrix[0] * (lineCluAMatrix[3] * lineCluBMatrix[2] - lineCluBMatrix[1] * lineCluAMatrix[4]) -
+                       lineCluAMatrix[1] * (lineCluAMatrix[1] * lineCluBMatrix[2] - lineCluBMatrix[1] * lineCluAMatrix[2]) +
+                       lineCluBMatrix[0] * (lineCluAMatrix[1] * lineCluAMatrix[4] - lineCluAMatrix[2] * lineCluAMatrix[3])) /
+                     determinant;
+}
+
+bool ClusterLines::operator==(const ClusterLines& rhs) const
+{
+  bool retval{true};
+  for (auto i{0}; i < 6; ++i) {
+    retval &= this->lineCluRMS2[i] == rhs.lineCluRMS2[i];
+  }
+  for (auto i{0}; i < 3; ++i) {
+    retval &= this->lineCluVertex[i] == rhs.lineCluVertex[i];
+  }
+  if (this->lineLabels.size() != rhs.lineLabels.size()) {
+    retval = false;
+  } else {
+    for (size_t i{0}; i < this->lineLabels.size(); ++i) {
+      retval &= this->lineLabels[i] == rhs.lineLabels[i];
+    }
+  }
+  return retval && this->lineCluAvgDistance2 == rhs.lineCluAvgDistance2;
 }

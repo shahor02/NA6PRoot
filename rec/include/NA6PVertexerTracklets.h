@@ -16,6 +16,9 @@
 #define NA6P_VERTEXER_TRACKLETS_H
 
 #include <Rtypes.h>
+#include <vector>
+#include <array>
+#include "NA6PLine.h"
 
 class NA6PVertex;
 class NA6PVerTelCluster;
@@ -43,6 +46,27 @@ struct TracklIntersection {
   int secondClusterIndex;
 };
 
+struct ClusterLines {
+  ClusterLines(int firstLabel, const NA6PLine& firstLine, int secondLabel, const NA6PLine& secondLine, bool weight = false);
+  void add(int lineLabel, const NA6PLine& line, bool weight = false);
+  void computeClusterCentroid();
+  const std::vector<int>& getLabels() { return lineLabels; }
+  int getSize() const { return lineLabels.size(); }
+  std::array<float, 3> getVertex() const { return lineCluVertex; }
+  std::array<float, 6> getRMS2() const { return lineCluRMS2; }
+  inline float getAvgDistance2() const { return lineCluAvgDistance2; }
+
+  bool operator==(const ClusterLines&) const;
+
+  std::array<double, 6> lineCluAMatrix = {0.0};  // AX=B
+  std::array<double, 3> lineCluBMatrix = {0.0};  // AX=B
+  std::vector<int> lineLabels;                   // labels
+  std::array<float, 9> lineWeightMatrix = {0.f}; // weight matrix
+  std::array<float, 3> lineCluVertex = {0.f};    // cluster centroid position
+  std::array<float, 6> lineCluRMS2 = {0.f};      // symmetric matrix: diagonal is RMS2
+  float lineCluAvgDistance2 = 0.f;               // substitute for chi2
+};
+
 class NA6PVertexerTracklets
 {
  public:
@@ -56,9 +80,13 @@ class NA6PVertexerTracklets
   enum { kMaxPileupVertices = 5,
          kMaxBinsForPeakFind = 1000 };
   enum { kKDE,
-         kHistoPeak };
+         kHistoPeak,
+         kPairs };
   enum { kStandardKDE,
          kAdaptiveKDE };
+  enum { kMultiVertOff,
+         kMultiVertIterative,
+         kAllVerticesInOneGo };
 
   NA6PVertexerTracklets();
   ~NA6PVertexerTracklets() = default;
@@ -76,7 +104,14 @@ class NA6PVertexerTracklets
     mNGridKDE = nbins;
     mKDEBandwidth = width;
   }
-
+  void configurePairClusterization(float pairdca, float pairrad, float canddistz, float canddist3d, bool singlecontrib = false)
+  {
+    mMaxPairDCA = pairdca;
+    mMaxPairVertRadius = pairrad;
+    mMinCandidateDistanceZ = canddistz;
+    mMinCandidateDistance3D = canddist3d;
+    mAllowSingleConstribClusters = singlecontrib;
+  }
   // Settters
   void setNLayersVT(int n) { mNLayersVT = n; }
   void setLayerToStart(int lay) { mLayerToStart = lay; }
@@ -95,6 +130,7 @@ class NA6PVertexerTracklets
   void setMaxDeltaPyPzInOut(float v) { mMaxDeltaPyPzInOut = v; }
   void setUseHistoForPeakFinding() { mMethod = kHistoPeak; }
   void setUseKDEForPeakFinding() { mMethod = kKDE; }
+  void setUseTrackletPairs() { mMethod = kPairs; }
   void setUseNoWeight() { mWeightedMeanOption = kNoWeight; }
   void setUseTanLWeight() { mWeightedMeanOption = kTanL; }
   void setUseSigmaWeight() { mWeightedMeanOption = kSigma; }
@@ -114,6 +150,9 @@ class NA6PVertexerTracklets
   void setMinCountsInPeak(int counts) { mMinCountsInPeak = counts; }
   void setUseStandardKDE() { mKDEOption = kStandardKDE; }
   void setUseAdaptiveKDE() { mKDEOption = kAdaptiveKDE; }
+  void setMultiVertexOff() { mMultiVertexMode = kMultiVertOff; }
+  void setMultiVertexInOneGo() { mMultiVertexMode = kAllVerticesInOneGo; }
+  void setMultiVertexIterative() { mMultiVertexMode = kMultiVertIterative; }
   void setVerbosity(bool opt = true) { mVerbose = opt; }
   void configureFromRecoParam(const std::string& filename = "");
   void printConfiguration() const;
@@ -157,38 +196,48 @@ class NA6PVertexerTracklets
   }
   bool findVertexKDE(const std::vector<TracklIntersection>& zIntersec,
                      std::vector<NA6PVertex>& vertices);
+  bool compute3DVertices(const std::vector<TrackletForVertex>& selTracklets,
+                         const std::vector<NA6PVerTelCluster>& cluArr,
+                         std::vector<NA6PVertex>& vertices);
   void printStats(const std::vector<TrackletForVertex>& candidates,
                   const std::vector<NA6PVerTelCluster>& cluArr,
                   const std::string& label);
   short getMethodForPeakFinding() const { return mMethod; }
+  short getMultiVertexMode() const { return mMultiVertexMode; }
 
  private:
-  int mNLayersVT = 5;                    // number of layers in the VT
-  int mLayerToStart = 0;                 // innermost layer used in tracklets
-  std::vector<bool> mIsClusterUsed = {}; // flag for used clusters
-  float mBeamX = 0.;                     // beam transverse coordindates
-  float mBeamY = 0.;                     // beam transverse coordindates
-  float mMaxDeltaThetaTracklet = 0.6;    // selections for tracklet building
-  float mMaxDeltaPhiTracklet = 0.05;     // selections for tracklet building
-  float mMaxDeltaTanLamInOut = 1.;       // selections for tracklet validation
-  float mMaxDeltaPhiInOut = 0.2;         // selections for tracklet validation
-  float mMaxDeltaPxPzInOut = 99.;        // selections for tracklet validation
-  float mMaxDeltaPyPzInOut = 0.005;      // selections for tracklet validation
-  short mRecoType = kYZ;                 // method to compute tracklet intersections with beam axis
-  float mMaxDCAxy = 0.25;                // selection for tracklet intersection, cm
-  short mMethod = kKDE;                  // method for peak finding (KDE vs histo)
-  int mWeightedMeanOption = kNoWeight;   // option for weigthed mean
-  float mZMin = -20.0;                   // z range, min, cm
-  float mZMax = 5.;                      // z range, max, cm
-  float mZWindowWidth = 1.25;            // window around peak, cm
-  int mNBinsForPeakFind = 250;           // 0.1 cm per bin
-  float mZBinWidth = 0.1;                // bin width (recalculated from n bins)
-  std::vector<int> mHistIntersec;        // histogram for the peak finding method
-  int mPeakWidthBins = 3;                // number of bins for integrating histo peak
-  int mMinCountsInPeak = 3;              // minimum entries in histo peak
-  int mKDEOption = kStandardKDE;         // option for using uncertainties in KDE sigma
-  int mNGridKDE = 500;                   // number of points to sample the KDE
-  float mKDEBandwidth = 0.5;             // smoothing parameter, cm
+  int mNLayersVT = 5;                           // number of layers in the VT
+  int mLayerToStart = 0;                        // innermost layer used in tracklets
+  std::vector<bool> mIsClusterUsed = {};        // flag for used clusters
+  float mBeamX = 0.;                            // beam transverse coordindates
+  float mBeamY = 0.;                            // beam transverse coordindates
+  float mMaxDeltaThetaTracklet = 0.6;           // selections for tracklet building
+  float mMaxDeltaPhiTracklet = 0.05;            // selections for tracklet building
+  float mMaxDeltaTanLamInOut = 1.;              // selections for tracklet validation
+  float mMaxDeltaPhiInOut = 0.2;                // selections for tracklet validation
+  float mMaxDeltaPxPzInOut = 99.;               // selections for tracklet validation
+  float mMaxDeltaPyPzInOut = 0.005;             // selections for tracklet validation
+  short mRecoType = kYZ;                        // method to compute tracklet intersections with beam axis
+  float mMaxDCAxy = 0.25;                       // selection for tracklet intersection, cm
+  short mMethod = kKDE;                         // method for peak finding (KDE vs histo)
+  int mWeightedMeanOption = kNoWeight;          // option for weigthed mean
+  float mZMin = -20.0;                          // z range, min, cm
+  float mZMax = 5.;                             // z range, max, cm
+  float mZWindowWidth = 1.25;                   // window around peak, cm
+  int mNBinsForPeakFind = 250;                  // 0.1 cm per bin
+  float mZBinWidth = 0.1;                       // bin width (recalculated from n bins)
+  std::vector<int> mHistIntersec;               // histogram for the peak finding method
+  int mPeakWidthBins = 3;                       // number of bins for integrating histo peak
+  int mMinCountsInPeak = 3;                     // minimum entries in histo peak
+  int mKDEOption = kStandardKDE;                // option for using uncertainties in KDE sigma
+  int mNGridKDE = 500;                          // number of points to sample the KDE
+  float mKDEBandwidth = 0.5;                    // smoothing parameter, cm
+  float mMaxPairDCA = 0.1;                      // DCA cut for tracklet pairs
+  float mMaxPairVertRadius = 0.5;               // maximum radial distance of the pair vertex from (0,0)
+  float mMinCandidateDistanceZ = 0.1;           // distance along Z to merge candidate vertices
+  float mMinCandidateDistance3D = 0.2;          // distance in 3D to merge candidate vertices
+  bool mAllowSingleConstribClusters = false;    // flag to enable single tracklet vertices
+  short mMultiVertexMode = kMultiVertIterative; // method for multiple vertices
   bool mVerbose = false;
 
   ClassDefNV(NA6PVertexerTracklets, 1);

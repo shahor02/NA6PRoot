@@ -56,7 +56,12 @@ void inspectVertexerTracklets(int firstEv = 0,
   TH1F* hSigmaZ = new TH1F("hSigmaZ", "", 100, 0., 10.);
 
   NA6PVertexerTracklets* vertxr = new NA6PVertexerTracklets();
-
+  // configurations for the vertexer
+  // vertxr->setVerbosity(true);
+  // vertxr->setUseKDEForPeakFinding();
+  // vertxr->setMultiVertexInOneGo();
+  // vertxr->setMaxDeltaPhiTracklet(0.05);
+  // vertxr->configurePairClusterization(0.15, 0.2, 0.15, 0.2);
   for (int jEv = firstEv; jEv < lastEv; jEv++) {
     mcTree->GetEvent(jEv);
     tc->GetEvent(jEv);
@@ -92,17 +97,22 @@ void inspectVertexerTracklets(int firstEv = 0,
     vertxr->printStats(allTracklets, vtClus, "tracklets");
     vertxr->selectTracklets(allTracklets, firstTrklPerLay, lastTrklPerLay, vtClus, selTracklets);
     vertxr->printStats(selTracklets, vtClus, "selected tracklets");
-    vertxr->computeIntersections(selTracklets, vtClus, zIntersec);
+    //
     std::vector<NA6PVertex> zVertices;
     bool retCode;
-    if (vertxr->getMethodForPeakFinding() == NA6PVertexerTracklets::kKDE)
-      retCode = vertxr->findVertexKDE(zIntersec, zVertices);
-    else
-      retCode = vertxr->findVertexHistoPeak(zIntersec, zVertices);
-    histocheck->Reset("MICE");
-    for (auto zi : zIntersec) {
-      histocheck->Fill(zi.zeta);
-      hSigmaZ->Fill(zi.sigmazeta);
+    if (vertxr->getMethodForPeakFinding() == NA6PVertexerTracklets::kPairs) {
+      retCode = vertxr->compute3DVertices(selTracklets, vtClus, zVertices);
+    } else {
+      vertxr->computeIntersections(selTracklets, vtClus, zIntersec);
+      if (vertxr->getMethodForPeakFinding() == NA6PVertexerTracklets::kKDE)
+        retCode = vertxr->findVertexKDE(zIntersec, zVertices);
+      else
+        retCode = vertxr->findVertexHistoPeak(zIntersec, zVertices);
+      histocheck->Reset("MICE");
+      for (auto zi : zIntersec) {
+        histocheck->Fill(zi.zeta);
+        hSigmaZ->Fill(zi.sigmazeta);
+      }
     }
     int nVertices = zVertices.size();
     int jv = 0;
@@ -113,21 +123,27 @@ void inspectVertexerTracklets(int firstEv = 0,
       hncontr->Fill(vert.getNContributors());
     }
     // pileup detection
-    std::vector<TrackletForVertex> remainingTracklets;
-    for (int jPil = 0; jPil < kMaxPileupVertices; jPil++) {
-      vertxr->filterOutUsedTracklets(selTracklets, remainingTracklets);
-      vertxr->printStats(remainingTracklets, vtClus, "remaining tracklets");
-      vertxr->computeIntersections(remainingTracklets, vtClus, zIntersec);
-      if (vertxr->getMethodForPeakFinding() == NA6PVertexerTracklets::kKDE)
-        retCode = vertxr->findVertexKDE(zIntersec, zVertices);
-      else
-        retCode = vertxr->findVertexHistoPeak(zIntersec, zVertices);
-      histocheck2[jPil]->Reset("MICES");
-      for (auto zi : zIntersec)
-        histocheck2[jPil]->Fill(zi.zeta);
-      if (!retCode)
-        break;
-      selTracklets.swap(remainingTracklets);
+    if (vertxr->getMultiVertexMode() == NA6PVertexerTracklets::kMultiVertIterative) {
+      std::vector<TrackletForVertex> remainingTracklets;
+      for (int jPil = 0; jPil < kMaxPileupVertices; jPil++) {
+        vertxr->filterOutUsedTracklets(selTracklets, remainingTracklets);
+        vertxr->printStats(remainingTracklets, vtClus, "remaining tracklets");
+        if (vertxr->getMethodForPeakFinding() == NA6PVertexerTracklets::kPairs) {
+          retCode = vertxr->compute3DVertices(remainingTracklets, vtClus, zVertices);
+        } else {
+          vertxr->computeIntersections(remainingTracklets, vtClus, zIntersec);
+          if (vertxr->getMethodForPeakFinding() == NA6PVertexerTracklets::kKDE)
+            retCode = vertxr->findVertexKDE(zIntersec, zVertices);
+          else
+            retCode = vertxr->findVertexHistoPeak(zIntersec, zVertices);
+          histocheck2[jPil]->Reset("MICES");
+          for (auto zi : zIntersec)
+            histocheck2[jPil]->Fill(zi.zeta);
+        }
+        if (!retCode)
+          break;
+        selTracklets.swap(remainingTracklets);
+      }
     }
     nVertices = zVertices.size();
     hnvert->Fill(nVertices);
