@@ -195,9 +195,9 @@ protected:
   double mMaxDeltaPhiCellsCA[kMaxIterationsCA] = {0.4, 0.6, 1.2, 2.4, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   double mMaxDeltaPxPzCellsCA[kMaxIterationsCA] = {0.02, 0.05, 0.1, 0.2, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   double mMaxDeltaPyPzCellsCA[kMaxIterationsCA] = {2e-3, 7.5e-3, 1.5e-2, 3.e-2, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
-  double mMaxChi2TrClCellsCA[kMaxIterationsCA] = {5., 10., 10., 10.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
-  double mMaxChi2ndfCellsCA[kMaxIterationsCA] = {5., 10., 10., 10., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
-  double mMaxChi2ndfTracksCA[kMaxIterationsCA] = {5., 10., 10., 10., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
+  double mMaxChi2TrClCellsCA[kMaxIterationsCA] = {100., 500., 999., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
+  double mMaxChi2ndfCellsCA[kMaxIterationsCA] = {100., 500., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
+  double mMaxChi2ndfTracksCA[kMaxIterationsCA] = {100., 500., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   int    mMinNClusTracksCA[kMaxIterationsCA] = {5, 3, 0, 0, 0, 0, 0, 0, 0, 0};
 
   ClassDefNV(NA6PTrackerCA, 1);
