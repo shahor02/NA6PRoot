@@ -244,44 +244,44 @@ void NA6PVertexerTracklets::computeLayerTracklets(const std::vector<NA6PVerTelCl
     auto layerEnd = cluArr.begin() + lastIndex[iLayer + 1];
     for (int jClu1 = firstIndex[iLayer]; jClu1 < lastIndex[iLayer]; ++jClu1) {
       const NA6PVerTelCluster& clu1 = cluArr[jClu1];
-      double x1 = clu1.getX();
-      double y1 = clu1.getY();
-      double z1 = clu1.getZ();
-      double r1 = std::sqrt(x1 * x1 + y1 * y1);
-      double theta1 = std::atan2(z1, r1);
-      double phi1 = std::atan2(y1, x1);
-      double tanth2Min = std::max(0., std::tan(theta1 - 1.2 * mMaxDeltaThetaTracklet)); // 1.2 is a safety margin
-      double tanth2Max = std::tan(std::min(M_PI / 2.001, theta1 + 1.2 * mMaxDeltaThetaTracklet));
+      float x1 = clu1.getX();
+      float y1 = clu1.getY();
+      float z1 = clu1.getZ();
+      float r1 = std::sqrt(x1 * x1 + y1 * y1);
+      float theta1 = std::atan2(z1, r1);
+      float phi1 = std::atan2(y1, x1);
+      float tanth2Min = std::max(0.f, std::tan(theta1 - 1.2f * mMaxDeltaThetaTracklet)); // 1.2 is a safety margin
+      float tanth2Max = std::tan(std::min(static_cast<float>(M_PI / 2.001), theta1 + 1.2f * mMaxDeltaThetaTracklet));
       auto lower = std::partition_point(layerBegin, layerEnd,
                                         [&](const NA6PVerTelCluster& clu) {
-                                          double x = clu.getX();
-                                          double y = clu.getY();
-                                          double z = clu.getZ();
-                                          double r2 = x * x + y * y;
-                                          double tan2 = z * z / r2;
+                                          float x = clu.getX();
+                                          float y = clu.getY();
+                                          float z = clu.getZ();
+                                          float r2 = x * x + y * y;
+                                          float tan2 = z * z / r2;
                                           return tan2 < tanth2Min * tanth2Min;
                                         });
 
       auto upper = std::partition_point(layerBegin, layerEnd,
                                         [&](const NA6PVerTelCluster& clu) {
-                                          double x = clu.getX();
-                                          double y = clu.getY();
-                                          double z = clu.getZ();
-                                          double r2 = x * x + y * y;
-                                          double tan2 = z * z / r2;
+                                          float x = clu.getX();
+                                          float y = clu.getY();
+                                          float z = clu.getZ();
+                                          float r2 = x * x + y * y;
+                                          float tan2 = z * z / r2;
                                           return tan2 <= tanth2Max * tanth2Max;
                                         });
       int lowerIdx = std::distance(cluArr.begin(), lower);
       int upperIdx = std::distance(cluArr.begin(), upper);
       for (int jClu2 = lowerIdx; jClu2 < upperIdx; ++jClu2) {
         const NA6PVerTelCluster& clu2 = cluArr[jClu2];
-        double x2 = clu2.getX();
-        double y2 = clu2.getY();
-        double z2 = clu2.getZ();
-        double r2 = std::sqrt(x2 * x2 + y2 * y2);
-        double theta2 = std::atan2(z2, r2);
-        double phi2 = std::atan2(y2, x2);
-        double dphi = phi2 - phi1;
+        float x2 = clu2.getX();
+        float y2 = clu2.getY();
+        float z2 = clu2.getZ();
+        float r2 = std::sqrt(x2 * x2 + y2 * y2);
+        float theta2 = std::atan2(z2, r2);
+        float phi2 = std::atan2(y2, x2);
+        float dphi = phi2 - phi1;
         if (dphi > M_PI)
           dphi -= 2 * M_PI;
         else if (dphi < -M_PI)
@@ -1122,9 +1122,9 @@ void ClusterLines::add(int lineLabel, const NA6PLine& line, bool weight)
   lineLabels.push_back(lineLabel);
   std::array<float, 3> covariance{1., 1., 1.};
 
-  double determinant{line.mCosinesDirector[2] * line.mCosinesDirector[2] * covariance[0] * covariance[1] +
-                     line.mCosinesDirector[1] * line.mCosinesDirector[1] * covariance[0] * covariance[2] +
-                     line.mCosinesDirector[0] * line.mCosinesDirector[0] * covariance[1] * covariance[2]};
+  float determinant{line.mCosinesDirector[2] * line.mCosinesDirector[2] * covariance[0] * covariance[1] +
+                    line.mCosinesDirector[1] * line.mCosinesDirector[1] * covariance[0] * covariance[2] +
+                    line.mCosinesDirector[0] * line.mCosinesDirector[0] * covariance[1] * covariance[2]};
 
   lineCluAMatrix[0] += (line.mCosinesDirector[2] * line.mCosinesDirector[2] * covariance[1] +
                         line.mCosinesDirector[1] * line.mCosinesDirector[1] * covariance[2]) /
@@ -1163,9 +1163,9 @@ void ClusterLines::add(int lineLabel, const NA6PLine& line, bool weight)
 void ClusterLines::computeClusterCentroid()
 {
 
-  double determinant{lineCluAMatrix[0] * (lineCluAMatrix[3] * lineCluAMatrix[5] - lineCluAMatrix[4] * lineCluAMatrix[4]) -
-                     lineCluAMatrix[1] * (lineCluAMatrix[1] * lineCluAMatrix[5] - lineCluAMatrix[4] * lineCluAMatrix[2]) +
-                     lineCluAMatrix[2] * (lineCluAMatrix[1] * lineCluAMatrix[4] - lineCluAMatrix[2] * lineCluAMatrix[3])};
+  float determinant{lineCluAMatrix[0] * (lineCluAMatrix[3] * lineCluAMatrix[5] - lineCluAMatrix[4] * lineCluAMatrix[4]) -
+                    lineCluAMatrix[1] * (lineCluAMatrix[1] * lineCluAMatrix[5] - lineCluAMatrix[4] * lineCluAMatrix[2]) +
+                    lineCluAMatrix[2] * (lineCluAMatrix[1] * lineCluAMatrix[4] - lineCluAMatrix[2] * lineCluAMatrix[3])};
 
   if (determinant == 0) {
     return;

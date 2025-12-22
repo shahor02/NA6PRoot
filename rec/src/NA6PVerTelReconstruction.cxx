@@ -99,18 +99,18 @@ void NA6PVerTelReconstruction::hitsToRecPoints(const std::vector<NA6PVerTelHit>&
   int nHits = hits.size();
   for (int jHit = 0; jHit < nHits; ++jHit) {
     const auto& hit = hits[jHit];
-    double x = hit.getX();
-    double y = hit.getY();
-    double z = hit.getZ();
-    double ex2clu = 5.e-4;
-    double ey2clu = 5.e-4;
+    float x = hit.getX();
+    float y = hit.getY();
+    float z = hit.getZ();
+    float ex2clu = 5.e-4f;
+    float ey2clu = 5.e-4f;
     if (mCluRes > 0) {
       x = gRandom->Gaus(hit.getX(), mCluRes);
       y = gRandom->Gaus(hit.getY(), mCluRes);
       ex2clu = mCluRes * mCluRes;
       ey2clu = mCluRes * mCluRes;
     }
-    double eloss = hit.getHitValue();
+    float eloss = hit.getHitValue();
     // very rough cluster size settings
     int clusiz = 2;
     if (eloss > 2.e-5 && eloss < 5.e-5)
