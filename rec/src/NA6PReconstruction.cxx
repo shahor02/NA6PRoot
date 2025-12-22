@@ -7,9 +7,7 @@
 #include "MagneticField.h"
 #include "NA6PReconstruction.h"
 
-ClassImp(NA6PReconstruction)
-
-  bool NA6PReconstruction::init(const char* filename, const char* geoname)
+bool NA6PReconstruction::init(const char* filename, const char* geoname)
 {
   // initialize magnetic field
   if (mIsInitialized) {
