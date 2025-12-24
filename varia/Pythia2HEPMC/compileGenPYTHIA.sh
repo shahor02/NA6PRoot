@@ -1,6 +1,6 @@
 #!/bin/bash
 
-g++ GenPYTHIA.cc -o GenPYTHIA \
+g++ GenPYTHIA.cxx -o GenPYTHIA \
     $(pythia8-config --cflags --libs) \
     $(root-config --cflags --libs) \
     $(HepMC3-config --cflags --libs) \
