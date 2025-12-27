@@ -49,7 +49,8 @@ class NA6PReconstruction
  protected:
   std::string mName{"MothClass"}; // detector name
   bool mIsInitialized = false;    // flag for initialization
-  ClassDefNV(NA6PReconstruction, 1);
+
+  ClassDef(NA6PReconstruction, 1);
 };
 
 #endif

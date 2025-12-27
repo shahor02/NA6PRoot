@@ -9,12 +9,10 @@
 #include "NA6PVertexerTracklets.h"
 #include "NA6PVerTelReconstruction.h"
 
-ClassImp(NA6PVerTelReconstruction)
-
-  NA6PVerTelReconstruction::NA6PVerTelReconstruction() : NA6PReconstruction("VerTel"),
-                                                         mGeoFilName{"geometry.root"},
-                                                         mGeoObjName{"NA6P"},
-                                                         mRecoParFilName{""}
+NA6PVerTelReconstruction::NA6PVerTelReconstruction() : NA6PReconstruction("VerTel"),
+                                                       mGeoFilName{"geometry.root"},
+                                                       mGeoObjName{"NA6P"},
+                                                       mRecoParFilName{""}
 {
 }
 
@@ -99,18 +97,18 @@ void NA6PVerTelReconstruction::hitsToRecPoints(const std::vector<NA6PVerTelHit>&
   int nHits = hits.size();
   for (int jHit = 0; jHit < nHits; ++jHit) {
     const auto& hit = hits[jHit];
-    double x = hit.getX();
-    double y = hit.getY();
-    double z = hit.getZ();
-    double ex2clu = 5.e-4;
-    double ey2clu = 5.e-4;
+    float x = hit.getX();
+    float y = hit.getY();
+    float z = hit.getZ();
+    float ex2clu = 5.e-4f;
+    float ey2clu = 5.e-4f;
     if (mCluRes > 0) {
       x = gRandom->Gaus(hit.getX(), mCluRes);
       y = gRandom->Gaus(hit.getY(), mCluRes);
       ex2clu = mCluRes * mCluRes;
       ey2clu = mCluRes * mCluRes;
     }
-    double eloss = hit.getHitValue();
+    float eloss = hit.getHitValue();
     // very rough cluster size settings
     int clusiz = 2;
     if (eloss > 2.e-5 && eloss < 5.e-5)
@@ -120,9 +118,7 @@ void NA6PVerTelReconstruction::hitsToRecPoints(const std::vector<NA6PVerTelHit>&
     int nDet = hit.getDetectorID();
     int idPart = hit.getTrackID();
     int layer = nDet / 4;
-    mClusters.emplace_back(x, y, z, clusiz, layer);
-    auto& clu = mClusters.back();
-    clu.setErr(ex2clu, 0., ey2clu);
+    auto& clu = mClusters.emplace_back(x, y, z, ex2clu, 0.f, ey2clu, clusiz, layer);
     clu.setDetectorID(nDet);
     clu.setParticleID(idPart);
     clu.setHitID(jHit);

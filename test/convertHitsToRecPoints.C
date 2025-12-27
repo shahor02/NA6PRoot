@@ -12,6 +12,7 @@
 #include <fairlogger/Logger.h>
 #include "NA6PVerTelReconstruction.h"
 #include "NA6PMuonSpecReconstruction.h"
+#include "NA6PMuonSpecModularHit.h"
 #endif
 
 void convertHitsToRecPoints(){
