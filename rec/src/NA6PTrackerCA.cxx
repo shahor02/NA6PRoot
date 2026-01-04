@@ -438,7 +438,7 @@ float NA6PTrackerCA::computeTrackToClusterChi2(const NA6PTrack& track,
                                                const ClusterType& clu)
 {
   NA6PTrack copyToProp = track;
-  if (!Propagator::Instance()->propagateToZ(copyToProp, clu.getZ(), Propagator::MatCorrType::USEMatCorrNONE)) {
+  if (!Propagator::Instance()->propagateToZ(copyToProp, clu.getZ(), {.matCorr = Propagator::MatCorrType::USEMatCorrNONE})) {
     return 1e6;
   }
   return copyToProp.getPredictedChi2(clu);

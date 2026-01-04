@@ -34,8 +34,14 @@ class Propagator
     //    USEMatCorrLUT // TODO
   }; // flag to use LUT for material queries (user must provide a pointer
 
-  bool propagateToZ(NA6PTrackParCov& track, float z, MatCorrType matCorr = MatCorrType::USEMatCorrTGeo, float maxStep = MAX_STEP) const;
-  bool propagateToZ(NA6PTrackPar& track, float z, MatCorrType matCorr = MatCorrType::USEMatCorrTGeo, float maxStep = MAX_STEP) const;
+  struct PropOpt {
+    MatCorrType matCorr{MatCorrType::USEMatCorrTGeo};
+    float maxStep{MAX_STEP};
+    bool fixCorrelations{false};
+  };
+
+  bool propagateToZ(NA6PTrackParCov& track, float z, const PropOpt& opt = {MatCorrType::USEMatCorrTGeo, MAX_STEP, false}) const;
+  bool propagateToZ(NA6PTrackPar& track, float z, const PropOpt& opt = {MatCorrType::USEMatCorrTGeo, MAX_STEP, false}) const;
 
   Propagator(Propagator const&) = delete;
   Propagator(Propagator&&) = delete;

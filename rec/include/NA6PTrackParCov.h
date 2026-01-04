@@ -5,6 +5,10 @@
 #include "NA6PTrackPar.h"
 #include "NA6PBaseCluster.h"
 
+#define _CHECK_BAD_CORRELATIONS_
+#define _FIX_BAD_CORRELATIONS_
+// #define _PRINT_BAD_CORRELATIONS_
+
 /*
   Add covariance matrix and related methods to NA6PTrackPar
 */
@@ -63,8 +67,10 @@ class NA6PTrackParCov : public NA6PTrackPar
   bool correctForMeanMaterial(float xOverX0, float xTimesRho);
 
   void resetCovariance(float s2 = -1.);
-
+  void checkCorrelations();
+  void fixCorrelations();
   std::string asString() const;
+  void printCorr() const;
 
   // access to covariance matrix by row and column
   constexpr static int CovarMap[5][5] = {{kXX, kYX, kTxX, kTyX, kQ2PX},

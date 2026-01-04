@@ -53,7 +53,7 @@ ROOT_GENERATE_DICTIONARY(
 target_include_directories(${LIB_NAME} INTERFACE ${THIS_INCLUDE_DIR})
 
 # !!!!!!!!!!!!!!!!!!!!!!
-#target_compile_options(${LIB_NAME} PRIVATE -ggdb -g -O0)
+# target_compile_options(${LIB_NAME} PRIVATE -ggdb -g -O0)
 
 # Link against required libraries
 target_link_libraries(${LIB_NAME}

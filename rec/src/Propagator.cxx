@@ -131,27 +131,27 @@ void Propagator::getMeanMaterialBudgetFromGeom(const float* startF, const float*
   mparam[5] = bparam[5] / sumSteps;
 }
 
-bool Propagator::propagateToZ(NA6PTrackParCov& track, float zToGo, MatCorrType matCorr, float maxStep) const
+bool Propagator::propagateToZ(NA6PTrackParCov& track, float zToGo, const Propagator::PropOpt& opt) const
 {
   //----------------------------------------------------------------
   //
   // Propagates the track to the plane at z (cm)
   // and correcting for the crossed material.
-  // maxStep  - maximal step for propagation
-  // matCorr  - material correction type, it is up to the user to make sure the pointer is attached (if LUT is requested)
+  // opt.maxStep  - maximal step for propagation
+  // opt.matCorr  - material correction type, it is up to the user to make sure the pointer is attached (if LUT is requested)
   //----------------------------------------------------------------
   auto dz = zToGo - track.getZ();
   int dir = dz > 0.f ? 1 : -1;
   std::array<float, 3> b{};
   while (std::abs(dz) > Epsilon) {
-    auto step = std::min(std::abs(dz), maxStep);
+    auto step = std::min(std::abs(dz), opt.maxStep);
     if (dir < 0) {
       step = -step;
     }
     auto z = track.getZ() + step;
     auto xyz0 = track.getXYZ();
     getFieldXYZ(xyz0, b);
-    auto correct = [&track, &xyz0, dir, matCorr, this]() {
+    auto correct = [&track, &xyz0, dir, matCorr = opt.matCorr, this]() {
       bool res = true;
       if (matCorr != MatCorrType::USEMatCorrNONE) {
         auto xyz1 = track.getXYZ();
@@ -166,6 +166,9 @@ bool Propagator::propagateToZ(NA6PTrackParCov& track, float zToGo, MatCorrType m
     if (!track.propagateToZ(z, b)) {
       return false;
     }
+    if (opt.fixCorrelations) {
+      track.fixCorrelations();
+    }
     if (!correct()) {
       return false;
     }
@@ -175,27 +178,27 @@ bool Propagator::propagateToZ(NA6PTrackParCov& track, float zToGo, MatCorrType m
   return true;
 }
 
-bool Propagator::propagateToZ(NA6PTrackPar& track, float zToGo, MatCorrType matCorr, float maxStep) const
+bool Propagator::propagateToZ(NA6PTrackPar& track, float zToGo, const Propagator::PropOpt& opt) const
 {
   //----------------------------------------------------------------
   //
   // Propagates the track to the plane at z (cm)
   // and correcting for the crossed material.
-  // maxStep  - maximal step for propagation
-  // matCorr  - material correction type, it is up to the user to make sure the pointer is attached (if LUT is requested)
+  // opt.maxStep  - maximal step for propagation
+  // opt.matCorr  - material correction type, it is up to the user to make sure the pointer is attached (if LUT is requested)
   //----------------------------------------------------------------
   auto dz = zToGo - track.getZ();
   int dir = dz > 0.f ? 1 : -1;
   std::array<float, 3> b{};
   while (std::abs(dz) > Epsilon) {
-    auto step = std::min(std::abs(dz), maxStep);
+    auto step = std::min(std::abs(dz), opt.maxStep);
     if (dir < 0) {
       step = -step;
     }
     auto z = track.getZ() + step;
     auto xyz0 = track.getXYZ();
     getFieldXYZ(xyz0, b);
-    auto correct = [&track, &xyz0, dir, matCorr, this]() {
+    auto correct = [&track, &xyz0, dir, matCorr = opt.matCorr, this]() {
       bool res = true;
       if (matCorr != MatCorrType::USEMatCorrNONE) {
         auto xyz1 = track.getXYZ();

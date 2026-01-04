@@ -132,9 +132,10 @@ class NA6PTrackPar
   float getParam(ParLabels l) const { return mP[l]; }
   float getP() const { return mP[kQ2P] != 0.f ? 1. / std::abs(mP[kQ2P]) : 0.; }
   PID getPID() const { return mPID; }
+  uint8_t getUserField() const { return mUserField; }
   int getSign() const { return mP[kQ2P] < 0.f ? -1 : 1; }
   void setPID(PID v) { mPID = v; }
-
+  void setUserField(uint8_t v) { mUserField = v; }
   void setParam(ParLabels l, float v) { mP[l] = v; }
   void incParam(ParLabels l, float v) { mP[l] += v; }
 
@@ -219,6 +220,7 @@ class NA6PTrackPar
   float mZ{};                // evaluation z
   std::array<float, 5> mP{}; // parameters: {x,y,px/pz,py/pz,q/p}
   PID mPID{PID::Pion};       // 8 bit PID
+  uint8_t mUserField = 0;    // 8 bit user field
 
   ClassDefNV(NA6PTrackPar, 1);
 };

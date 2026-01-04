@@ -245,6 +245,7 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints()
 
   // track fit starts from the outer layer
   bool first = true;
+  int nclUpd = 0;
   for (int jLay = mNLayers - 1; jLay >= 0; jLay--) {
     // update track with point in current layer
     if (mClusters[jLay]) {
@@ -266,10 +267,11 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints()
         } else
           zNext = mClusters[jLay - 1]->getZ();
       }
+      nclUpd++;
     }
     // propagate to next layer
     if (zCurr > 0 && propToNext) {
-      if (!Propagator::Instance()->propagateToZ(*currTr, zNext)) {
+      if (!Propagator::Instance()->propagateToZ(*currTr, zNext, {.fixCorrelations = nclUpd < 2})) {
         isGoodFit = false;
         break;
       }
