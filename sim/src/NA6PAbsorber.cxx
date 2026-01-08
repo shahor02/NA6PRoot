@@ -38,6 +38,14 @@ void NA6PAbsorber::createMaterials()
     matPool[nameM] = new TGeoMaterial(nameM.c_str(), 183.84, 74, 19.3);
     NA6PTGeoHelper::instance().addMedium(nameM, "", kBlack);
   }
+  nameM = addName("Air");
+  if (matPool.find(nameM) == matPool.end()) {
+    auto mixt = new TGeoMixture(nameM.c_str(), 2, 0.001);
+    mixt->AddElement(new TGeoElement("N", "Nitrogen", 7, 14.01), 0.78);
+    mixt->AddElement(new TGeoElement("O", "Oxygen", 8, 16.00), 0.22);
+    matPool[nameM] = mixt;
+    NA6PTGeoHelper::instance().addMedium(nameM);
+  }
 }
 
 void NA6PAbsorber::createGeometry(TGeoVolume* world)
@@ -65,7 +73,7 @@ void NA6PAbsorber::createGeometry(TGeoVolume* world)
       auto hole = new TGeoTube((slnm + "_H").c_str(), 0.0, param.radPlug[isl], param.thicknessAbsorber[isl]);
       slice = new TGeoCompositeShape((slnm + "_HS").c_str(), new TGeoSubtraction(slice, hole)); // slice with plug hole
       auto slnmP = fmt::format("AbsSlPlug{}{}", isl, param.medAbsorber[isl]);
-      auto* plug = new TGeoTube((slnmP + "_SH").c_str(), 0.0, param.radPlug[isl], param.thicknessAbsorber[isl] / 2);
+      auto* plug = new TGeoTube((slnmP + "_SH").c_str(), param.radPlugInt[isl], param.radPlug[isl], param.thicknessAbsorber[isl] / 2);
       auto* plugVol = new TGeoVolume(slnmP.c_str(), plug, NA6PTGeoHelper::instance().getMedium(addName(param.medAbsorberPlug[isl])));
       plugVol->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName(param.medAbsorberPlug[isl])));
       world->AddNode(plugVol, composeNonSensorVolID(isl + 50), new TGeoTranslation(0.0, 0.0, zplace + param.thicknessAbsorber[isl] / 2));

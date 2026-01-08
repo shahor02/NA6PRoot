@@ -10,7 +10,7 @@ struct NA6PLayoutParam : public na6p::conf::ConfigurableParamHelper<NA6PLayoutPa
   static constexpr int MaxVTPlanes = 7;
   static constexpr int MaxMSPlanes = 7;
   static constexpr int MaxTargets = 5;
-  static constexpr int MaxAbsorberSlices = 10;
+  static constexpr int MaxAbsorberSlices = 20;
 
   // Magnetic field parameters for dumping
   float xMinFieldDump = -200.f; // min X of the magnetic field in cm
@@ -64,7 +64,7 @@ struct NA6PLayoutParam : public na6p::conf::ConfigurableParamHelper<NA6PLayoutPa
   std::string medMSPlane[MaxMSPlanes] = {"Silicon", "Silicon", "Silicon", "Silicon", "Silicon", "Silicon"};
 
   // Absorbers
-  int nAbsorberSlices = 10;       // total number of slices
+  int nAbsorberSlices = 12;       // total number of slices
   int nAbsorberSlicesWall = 3;    // of which nAbsorberSlicesWall are the Muon wall
   float posZStartAbsorber = 45.f; // start of the absorber
   float posMuonWall = 610.f;      // start of the muon wall (if!=0 : slice nAbsorberSlices - nAbsorberSlicesWall)
@@ -72,6 +72,7 @@ struct NA6PLayoutParam : public na6p::conf::ConfigurableParamHelper<NA6PLayoutPa
   float dimXAbsorber[MaxAbsorberSlices] = {39.5f, 52.f, 80.f, 120.f, 170.f, 200.f, 220.f, /*wall*/ 550.f, 550.f, 550.f};      // size in X of rectangular abs. or diameter if dimYAbsorber is 0
   float dimYAbsorber[MaxAbsorberSlices] = {39.5f, 52.f, 80.f, 120.f, 170.f, 200.f, 220.f, /*wall*/ 550.f, 550.f, 550.f};      // size in Y if >0
   float radPlug[MaxAbsorberSlices] = {2.47f, 2.47f, 4.0f, 5.48f, 11.f, 11.f, 11.f, 0.f, 0.f, 0.f};                            // radius of the plug
+  float radPlugInt[MaxAbsorberSlices] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f};                            // radius of the plug
   float killParticlesBelowEAbsorber[MaxAbsorberSlices] = {0.1, 0.1, 0.1, 0.1, 0.05, 0.01, 0.005, /*wall*/ 0.01, 0.01, 0.001}; // kill entering particles with momentum below this (for speed up)
   std::string medAbsorber[MaxAbsorberSlices] = {"BeO", "BeO", "BeO", "BeO", "Graphite", "Graphite", "Graphite", /*wall*/ "Graphite", "Graphite", "Graphite"};
   std::string medAbsorberPlug[MaxAbsorberSlices] = {"Tungsten", "Tungsten", "Tungsten", "Tungsten", "Tungsten", "Tungsten", ""};
