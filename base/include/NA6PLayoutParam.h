@@ -10,7 +10,7 @@ struct NA6PLayoutParam : public na6p::conf::ConfigurableParamHelper<NA6PLayoutPa
   static constexpr int MaxVTPlanes = 7;
   static constexpr int MaxMSPlanes = 7;
   static constexpr int MaxTargets = 5;
-  static constexpr int MaxAbsorberSlices = 20;
+  static constexpr int MaxAbsorberSlices = 50;
 
   // Magnetic field parameters for dumping
   float xMinFieldDump = -200.f; // min X of the magnetic field in cm
@@ -64,7 +64,7 @@ struct NA6PLayoutParam : public na6p::conf::ConfigurableParamHelper<NA6PLayoutPa
   std::string medMSPlane[MaxMSPlanes] = {"Silicon", "Silicon", "Silicon", "Silicon", "Silicon", "Silicon"};
 
   // Absorbers
-  int nAbsorberSlices = 12;       // total number of slices
+  int nAbsorberSlices = 10;       // total number of slices
   int nAbsorberSlicesWall = 3;    // of which nAbsorberSlicesWall are the Muon wall
   float posZStartAbsorber = 45.f; // start of the absorber
   float posMuonWall = 610.f;      // start of the muon wall (if!=0 : slice nAbsorberSlices - nAbsorberSlicesWall)
