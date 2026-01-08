@@ -46,6 +46,26 @@ void NA6PAbsorber::createMaterials()
     matPool[nameM] = mixt;
     NA6PTGeoHelper::instance().addMedium(nameM);
   }
+  nameM = addName("Al2O3");
+  if (matPool.find(nameM) == matPool.end()) {
+    auto mixt = new TGeoMixture(nameM.c_str(), 2, 3.97);
+    mixt->AddElement(new TGeoElement("Al", "Aluminium", 13, 26.98), 2);
+    mixt->AddElement(new TGeoElement("O",  "Oxygen",     8, 16.00), 3);
+    matPool[nameM] = mixt;
+    NA6PTGeoHelper::instance().addMedium(nameM, "", kBlue - 7);
+  }
+  nameM = addName("Concrete");
+  if (matPool.find(nameM) == matPool.end()) {
+    auto mixt = new TGeoMixture(nameM.c_str(), 6, 2.3);
+    mixt->AddElement(new TGeoElement("H",  "Hydrogen",  1,  1.01),  0.01);
+    mixt->AddElement(new TGeoElement("O",  "Oxygen",    8, 16.00),  0.529);
+    mixt->AddElement(new TGeoElement("Al", "Aluminium",13, 26.98), 0.034);
+    mixt->AddElement(new TGeoElement("Si", "Silicon", 14, 28.09),  0.337);
+    mixt->AddElement(new TGeoElement("Ca", "Calcium", 20, 40.08),  0.044);
+    mixt->AddElement(new TGeoElement("Fe", "Iron",    26, 55.85),  0.046);
+    matPool[nameM] = mixt;
+    NA6PTGeoHelper::instance().addMedium(nameM, "", kBlue - 10);
+  }
 }
 
 void NA6PAbsorber::createGeometry(TGeoVolume* world)
