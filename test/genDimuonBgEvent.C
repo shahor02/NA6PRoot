@@ -192,6 +192,8 @@ NA6PGenerator* addBgEventGenerator(NA6PGenCocktail* genCocktail, int NSignalinAc
             yboxhalfw_Jpsi, ysig_Jpsi, pt1_Jpsi, pt2_Jpsi, pt3_Jpsi,
             sigySG, TSG_Phi, TSG_Omega, MotherMass_Phi, MotherMass_Omega);
 
+  bool IsPoisson = true; 	
+
   if (Bg) {
     auto genpiM = new NA6PGenParam("pi-", -211, 0, dndptBgFun, dndyBgFun, ptMin, ptMax, yMin, yMax, true, true, IsPoisson);
     genpiM->setParametersTrans({0.1396f, T_piM});
