@@ -266,7 +266,7 @@ bool NA6PFastTrackFitter::updateTrack(NA6PTrack* trc, const NA6PBaseCluster* cl)
   if (!trc->update(meas, measErr2)) {
     return false;
   }
-  trc->addCluster(cl, 1, chi2);
+  trc->addCluster(cl, cl->getHitID(), chi2);
   //
   return true;
 }
@@ -381,7 +381,7 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints()
     LOGP(error, "Cannot fit track with only {} clusters\n", nClus);
     return nullptr;
   }
-  // Set seed from cluser in the outer layer if not set from outside
+  // Set seed from cluster in the outer layer if not set from outside
   if (!mIsSeedSet)
     computeSeed();
   if (!mIsSeedSet)
@@ -417,15 +417,16 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints()
             zNext = mPrimVertZ;
           else
             propToNext = false;
-        } else
-          zNext = mClusters[jLay - 1]->getZLab();
+        } else {
+          if (mClusters[jLay - 1])
+            zNext = mClusters[jLay - 1]->getZLab();
+          else
+            continue;
+        }
       }
     }
     // propagate to next layer
     if (zCurr > 0 && propToNext) {
-      double pxyzBef[3], pxyzAft[3];
-      currTr->getPXYZ(pxyzBef);
-      double momBef = currTr->getP();
       if (propagateToZ(currTr, zCurr, zNext, -1) != 1) {
         isGoodFit = false;
         break;
