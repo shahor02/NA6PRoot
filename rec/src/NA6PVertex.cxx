@@ -4,14 +4,12 @@
 #include <fairlogger/Logger.h>
 #include "NA6PVertex.h"
 
-ClassImp(NA6PVertex)
-
-  //_______________________________________________________________________
-  NA6PVertex::NA6PVertex(const ROOT::Math::XYZPointF& pos, const std::array<float, kNCov>& cov, int nCont, float chi2) : mPos{pos},
-                                                                                                                         mCov{cov},
-                                                                                                                         mChi2{chi2},
-                                                                                                                         mNContributors{nCont},
-                                                                                                                         mVertexType{kBaseVertex}
+//_______________________________________________________________________
+NA6PVertex::NA6PVertex(const ROOT::Math::XYZPointF& pos, const std::array<float, kNCov>& cov, int nCont, float chi2) : mPos{pos},
+                                                                                                                       mCov{cov},
+                                                                                                                       mChi2{chi2},
+                                                                                                                       mNContributors{nCont},
+                                                                                                                       mVertexType{kBaseVertex}
 {
 }
 //_______________________________________________________________________

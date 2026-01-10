@@ -12,19 +12,16 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-#ifndef NA6P_VERTEL_CLUSTER_H
-#define NA6P_VERTEL_CLUSTER_H
+/// @file   PID.cxx
+/// @author Ruben Shahoyan
+/// @brief  particle ids, masses, names class implementation
 
-#include "NA6PBaseCluster.h"
+#include "PID.h"
+#include <cassert>
 
-// Vertex Telescope cluster class
-
-class NA6PVerTelCluster : public NA6PBaseCluster
+//_______________________________
+PID::PID(const char* name) : mID(nameToID(name, First))
 {
- public:
-  using NA6PBaseCluster::NA6PBaseCluster;
-
-  ClassDefNV(NA6PVerTelCluster, 1);
-};
-
-#endif
+  // construct from the name
+  assert(mID < NIDsTot);
+}

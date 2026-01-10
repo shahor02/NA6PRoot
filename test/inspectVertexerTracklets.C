@@ -25,7 +25,7 @@
 void inspectVertexerTracklets(int firstEv = 0,
                               int lastEv = 999999,
                               const char* dirSimu = "../testN6Proot/pions/latesttag")
-//			const char *dirSimu = "Angantyr")
+//   const char *dirSimu = "Angantyr")
 {
   TFile* fk = new TFile(Form("%s/MCKine.root", dirSimu));
   TTree* mcTree = (TTree*)fk->Get("mckine");
@@ -66,9 +66,9 @@ void inspectVertexerTracklets(int firstEv = 0,
     mcTree->GetEvent(jEv);
     tc->GetEvent(jEv);
     int nPart = mcArr->size();
-    double xVertGen = 0;
-    double yVertGen = 0;
-    double zVertGen = 0;
+    float xVertGen = 0;
+    float yVertGen = 0;
+    float zVertGen = 0;
     // get primary vertex position from the Kine Tree
     for (int jp = 0; jp < nPart; jp++) {
       auto curPart = mcArr->at(jp);
@@ -117,7 +117,7 @@ void inspectVertexerTracklets(int firstEv = 0,
     int nVertices = zVertices.size();
     int jv = 0;
     for (auto vert : zVertices) {
-      double zRec = vert.getZ();
+      float zRec = vert.getZ();
       printf("Vertex %d, z = %f contrib = %d\n", jv++, zRec, vert.getNContributors());
       hdz->Fill(zRec - zVertGen);
       hncontr->Fill(vert.getNContributors());
@@ -150,7 +150,7 @@ void inspectVertexerTracklets(int firstEv = 0,
     printf("After pileup search: nVertices = %d\n", nVertices);
     jv = 0;
     for (auto vert : zVertices) {
-      double zRec = vert.getZ();
+      float zRec = vert.getZ();
       printf("Vertex %d, z = %f nContrib = %d\n", jv++, zRec, vert.getNContributors());
     }
   }
