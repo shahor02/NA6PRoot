@@ -67,6 +67,10 @@ class NA6PTrack : public NA6PTrackParCov
   template <typename ClusterType>
   void addCluster(const ClusterType* clu, int cluIndex, float chi2);
 
+  const NA6PTrackParCov& getOuterParam() const { return mOuter; }
+  NA6PTrackParCov& getOuterParam() { return mOuter; }
+  void setOuterParam(const NA6PTrackParCov& p) { mOuter = p; }
+
   void print() const;
   std::string asString() const;
 
@@ -83,6 +87,7 @@ class NA6PTrack : public NA6PTrackParCov
   int      mCAIteration = -1;                    //! CA iteration (for debug)
   std::array<int, kMaxLr> mClusterIndices{};     // cluster indices
   std::array<int, kMaxLr> mClusterPartID{};      // particle ID (per cluster)
+  NA6PTrackParCov mOuter{};                      // parametrization for outward fit
 
   ClassDefNV(NA6PTrack,1)
 };
