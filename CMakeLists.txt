@@ -38,7 +38,7 @@ set(REC_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/recNative/include)
 #add_subdirectory(varia/Pythia2HEPMC)
 
 #----------------------------------------------------------------------------
-# Add the executable, and link it to the libraries
+# Add the simulation executable, and link it to the libraries
 #
 add_executable(na6psim NA6PSim.cxx ${TOOLS_FORTRAN_OBJECTS})
 target_link_libraries(na6psim
@@ -65,8 +65,39 @@ target_include_directories(na6psim PRIVATE
   ${PROJECT_SOURCE_DIR}/sim/include
 )
 
+#----------------------------------------------------------------------------
+# Add the reconstruction executable, and link it to the libraries
+#
+add_executable(na6prec NA6PRec.cxx ${TOOLS_FORTRAN_OBJECTS})
+target_link_libraries(na6prec
+  utilsLib
+  baseLib
+  simLib
+  recLib
+  ${Geant4_LIBRARIES}
+  ${HDF5_LIBRARIES}
+  ${ROOT_LIBRARIES}
+  ${HDF5_LIBRARIES}
+  ${VMC_LIBRARIES}
+  ${Geant4VMC_LIBRARIES}
+  VGM::BaseVGM
+  Boost::boost
+  Boost::program_options
+  fmt::fmt
+  FairLogger::FairLogger
+  HepMC3::HepMC3
+  )
+# Explicit dependency on module headers
+target_include_directories(na6prec PRIVATE
+  ${PROJECT_SOURCE_DIR}/utils/include
+  ${PROJECT_SOURCE_DIR}/base/include
+  ${PROJECT_SOURCE_DIR}/sim/include
+  ${PROJECT_SOURCE_DIR}/rec/include
+)
+
+
 # Install instructions (optional)
-install(TARGETS na6psim RUNTIME DESTINATION bin)
+install(TARGETS na6psim na6prec RUNTIME DESTINATION bin)
 
 set(DATA_DIR ${CMAKE_SOURCE_DIR}/data)
 # Install all files in the data directory
