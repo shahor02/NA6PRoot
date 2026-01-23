@@ -24,6 +24,7 @@ ClassImp(NA6PTrackerCA)
                                    mTrackFitter{nullptr},
                                    mIsClusterUsed{false},
                                    mMaxSharedClusters{0},
+                                   mPropagateTracksToPrimaryVertex{false},
                                    mVerbose{false},
                                    mNIterationsCA{2}
 {
@@ -515,16 +516,22 @@ void NA6PTrackerCA::findCellsNeighbours(const std::vector<CellCandidate>& cells,
           LOGP(error, "mismatch in cluIDs");
           continue;
         }
-        int jClu2 = cell2.cluIDs[2];
-        const auto& clu2 = cluArr[jClu2];
-        double cluchi2a = computeTrackToClusterChi2(cell1.trackFitFast, clu2);
-        if (cluchi2a > maxChi2TrClu)
-          continue;
+
+        // Check compatibility of cells via track-cluster chi2
+        // Check done only for the inward propagation of the outer cell
+        //   because we have the track parameterization at the innermost point of each cell
+        // int jClu2 = cell2.cluIDs[2];
+        // const auto& clu2 = cluArr[jClu2];
+        // double cluchi2a = computeTrackToClusterChi2(cell1.trackFitFast, clu2);
+        // if (cluchi2a > maxChi2TrClu)
+        //   continue;
+
         int jClu0 = cell1.cluIDs[0];
         const auto& clu0 = cluArr[jClu0];
         double cluchi2b = computeTrackToClusterChi2(cell2.trackFitFast, clu0);
         if (cluchi2b > maxChi2TrClu)
           continue;
+
         cneigh.push_back(std::make_pair(jCe1, jCe2));
       }
     }
@@ -582,18 +589,13 @@ std::vector<TrackCandidate> NA6PTrackerCA::prolongSeed(const TrackCandidate& see
           }
         }
         // --- Chi2 checks ---
-        const auto& fitNext = ccNext.trackFitFast;
-        int cluRefIndex = (dir == ExtendDirection::kInward) ? 2 : 0;
-        const auto& cluRef = cluArr[refCell.cluIDs[cluRefIndex]];
-        double chi2a = computeTrackToClusterChi2(fitNext, cluRef);
-        if (chi2a > maxChi2TrClu)
+        // Compute chi2 only for the innermost cluster of the cells to be connected
+        const auto& fitCurr = (dir == ExtendDirection::kInward) ? refCell.trackFitFast : ccNext.trackFitFast;
+        const auto& cluToAdd = (dir == ExtendDirection::kInward) ? cluArr[ccNext.cluIDs[0]] : cluArr[refCell.cluIDs[0]];
+        double chi2 = computeTrackToClusterChi2(fitCurr, cluToAdd);
+        if (chi2 > maxChi2TrClu)
           continue;
-        const auto& fitRef = refCell.trackFitFast;
-        int cluNextIndex = (dir == ExtendDirection::kInward) ? 0 : 2;
-        const auto& cluNext = cluArr[ccNext.cluIDs[cluNextIndex]];
-        double chi2b = computeTrackToClusterChi2(fitRef, cluNext);
-        if (chi2b > maxChi2TrClu)
-          continue;
+
         // create new prolonged track
         TrackCandidate extended = cand;
         if (dir == ExtendDirection::kInward) {
@@ -739,6 +741,8 @@ void NA6PTrackerCA::fitAndSelectTracks(const std::vector<TrackCandidate>& trackC
     // double ndf = fitTrack.getFitStatus(rep)->getNdf();
     // double chi2ndf = (ndf > 0) ? chi2 / ndf : 9999.0;
     double chi2ndf = fitTrackFast.getNormChi2();
+    if (mPropagateTracksToPrimaryVertex)
+      mTrackFitter->propagateToZ(&fitTrackFast, mPrimVertPos[2]);
     fittedTracks.emplace_back(cand.innerLayer, cand.outerLayer, nClus, cand.cluIDs, std::move(fitTrackFast), chi2ndf);
   }
   // sort by chi2 in view of selection
