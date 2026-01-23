@@ -78,6 +78,8 @@ class NA6PTrackerCA
   void setStartLayer(int start) { mLayerStart = start; }
   void setMaxNumberOfSharedClusters(int n) { mMaxSharedClusters = n; }
   void setPropagateTracksToPrimaryVertex(bool opt = true) { mPropagateTracksToPrimaryVertex = opt; }
+  void setDoOutwardPropagation(bool opt = true) { mDoOutwardPropagation = opt; }
+  void setZForOutwardPropagation(float zout) { mZOutProp = zout; }
   void setNumberOfIterations(int nIter);
   void setIterationParams(int iter,
                           double maxDeltaThetaTracklets,
@@ -190,6 +192,8 @@ class NA6PTrackerCA
   int mMaxSharedClusters = 0;
   bool mVerbose = false;
   bool mPropagateTracksToPrimaryVertex = false;
+  bool mDoOutwardPropagation = false;
+  float mZOutProp = 40.;
   int mNIterationsCA = 2;
   double mMaxDeltaThetaTrackletsCA[kMaxIterationsCA] = {0.04, 0.1, 0.15, 0.3, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   double mMaxDeltaPhiTrackletsCA[kMaxIterationsCA] = {0.1, 0.2, 0.25, 0.5, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};

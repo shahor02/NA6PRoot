@@ -25,6 +25,8 @@ ClassImp(NA6PTrackerCA)
                                    mIsClusterUsed{false},
                                    mMaxSharedClusters{0},
                                    mPropagateTracksToPrimaryVertex{false},
+                                   mDoOutwardPropagation{false},
+                                   mZOutProp{40.},
                                    mVerbose{false},
                                    mNIterationsCA{2}
 {
@@ -741,6 +743,14 @@ void NA6PTrackerCA::fitAndSelectTracks(const std::vector<TrackCandidate>& trackC
     // double ndf = fitTrack.getFitStatus(rep)->getNdf();
     // double chi2ndf = (ndf > 0) ? chi2 / ndf : 9999.0;
     double chi2ndf = fitTrackFast.getNormChi2();
+    if (mDoOutwardPropagation) {
+      // outward fit (needed in VT for matching to Muon Spectrometer)
+      std::unique_ptr<NA6PTrack> outwRefitPtr(mTrackFitter->fitTrackPointsOutward(&fitTrackFast));
+      if (outwRefitPtr) {
+        mTrackFitter->propagateToZ(outwRefitPtr.get(), mZOutProp);
+        fitTrackFast.setOuterParam(outwRefitPtr->getTrackExtParam());
+      }
+    }
     if (mPropagateTracksToPrimaryVertex)
       mTrackFitter->propagateToZ(&fitTrackFast, mPrimVertPos[2]);
     fittedTracks.emplace_back(cand.innerLayer, cand.outerLayer, nClus, cand.cluIDs, std::move(fitTrackFast), chi2ndf);
