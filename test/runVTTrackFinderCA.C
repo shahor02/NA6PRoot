@@ -24,13 +24,14 @@
 #include "NA6PTrackerCA.h"
 #include "MagneticField.h"
 #include "NA6PVerTelHit.h"
+#include "NA6PTreeStreamRedirector.h"
 #endif
 
 const int maxIterationsCA = NA6PTrackerCA::kMaxIterationsCA;
 
 void runVTTrackFinderCA(int firstEv = 0,
                         int lastEv = 9999,
-                        const char* dirSimu = "../testN6Proot/pions/latesttag",
+                        const char* dirSimu = "./",
                         int nLayers = 5)
 {
 
@@ -52,6 +53,7 @@ void runVTTrackFinderCA(int firstEv = 0,
     hMomRecoIterCA[jIteration] = new TH1F(Form("hMomRecoIterCA%d", jIteration), ";p (GeV/c);counts", nMomBins, 0., 10.);
     hEtaRecoIterCA[jIteration] = new TH1F(Form("hEtaRecoIterCA%d", jIteration), ";#eta;counts", 20, 1., 5.);
   }
+  NA6PTreeStreamRedirector outTr("recCheck.root");
 
   NA6PTrackerCA* tracker = new NA6PTrackerCA();
   if (!tracker->loadGeometry(Form("%s/geometry.root", dirSimu)))
@@ -129,11 +131,11 @@ void runVTTrackFinderCA(int firstEv = 0,
     std::vector<NA6PTrack> trks = tracker->getTracks();
     int nTrks = trks.size();
     for (int jT = 0; jT < nTrks; jT++) {
-      NA6PTrack tr = trks[jT];
+      const NA6PTrack& tr = trks[jT];
       int idPartTrack = tr.getParticleID();
       int jIteration = tr.getCAIteration();
       if (tr.getNHits() == 5) {
-        auto curPart = mcArr->at(std::abs(idPartTrack));
+        const auto& curPart = mcArr->at(std::abs(idPartTrack));
         float pxPart = curPart.Px();
         float pyPart = curPart.Py();
         float pzPart = curPart.Pz();
@@ -151,6 +153,7 @@ void runVTTrackFinderCA(int firstEv = 0,
           hMomGoodReco->Fill(momPart);
           hEtaGoodReco->Fill(etaPart);
         }
+        outTr << "dbgTree" << "genTr=" << curPart << "recTr=" << tr << "\n";
       }
     }
   }
@@ -255,4 +258,6 @@ void runVTTrackFinderCA(int firstEv = 0,
   hPurityEta->SetStats(0);
   hPurityEta->SetLineWidth(2);
   hPurityEta->Draw();
+
+  outTr.Close();
 }

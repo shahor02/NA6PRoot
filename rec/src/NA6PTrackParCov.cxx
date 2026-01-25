@@ -75,10 +75,12 @@ bool NA6PTrackParCov::propagateToZ(float z, float by)
   float yUpd = getTy() / (pxz2pz * kappa) * dPsi;
   float txNew = sinPsi1 * cosPsi1Inv;             // tx1 = tan(psi1) = sin(psi1)/cos(psi1)
   float tyNew = getTy() * (cosPsi0 * cosPsi1Inv); // ty = p_y/p_z => ty1 = ty0 * (cosPsi0 / cosPsi1)   simplify this
+  /* // The case of small kappa is already treated above.
   if (std::abs(kappa) < kTiny) {
     xUpd = getTx() * dz;
     yUpd = getTy() * dz;
   }
+  */
   // ----------------------------- precalculate for the covariance transport (double) ------------------------------
   // non-0 elements of the Jacobian
   /*
@@ -243,7 +245,7 @@ float NA6PTrackParCov::getPredictedChi2(float xm, float ym, float sx2, float syx
   auto eyy = static_cast<double>(getSigmaY2()) + static_cast<double>(sy2);
   auto det = exx * eyy - eyx * eyx;
 
-  if (std::abs(det) < 1e-16) {
+  if (det < 1e-16) {
     return 1.e16;
   }
 
@@ -267,6 +269,14 @@ bool NA6PTrackParCov::update(float xm, float ym, float sx2, float sxy, float sy2
   const double CTyTx = mC[kTyTx], CTyTy = mC[kTyTy], CQpx = mC[kQ2PX], CQpy = mC[kQ2PY], CQpTx = mC[kQ2PTx], CQpTy = mC[kQ2PTy], CQpQp = mC[kQ2PQ2P];
 
   // innovation covariance S = H C H^T + R (2x2) ---
+  /*
+  if (sx2 / Cxx < 1e-4) {
+    sx2 = Cxx * 1e-4;
+  }
+  if (sy2 / Cyy < 1e-4) {
+    sy2 = Cyy * 1e-4;
+  }
+  */
   const double S00 = Cxx + sx2, S01 = Cyx + sxy, S11 = Cyy + sy2, detS = S00 * S11 - S01 * S01;
   if (std::abs(detS) < kTiny) { // Singular or ill-conditioned S: skip update
     return false;
