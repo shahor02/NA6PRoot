@@ -1,12 +1,12 @@
 /*
   CA Track Finder Macro
-  
+
   Usage:
     root -l
     root [0] .L setup_macros.C     // Load NA6PRoot libraries and setup paths
     root [1] .L runTrackFinderCA.C+  // Compile the macro with ACLiC
     root [2] runTrackFinderCA()      // Run with default parameters
-    
+
   Or with custom parameters:
     root [2] runTrackFinderCA(0, 100, "../fullgeo", 5)
 */
@@ -24,14 +24,16 @@
 #include "NA6PTrackerCA.h"
 #include "MagneticField.h"
 #include "NA6PVerTelHit.h"
+#include "NA6PTreeStreamRedirector.h"
 #endif
 
 const int maxIterationsCA = NA6PTrackerCA::kMaxIterationsCA;
 
 void runVTTrackFinderCA(int firstEv = 0,
-		      int lastEv = 9999,
-		      const char *dirSimu = "../testN6Proot/pions/latesttag",
-		      int nLayers = 5){
+                        int lastEv = 9999,
+                        const char* dirSimu = "./",
+                        int nLayers = 5)
+{
 
   auto magField = new MagneticField();
   magField->loadField();
@@ -51,6 +53,7 @@ void runVTTrackFinderCA(int firstEv = 0,
     hMomRecoIterCA[jIteration] = new TH1F(Form("hMomRecoIterCA%d", jIteration), ";p (GeV/c);counts", nMomBins, 0., 10.);
     hEtaRecoIterCA[jIteration] = new TH1F(Form("hEtaRecoIterCA%d", jIteration), ";#eta;counts", 20, 1., 5.);
   }
+  NA6PTreeStreamRedirector outTr("recCheck.root");
 
   NA6PTrackerCA* tracker = new NA6PTrackerCA();
   if (!tracker->loadGeometry(Form("%s/geometry.root", dirSimu)))
@@ -89,7 +92,7 @@ void runVTTrackFinderCA(int firstEv = 0,
     mcTree->GetEvent(jEv);
     th->GetEvent(jEv);
     int nPart = mcArr->size();
-    double zvert = 0;
+    float zvert = 0;
     // get primary vertex position from the Kine Tree
     for (int jp = 0; jp < nPart; jp++) {
       auto curPart = mcArr->at(jp);
@@ -112,13 +115,13 @@ void runVTTrackFinderCA(int firstEv = 0,
         }
       }
       if (maskHits == (1 << nLayers) - 1) {
-        double pxPart = curPart.Px();
-        double pyPart = curPart.Py();
-        double pzPart = curPart.Pz();
-        double momPart = curPart.P();
-        double phiPart = curPart.Phi();
-        double thetaPart = std::acos(pzPart / momPart);
-        double etaPart = -std::log(std::tan(thetaPart / 2.));
+        float pxPart = curPart.Px();
+        float pyPart = curPart.Py();
+        float pzPart = curPart.Pz();
+        float momPart = curPart.P();
+        float phiPart = curPart.Phi();
+        float thetaPart = std::acos(pzPart / momPart);
+        float etaPart = -std::log(std::tan(thetaPart / 2.));
         hMomGen->Fill(momPart);
         hEtaGen->Fill(etaPart);
       }
@@ -128,18 +131,18 @@ void runVTTrackFinderCA(int firstEv = 0,
     std::vector<NA6PTrack> trks = tracker->getTracks();
     int nTrks = trks.size();
     for (int jT = 0; jT < nTrks; jT++) {
-      NA6PTrack tr = trks[jT];
+      const NA6PTrack& tr = trks[jT];
       int idPartTrack = tr.getParticleID();
       int jIteration = tr.getCAIteration();
       if (tr.getNHits() == 5) {
-        auto curPart = mcArr->at(std::abs(idPartTrack));
-        double pxPart = curPart.Px();
-        double pyPart = curPart.Py();
-        double pzPart = curPart.Pz();
-        double momPart = curPart.P();
-        double phiPart = curPart.Phi();
-        double thetaPart = std::acos(pzPart / momPart);
-        double etaPart = -std::log(std::tan(thetaPart / 2.));
+        const auto& curPart = mcArr->at(std::abs(idPartTrack));
+        float pxPart = curPart.Px();
+        float pyPart = curPart.Py();
+        float pzPart = curPart.Pz();
+        float momPart = curPart.P();
+        float phiPart = curPart.Phi();
+        float thetaPart = std::acos(pzPart / momPart);
+        float etaPart = -std::log(std::tan(thetaPart / 2.));
         hMomReco->Fill(momPart);
         hEtaReco->Fill(etaPart);
         if (jIteration >= 0 && jIteration < maxIterationsCA) {
@@ -150,6 +153,7 @@ void runVTTrackFinderCA(int firstEv = 0,
           hMomGoodReco->Fill(momPart);
           hEtaGoodReco->Fill(etaPart);
         }
+        outTr << "dbgTree" << "genTr=" << curPart << "recTr=" << tr << "\n";
       }
     }
   }
@@ -157,14 +161,14 @@ void runVTTrackFinderCA(int firstEv = 0,
   TH1F* hPurityMom = (TH1F*)hMomGoodReco->Clone("hPurityMom");
   hPurityMom->GetYaxis()->SetTitle("purity");
   for (int iBin = 1; iBin <= hMomGoodReco->GetNbinsX(); iBin++) {
-    double cg = hMomGoodReco->GetBinContent(iBin);
-    double ct = hMomReco->GetBinContent(iBin);
+    float cg = hMomGoodReco->GetBinContent(iBin);
+    float ct = hMomReco->GetBinContent(iBin);
     if (ct == 0) {
       hPurityMom->SetBinContent(iBin, 0.);
       hPurityMom->SetBinError(iBin, 0.);
     } else {
-      double p = cg / ct;
-      double ep = std::sqrt(p * (1 - p) / ct);
+      float p = cg / ct;
+      float ep = std::sqrt(p * (1 - p) / ct);
       hPurityMom->SetBinContent(iBin, p);
       hPurityMom->SetBinError(iBin, ep);
     }
@@ -172,14 +176,14 @@ void runVTTrackFinderCA(int firstEv = 0,
   TH1F* hPurityEta = (TH1F*)hEtaGoodReco->Clone("hPurityEta");
   hPurityEta->GetYaxis()->SetTitle("purity");
   for (int iBin = 1; iBin <= hEtaGoodReco->GetNbinsX(); iBin++) {
-    double cg = hEtaGoodReco->GetBinContent(iBin);
-    double ct = hEtaReco->GetBinContent(iBin);
+    float cg = hEtaGoodReco->GetBinContent(iBin);
+    float ct = hEtaReco->GetBinContent(iBin);
     if (ct == 0) {
       hPurityEta->SetBinContent(iBin, 0.);
       hPurityEta->SetBinError(iBin, 0.);
     } else {
-      double p = cg / ct;
-      double ep = std::sqrt(p * (1 - p) / ct);
+      float p = cg / ct;
+      float ep = std::sqrt(p * (1 - p) / ct);
       hPurityEta->SetBinContent(iBin, p);
       hPurityEta->SetBinError(iBin, ep);
     }
@@ -254,4 +258,6 @@ void runVTTrackFinderCA(int firstEv = 0,
   hPurityEta->SetStats(0);
   hPurityEta->SetLineWidth(2);
   hPurityEta->Draw();
+
+  outTr.Close();
 }

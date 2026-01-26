@@ -8,10 +8,10 @@
 #endif
 
 void runMSTracking(int firstEv = 0,
-		   int lastEv = 99999,
-		   const char *dirSimu = "../tst")
+                   int lastEv = 99999,
+                   const char* dirSimu = "../tst")
 {
-  
+
   // kine file needed to get the primary vertex position (temporary)
   TFile* fk=new TFile(Form("%s/MCKine.root",dirSimu));
   TTree* mcTree=(TTree*)fk->Get("mckine");
@@ -39,7 +39,7 @@ void runMSTracking(int firstEv = 0,
   for(int jEv=firstEv; jEv<lastEv; jEv++){
     mcTree->GetEvent(jEv);
     int nPart=mcArr->size();
-    double zvert = 0;
+    float zvert = 0;
     // get primary vertex position from the Kine Tree
     for(int jp=0; jp<nPart; jp++){
       auto curPart=mcArr->at(jp);
@@ -54,8 +54,7 @@ void runMSTracking(int firstEv = 0,
     msrec->runTracking();
   }
   msrec->closeTracksOutput();
-  
+
   timer.Stop();
   timer.Print();
 }
-    

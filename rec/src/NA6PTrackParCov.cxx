@@ -5,14 +5,31 @@
 #include <algorithm>
 #include <fairlogger/Logger.h>
 
+NA6PTrackParCov::NA6PTrackParCov(const float* xyz, const float* pxyz, int sign, float errLoose) : NA6PTrackPar(xyz, pxyz, sign)
+{
+  setCov({1e-6f, 0.f, 1e-6f, 0.f, 0.f, 1e-6f, 0.f, 0.f, 0.f, 1e-6f, 0.f, 0.f, 0.f, 0.f, 1e-2f});
+  if (errLoose >= -2)
+    resetCovariance(errLoose);
+}
+
+void NA6PTrackParCov::init(const float* xyz, const float* pxyz, int sign, float errLoose)
+{
+  initParam(xyz, pxyz, sign);
+  setCov({1e-6f, 0.f, 1e-6f, 0.f, 0.f, 1e-6f, 0.f, 0.f, 0.f, 1e-6f, 0.f, 0.f, 0.f, 0.f, 1e-2f});
+  if (errLoose >= -2)
+    resetCovariance(errLoose);
+}
+
 std::string NA6PTrackParCov::asString() const
 {
   return fmt::format("{} Cov=[{:+.3e}, {:+.3e},{:+.3e}, {:+.3e},{:+.3e},{:+.3e}, {:+.3e},{:+.3e},{:+.3e},{:+.3e}, {:+.3e},{:+.3e},{:+.3e},{:+.3e},{:+.3e}]",
                      NA6PTrackPar::asString(), mC[0], mC[1], mC[2], mC[3], mC[4], mC[5], mC[6], mC[7], mC[8], mC[9], mC[10], mC[11], mC[12], mC[13], mC[14]);
 }
 
-bool NA6PTrackParCov::propagate(float z, float by)
+bool NA6PTrackParCov::propagateToZ(float z, float by)
 {
+  auto sav = *this; // RS TOREM
+
   using prec_t = double;
   const float dz = z - getZ();
   if (std::abs(dz) < 1e-6f) {
@@ -26,13 +43,14 @@ bool NA6PTrackParCov::propagate(float z, float by)
     mZ = z;
     return true;
   }
-  const auto pxz2pz2 = getPxz2Pz2<prec_t>();                // D^2 of the into
-  const auto pxz2pz = std::sqrt(pxz2pz2);                   // D of the into
+  const auto pxz2pz2 = getPxz2Pz2<prec_t>();                // D^2 of the intro
+  const auto pxz2pz = std::sqrt(pxz2pz2);                   // D of the intro
   const auto p2pz = std::sqrt(pxz2pz2 + getTy() * getTy()); // A of the intro
   //   tan(psi0) = tx0 = p_x/p_z
   const auto cosPsi0 = prec_t(1) / pxz2pz;
   const auto sinPsi0 = getTx() * cosPsi0;
-  const auto kappa = kB2C * by * getQ2P() * (p2pz * cosPsi0); // curvature
+  const auto K = kB2C * by, K2QP = K * getQ2P();
+  const auto kappa = K2QP * (p2pz * cosPsi0); // curvature
   // dz = (1/kappa) [ sin(psi1) - sin(psi0) ]
   // => sin(psi1) = sinPsi0 + kappa * dz
   const auto sinPsi1 = sinPsi0 + kappa * dz;
@@ -57,16 +75,96 @@ bool NA6PTrackParCov::propagate(float z, float by)
   float yUpd = getTy() / (pxz2pz * kappa) * dPsi;
   float txNew = sinPsi1 * cosPsi1Inv;             // tx1 = tan(psi1) = sin(psi1)/cos(psi1)
   float tyNew = getTy() * (cosPsi0 * cosPsi1Inv); // ty = p_y/p_z => ty1 = ty0 * (cosPsi0 / cosPsi1)   simplify this
+  /* // The case of small kappa is already treated above.
   if (std::abs(kappa) < kTiny) {
     xUpd = getTx() * dz;
     yUpd = getTy() * dz;
   }
+  */
   // ----------------------------- precalculate for the covariance transport (double) ------------------------------
   // non-0 elements of the Jacobian
+  /*
   auto dzh = 0.5 * dz;
   double tmpA2 = 1. / (p2pz * p2pz), tmpD2 = 1. / (pxz2pz * pxz2pz), f24{dz * kB2C * by * p2pz / pxz2pz};
   double f23{dz * kappa * getTy() * tmpA2}, tmpXA2D2 = dz * kappa * getTx() * (tmpA2 - tmpD2);
   double f02{dz + dzh * tmpXA2D2}, f03{dzh * f23}, f04{dzh * f24}, f13{dz}, f22{1. + tmpXA2D2};
+  */
+  // ALT
+  auto invA = 1. / p2pz;
+  auto invC13 = cosPsi1Inv * cosPsi1Inv * cosPsi1Inv;
+  auto invD = cosPsi0, invD3 = 1. / (pxz2pz2 * pxz2pz);
+
+  // ------------------------------------------------------------------
+  // Derivatives of kappa wrt (tx, ty, qop)
+  // kappa = K*qop*(A/D)
+  // ------------------------------------------------------------------
+  // dA/dtx = tx/A, dA/dty = ty/A, dD/dtx = tx/D
+  // dk/dtx = K*qop * tx*( 1/(A*D) - A/(D^3) )
+  // dk/dty = K*qop * ty/(A*D)
+  // dk/dq  = K * (A/D)
+  auto dk_dtx = K2QP * getTx() * (invA * invD - p2pz * invD3);
+  auto dk_dty = K2QP * getTy() * (invA * invD);
+  auto dk_dq = K * (p2pz * invD);
+  // ------------------------------------------------------------------
+  // Derivatives of sinPsi1 wrt (tx, ty, qop)
+  // s1 = s0 + kappa*dz, with ds0/dtx = 1/D^3
+  // ------------------------------------------------------------------
+  auto ds0_dtx = invD3;
+  auto ds1_dtx = ds0_dtx + dz * dk_dtx;
+  auto ds1_dty = dz * dk_dty;
+  auto ds1_dq = dz * dk_dq;
+  // ------------------------------------------------------------------
+  // f22,f23,f24 from tx1 = tan(psi1) = s1/c1
+  // d(tx1)/du = (1/c1^3) * ds1/du
+  // ------------------------------------------------------------------
+  double f22 = invC13 * ds1_dtx;
+  double f23 = invC13 * ds1_dty;
+  double f24 = invC13 * ds1_dq;
+  // ------------------------------------------------------------------
+  // f02,f03,f04 from x1 = x0 + (c0 - c1)/kappa
+  // dx/du = ((dc0/du - dc1/du)/kappa) - (c0 - c1)/kappa^2 * dk/du
+  // dc0/dtx = -tx/D^3 ; dc0/dty=0 ; dc0/dq=0
+  // dc1/du  = -(s1/c1) * ds1/du
+  // ------------------------------------------------------------------
+  auto invK = 1. / kappa;
+  auto invK2 = invK * invK;
+
+  auto dc0_dtx = -getTx() * invD3;
+
+  auto s1_over_c1 = sinPsi1 * cosPsi1Inv;
+  auto dc1_dtx = -s1_over_c1 * ds1_dtx;
+  auto dc1_dty = -s1_over_c1 * ds1_dty;
+  auto dc1_dq = -s1_over_c1 * ds1_dq;
+
+  auto c0_minus_c1 = cosPsi0 - cosPsi1; // simplify
+
+  double f02 = ((dc0_dtx - dc1_dtx) * invK) - (c0_minus_c1 * invK2) * dk_dtx;
+  double f03 = (-dc1_dty * invK) - (c0_minus_c1 * invK2) * dk_dty;
+  double f04 = (-dc1_dq * invK) - (c0_minus_c1 * invK2) * dk_dq;
+
+  // ------------------------------------------------------------------
+  // f13 from y1 = y0 + (ty/D) * (dpsi/kappa)
+  // here we keep the sparse structure: only dy/dty is retained.
+  //
+  // Let ny = ty/D (depends on ty only via ty), D depends on tx only.
+  // s_perp = dpsi/kappa
+  //
+  // f13 = (1/D)*s_perp + (ty/D) * d(s_perp)/dty
+  // d(dpsi)/dty = d(psi1)/dty = (1/c1) * ds1_dty
+  // d(s_perp)/dty = ( (d(dpsi)/dty)*kappa - dpsi*dk_dty ) / kappa^2
+  // ------------------------------------------------------------------
+  auto s_perp = dPsi * invK;             // dpsi/kappa
+  auto ddPsi_dty = cosPsi1Inv * ds1_dty; // (1/c1)*ds1_dty
+  auto dsperp_dty = (ddPsi_dty * kappa - dPsi * dk_dty) * invK2;
+  double f13 = invD * s_perp + (getTy() * invD) * dsperp_dty;
+
+  //
+  auto dzh = 0.5 * dz;
+  double tmpA2 = 1. / (p2pz * p2pz), tmpD2 = 1. / (pxz2pz * pxz2pz), f24XX{dz * kB2C * by * p2pz / pxz2pz};
+  double f23XX{dz * kappa * getTy() * tmpA2}, tmpXA2D2 = dz * kappa * getTx() * (tmpA2 - tmpD2);
+  double f02XX{dz + dzh * tmpXA2D2}, f03XX{dzh * f23}, f04XX{dzh * f24}, f13XX{dz}, f22XX{1. + tmpXA2D2};
+  //
+
   // ---------------------------------------------------------------------------------------------------------------
   incParam(kX, xUpd);
   incParam(kY, yUpd);
@@ -136,17 +234,18 @@ void NA6PTrackParCov::propagateCov(double f02, double f03, double f04, double f1
   mC[kQ2PTx] = c24;
   // mC[kQ2PTy] unchanged
   // mC[kQ2PQ2P] unchanged
+  checkCorrelations();
 }
 
 // calculate chi2 between the track and the cluster
-float NA6PTrackParCov::getPredictedChi2(float xm, float ym, float sx2, float syx, float sy2)
+float NA6PTrackParCov::getPredictedChi2(float xm, float ym, float sx2, float syx, float sy2) const
 {
   auto exx = static_cast<double>(getSigmaX2()) + static_cast<double>(sx2);
   auto eyx = static_cast<double>(getSigmaYX()) + static_cast<double>(syx);
   auto eyy = static_cast<double>(getSigmaY2()) + static_cast<double>(sy2);
   auto det = exx * eyy - eyx * eyx;
 
-  if (std::abs(det) < 1e-16) {
+  if (det < 1e-16) {
     return 1.e16;
   }
 
@@ -163,11 +262,21 @@ float NA6PTrackParCov::getPredictedChi2(float xm, float ym, float sx2, float syx
 // Kalman update with 2D measurement (xm, ym), and covariance (sx2, sxy, sy2)
 bool NA6PTrackParCov::update(float xm, float ym, float sx2, float sxy, float sy2)
 {
+  auto sav = *this; // TOREM
+
   double dx = xm - getX(), dy = ym - getY(); // innovation (residual)
   const double Cxx = mC[kXX], Cyx = mC[kYX], Cyy = mC[kYY], CTxX = mC[kTxX], CTxY = mC[kTxY], CTxTx = mC[kTxTx], CTyX = mC[kTyX], CTyY = mC[kTyY];
   const double CTyTx = mC[kTyTx], CTyTy = mC[kTyTy], CQpx = mC[kQ2PX], CQpy = mC[kQ2PY], CQpTx = mC[kQ2PTx], CQpTy = mC[kQ2PTy], CQpQp = mC[kQ2PQ2P];
 
   // innovation covariance S = H C H^T + R (2x2) ---
+  /*
+  if (sx2 / Cxx < 1e-4) {
+    sx2 = Cxx * 1e-4;
+  }
+  if (sy2 / Cyy < 1e-4) {
+    sy2 = Cyy * 1e-4;
+  }
+  */
   const double S00 = Cxx + sx2, S01 = Cyx + sxy, S11 = Cyy + sy2, detS = S00 * S11 - S01 * S01;
   if (std::abs(detS) < kTiny) { // Singular or ill-conditioned S: skip update
     return false;
@@ -229,10 +338,11 @@ bool NA6PTrackParCov::update(float xm, float ym, float sx2, float sxy, float sy2
   mC[kQ2PTx] -= (K4_0 * t0_2 + K4_1 * t1_2);
   mC[kQ2PTy] -= (K4_0 * t0_3 + K4_1 * t1_3);
   mC[kQ2PQ2P] -= (K4_0 * t0_4 + K4_1 * t1_4);
+  checkCorrelations();
   return true;
 }
 
-void NA6PTrackParCov::resetCovariance(value_t s2)
+void NA6PTrackParCov::resetCovariance(float s2)
 {
   constexpr float
     kCX2max = 100 * 100,    // SigmaX<=100cm
@@ -244,40 +354,182 @@ void NA6PTrackParCov::resetCovariance(value_t s2)
 
   // Reset the covarince matrix to "something big"
   float d0(kCX2max), d1(kCY2max), d2(kCTx2max), d3(kCTy2max), d4(kC1P2max);
-  if (s2 > constants::math::Almost0) {
+  if (s2 > 1e-16f) {
     d0 = getSigmaX2() * s2;
     d1 = getSigmaY2() * s2;
     d2 = getSigmaTx2() * s2;
     d3 = getSigmaTy2() * s2;
     d4 = getSigmaQ2P2() * s2;
-    if (d0 > kCY2max) {
-      d0 = kCY2max;
+    if (d0 > kCX2max) {
+      d0 = kCX2max;
     }
-    if (d1 > kCZ2max) {
-      d1 = kCZ2max;
+    if (d1 > kCY2max) {
+      d1 = kCY2max;
     }
-    if (d2 > kCSnp2max) {
-      d2 = kCSnp2max;
+    if (d2 > kCTx2max) {
+      d2 = kCTx2max;
     }
-    if (d3 > kCTgl2max) {
-      d3 = kCTgl2max;
+    if (d3 > kCTy2max) {
+      d3 = kCTy2max;
     }
-    if (d4 > kC1Pt2max) {
-      d4 = kC1Pt2max;
+    if (d4 > kC1P2max) {
+      d4 = kC1P2max;
     }
   }
   for (int i = 0; i < 15; i++) {
     mC[i] = 0;
   }
-  mC[kSigY2] = d0;
-  mC[kSigZ2] = d1;
-  mC[kSigSnp2] = d2;
-  mC[kSigTgl2] = d3;
-  mC[kSigQ2Pt2] = d4;
+  mC[kXX] = d0;
+  mC[kYY] = d1;
+  mC[kTxTx] = d2;
+  mC[kTyTy] = d3;
+  mC[kQ2PQ2P] = d4;
 }
 
 bool NA6PTrackParCov::correctForMeanMaterial(float xOverX0, float xTimesRho)
 {
-  LOGP(error, "TODO correctForMeanMaterial");
+  // multiple scattering in Rossi param, no log term
+  auto sav = *this; // TOREM
+
+  auto p = getP(), p0 = p, p2 = p * p;
+  auto en2 = p * p + mPID.getMass2();
+  auto beta2 = p2 / en2;
+  if (xOverX0 != 0.f) {
+    auto theta2 = kMSConst2 * xOverX0 / (beta2 * p2);
+    mC[kTxTx] += theta2;
+    mC[kTyTy] += theta2;
+  }
+  if (xTimesRho != 0.f) {
+    auto m = mPID.getMass();
+    auto en = std::sqrt(en2), en0 = en, ekin = en - m, betagamma = p * mPID.getMassInv(), dedx = BetheBlochSolidOpt(betagamma);
+#ifdef _BB_NONCONST_CORR_
+    auto dedxDer = 0.f, dedx1 = dedx;
+#endif
+    // if (charge2 != 1) dedx *= charge2;
+    auto dE = dedx * xTimesRho, dETot = 0.f;
+    int na = 1 + int(std::abs(dE) / ekin * ELoss2EKinThreshInv);
+    if (na > MaxELossIter) {
+      na = MaxELossIter;
+    }
+    if (na > 1) {
+      dE /= na;
+      xTimesRho /= na;
+#ifdef _BB_NONCONST_CORR_
+      dedxDer = BetheBlochSolidDerivative(dedx1, betagamma); // require correction for non-constantness of dedx vs betagamma
+                                                             // if (charge2 != 1) dedxDer *= charge2;
+#endif
+    }
+    while (na--) {
+#ifdef _BB_NONCONST_CORR_
+      if (dedxDer != 0.f) { // correction for non-constantness of dedx vs beta*gamma (in linear approximation): for a single step dE -> dE * [(exp(dedxDer) - 1)/dedxDer]
+        if (xTimesRho < 0.f) {
+          dedxDer = -dedxDer; // E.loss ( -> positive derivative)
+        }
+        auto corrC = (std::exp(dedxDer) - 1.f) / dedxDer;
+        dE *= corrC;
+      }
+#endif
+      en += dE;
+      if (en > m) { // stopped
+        p = std::sqrt(en * en - mPID.getMass2());
+      } else {
+        return false;
+      }
+      if (na) {
+        betagamma = p * mPID.getMassInv();
+        dedx = BetheBlochSolidOpt(betagamma);
+#ifdef _BB_NONCONST_CORR_
+        dedxDer = BetheBlochSolidDerivative(dedx, betagamma);
+#endif
+        // if (charge2 != 1) {
+        //   dedx *= charge2;
+        // #ifdef _BB_NONCONST_CORR_
+        //   dedxDer *= charge2;
+        // #endif
+        // }
+        dE = dedx * xTimesRho;
+      }
+    }
+    if (p < kMinP) {
+      return false;
+    }
+    dETot = en - en0;
+    // Linearised transform u' = f(u) for u = q/p:
+    //   u0 = q/p0, p0 = q/u0
+    //   u1 = q/(p0 - dE) = f(u0)
+    //   f'(u0) = (p0 / p1)^2
+    auto q2pscale = p0 / p, der = q2pscale * q2pscale;
+    mC[kQ2PX] *= der;
+    mC[kQ2PY] *= der;
+    mC[kQ2PTx] *= der;
+    mC[kQ2PTy] *= der;
+    mC[kQ2PQ2P] *= der * der;
+    mP[kQ2P] = getSign() / p;
+  }
+  checkCorrelations();
   return true;
 }
+
+void NA6PTrackParCov::checkCorrelations()
+{
+#ifdef _CHECK_BAD_CORRELATIONS_
+  // This function forces the abs of correlation coefficients to be <1.
+  constexpr float MaxCorr = 0.999;
+
+  bool corrBad = false;
+  for (int i = 5; i--;) {
+    for (int j = i; j--;) {
+      auto sig2 = getCovMatElem(i, i) * getCovMatElem(j, j);
+      auto cov = getCovMatElem(i, j);
+      if (cov * cov >= MaxCorr * sig2) { // constrain correlation
+                                         // cov = gpu::CAMath::Sqrt(sig2) * (cov > 0. ? MaxCorr : -MaxCorr);
+        LOGP(warn, "Correlation {} {} is too high: {} vs {} {}", i, j, cov, getCovMatElem(i, i), getCovMatElem(j, j));
+        corrBad = true;
+        break;
+      }
+      if (corrBad) {
+        break;
+      }
+    }
+  }
+  if (corrBad) {
+#ifdef _PRINT_BAD_CORRELATIONS_
+    printCorr();
+#endif
+
+#ifdef _FIX_BAD_CORRELATIONS_
+    fixCorrelations();
+#endif
+  }
+#endif
+}
+
+void NA6PTrackParCov::fixCorrelations()
+{
+  // This function forces the abs of correlation coefficients to be <1.
+  constexpr float MaxCorr = 0.99;
+  for (int i = 1; i < 5; i++) {
+    for (int j = 0; j < i; j++) {
+      auto sig2 = getCovMatElem(i, i) * getCovMatElem(j, j);
+      auto cov = getCovMatElem(i, j);
+      if (cov * cov >= MaxCorr * sig2) { // constrain correlation
+        setCovMatElem(i, j, std::sqrt(sig2) * (cov > 0 ? MaxCorr : -MaxCorr));
+      }
+    }
+  }
+}
+
+void NA6PTrackParCov::printCorr() const
+{
+  LOGP(info, "... {}", ((NA6PTrackPar*)this)->asString().c_str());
+  for (int i = 0; i < 5; i++) {
+    std::string ss = "... ";
+    for (int j = 0; j <= i; j++) {
+      auto sig2 = getCovMatElem(i, i) * getCovMatElem(j, j);
+      auto cov = getCovMatElem(i, j);
+      cov = i == j ? getCovMatElem(i, i) : (sig2 > 0 ? cov / std::sqrt(sig2) : -999);
+      ss += fmt::format("{:+.3e} ", cov);
+    }
+    LOGP(info, "{}", ss);
+  }
+};

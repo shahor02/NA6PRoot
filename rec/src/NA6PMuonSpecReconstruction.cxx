@@ -10,9 +10,7 @@
 #include "NA6PMuonSpecReconstruction.h"
 #include "NA6PLayoutParam.h"
 
-ClassImp(NA6PMuonSpecReconstruction)
-
-  NA6PMuonSpecReconstruction::NA6PMuonSpecReconstruction() : NA6PReconstruction("MuonSpec")
+NA6PMuonSpecReconstruction::NA6PMuonSpecReconstruction() : NA6PReconstruction("MuonSpec")
 {
 }
 
@@ -21,7 +19,7 @@ bool NA6PMuonSpecReconstruction::init(const char* filename, const char* geoname)
   NA6PReconstruction::init(filename, geoname);
   mMSTracker = new NA6PTrackerCA();
   mMSTracker->configureFromRecoParam();
-  mMSTracker->setNLayers(6); 
+  mMSTracker->setNLayers(6);
   mMSTracker->setStartLayer(5);
   createTracksOutput();
   return true;
@@ -63,11 +61,11 @@ void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecM
   const auto& layout = NA6PLayoutParam::Instance();
   for (int jHit = 0; jHit < nHits; ++jHit) {
     const auto& hit = hits[jHit];
-    double x = hit.getX();
-    double y = hit.getY();
-    double z = hit.getZ();
-    double ex2clu = 5.e-4;
-    double ey2clu = 5.e-4;
+    float x = hit.getX();
+    float y = hit.getY();
+    float z = hit.getZ();
+    float ex2clu = 5.e-4;
+    float ey2clu = 5.e-4;
     if (mCluResX > 0) {
       x = gRandom->Gaus(hit.getX(), mCluResX);
       ex2clu = mCluResX * mCluResX;
@@ -76,16 +74,16 @@ void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecM
       y = gRandom->Gaus(hit.getY(), mCluResY);
       ey2clu = mCluResY * mCluResY;
     }
-    double eloss = hit.getHitValue();
+    float eloss = hit.getHitValue();
     // very rough cluster size settings
     int clusiz = 1;
     int nDet = hit.getDetectorID();
     int idPart = hit.getTrackID();
     // Set layer based on Z position - find closest plane
-        
+
     float minDist = std::abs(z - layout.posMSPlaneZ[0]);
     int layer = layout.nVerTelPlanes;
-    
+
     for (int i = 1; i < layout.nMSPlanes; ++i) {
       float dist = std::abs(z - layout.posMSPlaneZ[i]);
       if (dist < minDist) {
@@ -93,9 +91,7 @@ void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecM
         layer = i + layout.nVerTelPlanes;
       }
     }
-    mClusters.emplace_back(x, y, z, clusiz, layer);
-    auto& clu = mClusters.back();
-    clu.setErr(ex2clu, 0., ey2clu);
+    auto& clu = mClusters.emplace_back(x, y, z, ex2clu, 0., ey2clu, clusiz, layer);
     clu.setDetectorID(nDet);
     clu.setParticleID(idPart);
     clu.setHitID(jHit);

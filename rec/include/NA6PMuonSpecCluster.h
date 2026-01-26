@@ -22,12 +22,8 @@
 class NA6PMuonSpecCluster : public NA6PBaseCluster
 {
  public:
+  using NA6PBaseCluster::NA6PBaseCluster;
 
-  NA6PMuonSpecCluster() = default;
-  NA6PMuonSpecCluster(float x, float y, float z, int clusiz, int layer);
-  NA6PMuonSpecCluster(const NA6PMuonSpecCluster&) = default;
-  NA6PMuonSpecCluster& operator=(const NA6PMuonSpecCluster&) = default;
-  
   ClassDefNV(NA6PMuonSpecCluster, 1);
 };
 

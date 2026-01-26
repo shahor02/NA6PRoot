@@ -5,6 +5,10 @@
 #include <Rtypes.h>
 #include <array>
 #include <cmath>
+#include "PID.h"
+
+// uncomment this to account for the Bethe-Bloch varaion over the correction range
+// #define _BB_NONCONST_CORR_
 
 /*
   Units: cm, kGauss, GeV.
@@ -105,13 +109,19 @@ class NA6PTrackPar
   static constexpr float kB2C = -0.299792458e-3f; // GeV/(kG*cm)
   static constexpr float kTiny = 1e-12f;
   static constexpr float kPI = 3.14159265358979323846f;
+  static constexpr float ELoss2EKinThreshInv = 1. / 0.025; // do not allow E.Loss correction step with dE/Ekin above the inverse of this value
+  static constexpr float kMSConst2 = 0.0136f * 0.0136f;
+  static constexpr float kMinP = 0.01f;   // kill below this momentum
+  static constexpr int MaxELossIter = 20; // max number of iteration for the ELoss to account for BB dependence on beta*gamma
 
   NA6PTrackPar() = default;
   NA6PTrackPar(const NA6PTrackPar& src) = default;
   NA6PTrackPar(float z, const std::array<float, 5>& par) : mZ{z}, mP{par} {}
   NA6PTrackPar(const std::array<float, 3>& xyz, const std::array<float, 3>& pxyz, int q);
+  NA6PTrackPar(const float* xyz, const float* pxyz, int sign) { initParam(xyz, pxyz, sign); }
   ~NA6PTrackPar() = default;
   NA6PTrackPar& operator=(const NA6PTrackPar&) = default;
+  void initParam(const float* xyz, const float* pxyz, int sign);
 
   float getZ() const { return mZ; }
   float getX() const { return mP[kX]; }
@@ -120,7 +130,12 @@ class NA6PTrackPar
   float getTy() const { return mP[kTy]; }
   float getQ2P() const { return mP[kQ2P]; }
   float getParam(ParLabels l) const { return mP[l]; }
-  float getP() const { mP[kQ2P] != 0.f ? 1. / std::abs(mP[kQ2P]) : 0.; }
+  float getP() const { return mP[kQ2P] != 0.f ? 1. / std::abs(mP[kQ2P]) : 0.; }
+  PID getPID() const { return mPID; }
+  uint8_t getUserField() const { return mUserField; }
+  int getSign() const { return mP[kQ2P] < 0.f ? -1 : 1; }
+  void setPID(PID v) { mPID = v; }
+  void setUserField(uint8_t v) { mUserField = v; }
   void setParam(ParLabels l, float v) { mP[l] = v; }
   void incParam(ParLabels l, float v) { mP[l] += v; }
 
@@ -159,8 +174,15 @@ class NA6PTrackPar
   }
 
   // --- propagation in dipole field B = (0, By, 0) ---
-  bool propagateParam(float z, float by);
+  bool propagateParamToZ(float z, float by);
+  bool propagateParamToZ(float z, const float* bxyz) { return propagateParamToZ(z, bxyz[1]); }                   // TODO
+  bool propagateParamToZ(float z, const std::array<float, 3> bxyz) { return propagateParamToZ(z, bxyz.data()); } // TODO
+  bool propagateToZ(float z, float by) { return propagateParamToZ(z, by); }
+  bool propagateToZ(float z, const float* bxyz) { return propagateParamToZ(z, bxyz); }
+  bool propagateToZ(float z, const std::array<float, 3> bxyz) { return propagateParamToZ(z, bxyz); }
+
   bool propagateParamToDCA(float xv, float yv, float zv, float by, float epsZ = 1e-4, float epsDCA = 1e-5, int maxIt = 30);
+  bool correctForMeanMaterial(float, float xTimesRho);
 
   template <typename T = float>
   std::array<T, 3> getCircleParams(float by) const;
@@ -168,6 +190,9 @@ class NA6PTrackPar
   std::string asString() const;
 
  protected:
+  float BetheBlochSolidOpt(float bg) const;
+  float BetheBlochSolidDerivative(float dedx, float bg) const;
+
   // helpers
   template <typename T = float>
   T getPxz2Pz2() const
@@ -192,13 +217,15 @@ class NA6PTrackPar
   template <typename T>
   void getSinCosXZ(T& s, T& c) const;
 
-  float mZ{};                                  // evaluation z
-  std::array<float, 5> mP{0., 0., 0., 0., 0.}; // parameters: {x,y,px/pz,py/pz,q/p}
+  float mZ{};                // evaluation z
+  std::array<float, 5> mP{}; // parameters: {x,y,px/pz,py/pz,q/p}
+  PID mPID{PID::Pion};       // 8 bit PID
+  uint8_t mUserField = 0;    // 8 bit user field
 
   ClassDefNV(NA6PTrackPar, 1);
 };
 
-template <typename T = float>
+template <typename T>
 inline void NA6PTrackPar::getXYZ(std::array<T, 3>& xyz) const
 {
   xyz[0] = getX();
@@ -206,7 +233,7 @@ inline void NA6PTrackPar::getXYZ(std::array<T, 3>& xyz) const
   xyz[2] = getZ();
 }
 
-template <typename T = float>
+template <typename T>
 inline void NA6PTrackPar::getXYZ(T xyz[3]) const
 {
   xyz[0] = getX();
@@ -226,7 +253,7 @@ inline std::array<float, 3> NA6PTrackPar::getPXYZ() const
   return {getTx() * pz, getTy() * pz, pz};
 }
 
-template <typename T = float>
+template <typename T>
 inline void NA6PTrackPar::getPXYZ(std::array<T, 3>& pxyz) const
 {
   pxyz[2] = getPz();
@@ -234,7 +261,7 @@ inline void NA6PTrackPar::getPXYZ(std::array<T, 3>& pxyz) const
   pxyz[1] = getTy() * pxyz[2];
 }
 
-template <typename T = float>
+template <typename T>
 inline void NA6PTrackPar::getPXYZ(T pxyz[3]) const
 {
   pxyz[2] = getPz();

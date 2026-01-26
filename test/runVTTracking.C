@@ -41,7 +41,7 @@ void runVTTracking(int firstEv = 0,
   for (int jEv = firstEv; jEv < lastEv; jEv++) {
     mcTree->GetEvent(jEv);
     int nPart = mcArr->size();
-    double zvert = 0;
+    float zvert = 0;
     // get primary vertex position from the Kine Tree
     for (int jp = 0; jp < nPart; jp++) {
       auto curPart = mcArr->at(jp);

@@ -19,10 +19,14 @@ file(GLOB THIS_HEADERS ${THIS_INCLUDE_DIR}/*.h)
 add_library(${LIB_NAME} SHARED ${THIS_SOURCES} ${THIS_HEADERS} )
 
 set(DICTIONARY_HEADERS
+  NA6PPhysConst.h
+  PID.h
+  Propagator.h
   NA6PBaseCluster.h
   NA6PMuonSpecCluster.h
   NA6PVerTelCluster.h
-  ExtTrackPar.h
+  NA6PTrackPar.h
+  NA6PTrackParCov.h
   NA6PTrack.h
   NA6PVertex.h
   NA6PLine.h
@@ -34,7 +38,7 @@ set(DICTIONARY_HEADERS
   NA6PTrackerCA.h
   NA6PFastTrackFitter.h
   ) # Add all class headers requiring dictionary
-  
+
 set(DICTIONARY_LINKDEF ${THIS_SRC_DIR}/${MOD_NAME}LinkDef.h)
 set(DICTIONARY_OUTPUT ${LIB_NAME}Dict)
 
@@ -49,7 +53,7 @@ ROOT_GENERATE_DICTIONARY(
 target_include_directories(${LIB_NAME} INTERFACE ${THIS_INCLUDE_DIR})
 
 # !!!!!!!!!!!!!!!!!!!!!!
-#target_compile_options(${LIB_NAME} PRIVATE -ggdb -g -O0)
+# target_compile_options(${LIB_NAME} PRIVATE -ggdb -g -O0)
 
 # Link against required libraries
 target_link_libraries(${LIB_NAME}

@@ -25,7 +25,7 @@
 void runVertexerTracklets(int firstEv = 0,
                           int lastEv = 999999,
                           const char* dirSimu = "../testN6Proot/bkgNA49")
-//			const char *dirSimu = "Angantyr")
+//   const char *dirSimu = "Angantyr")
 {
   TFile* fk = new TFile(Form("%s/MCKine.root", dirSimu));
   TTree* mcTree = (TTree*)fk->Get("mckine");
@@ -55,7 +55,7 @@ void runVertexerTracklets(int firstEv = 0,
     mcTree->GetEvent(jEv);
     tc->GetEvent(jEv);
     int nPart = mcArr->size();
-    double zVertGen = 0;
+    float zVertGen = 0;
     // get primary vertex position from the Kine Tree
     for (int jp = 0; jp < nPart; jp++) {
       auto curPart = mcArr->at(jp);
@@ -71,7 +71,7 @@ void runVertexerTracklets(int firstEv = 0,
     hnvert->Fill(nVertices);
     int jv = 0;
     for (auto vert : zVertices) {
-      double zRec = vert.getZ();
+      float zRec = vert.getZ();
       if (jv == 0) {
         hdz->Fill(zRec - zVertGen);
         hncontr->Fill(vert.getNContributors());

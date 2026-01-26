@@ -2,9 +2,7 @@
 
 #include "NA6PLine.h"
 
-ClassImp(NA6PLine)
-
-  NA6PLine::NA6PLine(const NA6PLine& source)
+NA6PLine::NA6PLine(const NA6PLine& source)
 {
   for (int i{0}; i < 3; ++i) {
     mOriginPoint[i] = source.mOriginPoint[i];
