@@ -30,6 +30,9 @@ class NA6PFastTrackFitter
  public:
   enum { kTwoPointSeed = 0,
          kThreePointSeed = 1 };
+  enum { kOutermostAsSeed = 0,
+         kInnermostAsSeed = 1,
+         kInMidOutAsSeed = 2 };
 
   NA6PFastTrackFitter();
   ~NA6PFastTrackFitter(){};
@@ -58,8 +61,11 @@ class NA6PFastTrackFitter
       mCharge = ch;
   };
   void unsetSeed() { mIsSeedSet = false; }
-  void setSeedFromTwoOutermostHits() { mSeedOption = kTwoPointSeed; }
-  void setSeedFromThreeOutermostHits() { mSeedOption = kThreePointSeed; }
+  void setSeedFromTwoHits() { mSeedPoints = kTwoPointSeed; }
+  void setSeedFromThreeHits() { mSeedPoints = kThreePointSeed; }
+  void setSeedFromOutermostHits() { mSeedOption = kOutermostAsSeed; }
+  void setSeedFromInnermostHits() { mSeedOption = kInnermostAsSeed; }
+  void setSeedFromInMidOutHits() { mSeedOption = kInMidOutAsSeed; }
   void computeSeed(int dir = -1);
   void computeSeedOuter() { computeSeed(-1); }
   void computeSeedInner() { computeSeed(1); }
@@ -97,7 +103,8 @@ class NA6PFastTrackFitter
   int mNLayers = 5;                  // number of active
   double mMaxChi2Cl = 10.;           // max cluster-track chi2
   bool mIsSeedSet = false;           // flag for set seed
-  int mSeedOption = kThreePointSeed; // seed option (see enum)
+  int mSeedOption = kInMidOutAsSeed; // seed option (see enum)
+  int mSeedPoints = kThreePointSeed; // number of hits used for seed
   double mSeedPos[3];                // seed for track position
   double mSeedMom[3];                // seed for track momentum
   int mCharge = 1;                   // track charge for seed
