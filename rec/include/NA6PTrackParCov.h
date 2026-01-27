@@ -81,6 +81,10 @@ class NA6PTrackParCov : public NA6PTrackPar
 
  protected:
   void propagateCov(double f02, double f03, double f04, double f13, double f22, double f23, double f24);
+  void propagateCovB(double f02, double f03, double f04,
+		     double f12, double f13, double f14,
+		     double f22, double f23, double f24,
+		     double f32, double f33, double f34);
 
   std::array<float, 15> mC{}; // covariance matrix in lower triangle representation
 

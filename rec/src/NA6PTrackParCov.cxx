@@ -158,7 +158,43 @@ bool NA6PTrackParCov::propagateToZ(float z, float by)
   auto dsperp_dty = (ddPsi_dty * kappa - dPsi * dk_dty) * invK2;
   double f13 = invD * s_perp + (getTy() * invD) * dsperp_dty;
 
+  // --- additional Jacobian terms for Option B (ty evolves) ---
+
+  // d(psi1)/du = ds1_du / cosPsi1 ; d(psi0)/dtx = ds0_dtx / cosPsi0
+  double ddPsi_dtx = cosPsi1Inv * ds1_dtx - (ds0_dtx / cosPsi0);
+  ////  double ddPsi_dty = cosPsi1Inv * ds1_dty;     // you already used this
+  double ddPsi_dq  = cosPsi1Inv * ds1_dq;
+
+  // ds_perp/du where s_perp = dPsi/kappa
+  double dsperp_dtx = (ddPsi_dtx * kappa - dPsi * dk_dtx) * invK2;
+  ////  double dsperp_dty = (ddPsi_dty * kappa - dPsi * dk_dty) * invK2; // same as your current
+  double dsperp_dq  = (ddPsi_dq  * kappa - dPsi * dk_dq ) * invK2;
+
+  // ny = ty/D = ty*cosPsi0  (since cosPsi0 = 1/D)
+  double ny0 = getTy() * cosPsi0;
+
+  // y1 = y0 + ny0 * s_perp
+  // f13 is existing dy/dty; now add dy/dtx and dy/d(q/p)
+  double dny_dtx = getTy() * dc0_dtx;     // dc0_dtx = d(1/D)/dtx
+  double f12 = dny_dtx * s_perp + ny0 * dsperp_dtx;
+  double f14 = ny0 * dsperp_dq;
+
+  // ty1 = ty0 * (cosPsi0/cosPsi1)
+  double R = cosPsi0 * cosPsi1Inv;
+  double invC12 = cosPsi1Inv * cosPsi1Inv;
+
+  // f33 = dty1/dty0
+  // d(1/cosPsi1)/dty = (sinPsi1 * ds1_dty)/cosPsi1^3 = sinPsi1*ds1_dty*invC13
+  double f33 = R + getTy() * cosPsi0 * sinPsi1 * ds1_dty * invC13;
+  
+  // f34 = dty1/d(q/p)
+  double f34 = getTy() * cosPsi0 * sinPsi1 * ds1_dq * invC13;
+
+  // f32 = dty1/dtx0
+  // dR/dtx = (dc0_dtx*cosPsi1 - cosPsi0*dc1_dtx)/cosPsi1^2
+  double f32 = getTy() * (dc0_dtx * cosPsi1 - cosPsi0 * dc1_dtx) * invC12;
   //
+  //------------------------
   auto dzh = 0.5 * dz;
   double tmpA2 = 1. / (p2pz * p2pz), tmpD2 = 1. / (pxz2pz * pxz2pz), f24XX{dz * kB2C * by * p2pz / pxz2pz};
   double f23XX{dz * kappa * getTy() * tmpA2}, tmpXA2D2 = dz * kappa * getTx() * (tmpA2 - tmpD2);
@@ -171,9 +207,153 @@ bool NA6PTrackParCov::propagateToZ(float z, float by)
   setTx(txNew);
   setTy(tyNew);
   mZ = z;
-  propagateCov(f02, f03, f04, f13, f22, f23, f24);
+  //  propagateCov(f02, f03, f04, f13, f22, f23, f24);
+  propagateCovB(f02, f03, f04, f12, f13, f14, f22, f23, f24, f32, f33, f34);
   return true;
 }
+
+void NA6PTrackParCov::propagateCovB(double f02, double f03, double f04,
+                                    double f12, double f13, double f14,
+                                    double f22, double f23, double f24,
+                                    double f32, double f33, double f34)
+{
+  // Load old covariance (lower triangle)
+  const double Cxx   = mC[kXX];
+  const double Cyx   = mC[kYX];
+  const double Cyy   = mC[kYY];
+
+  const double CTxX  = mC[kTxX];
+  const double CTxY  = mC[kTxY];
+  const double CTxTx = mC[kTxTx];
+
+  const double CTyX  = mC[kTyX];
+  const double CTyY  = mC[kTyY];
+  const double CTyTx = mC[kTyTx];
+  const double CTyTy = mC[kTyTy];
+
+  const double CQpx  = mC[kQ2PX];
+  const double CQpy  = mC[kQ2PY];
+  const double CQpTx = mC[kQ2PTx];
+  const double CQpTy = mC[kQ2PTy];
+  const double CQpQp = mC[kQ2PQ2P];
+
+  // --- useful linear combos for u = (tx,ty,q) block ---
+  // Cuu entries: [ CTxTx  CTyTx  CQpTx
+  //               CTyTx  CTyTy  CQpTy
+  //               CQpTx  CQpTy  CQpQp ]
+
+  // For tx' row coefficients (f22,f23,f24): compute cov(tx', tx), cov(tx', ty), cov(tx', q)
+  const double txp_tx = f22*CTxTx + f23*CTyTx + f24*CQpTx;
+  const double txp_ty = f22*CTyTx + f23*CTyTy + f24*CQpTy;
+  const double txp_q  = f22*CQpTx + f23*CQpTy + f24*CQpQp;
+
+  // For ty' row coefficients (f32,f33,f34)
+  const double typ_tx = f32*CTxTx + f33*CTyTx + f34*CQpTx;
+  const double typ_ty = f32*CTyTx + f33*CTyTy + f34*CQpTy;
+  const double typ_q  = f32*CQpTx + f33*CQpTy + f34*CQpQp;
+
+  // For x' coeffs (f02,f03,f04)
+  const double xp_tx  = f02*CTxTx + f03*CTyTx + f04*CQpTx;
+  const double xp_ty  = f02*CTyTx + f03*CTyTy + f04*CQpTy;
+  const double xp_q   = f02*CQpTx + f03*CQpTy + f04*CQpQp;
+
+  // For y' coeffs (f12,f13,f14)
+  const double yp_tx  = f12*CTxTx + f13*CTyTx + f14*CQpTx;
+  const double yp_ty  = f12*CTyTx + f13*CTyTy + f14*CQpTy;
+  const double yp_q   = f12*CQpTx + f13*CQpTy + f14*CQpQp;
+
+  // --- Updated variances for tx', ty' (no x,y contributions) ---
+  const double c22 =
+      f22*txp_tx + f23*txp_ty + f24*txp_q;
+
+  const double c33 =
+      f32*typ_tx + f33*typ_ty + f34*typ_q;
+
+  const double c23 =
+      f32*txp_tx + f33*txp_ty + f34*txp_q;  // cov(tx',ty')
+
+  // --- Cov with q' (q stays unchanged) ---
+  const double c24 = txp_q;
+  const double c34 = typ_q;
+
+  // --- x' variance and covariances ---
+  // x' = x + f02*tx + f03*ty + f04*q
+  const double c00 =
+      Cxx
+    + 2.0*(f02*CTxX + f03*CTyX + f04*CQpx)
+    + (f02*xp_tx + f03*xp_ty + f04*xp_q);
+
+  // cov(x', tx') = cov(x,tx') + [f02 f03 f04] * cov(u,tx')
+  // cov(x,tx') = f22*CTxX + f23*CTyX + f24*CQpx
+  const double c02 =
+      (f22*CTxX + f23*CTyX + f24*CQpx)
+    + (f02*txp_tx + f03*txp_ty + f04*txp_q);
+
+  // cov(x', ty')
+  // cov(x,ty') = f32*CTxX + f33*CTyX + f34*CQpx
+  const double c03 =
+      (f32*CTxX + f33*CTyX + f34*CQpx)
+    + (f02*typ_tx + f03*typ_ty + f04*typ_q);
+
+  // cov(x', q')
+  const double c04 =
+      CQpx + f02*CQpTx + f03*CQpTy + f04*CQpQp;
+
+  // --- y' variance and covariances ---
+  // y' = y + f12*tx + f13*ty + f14*q
+  const double c11 =
+      Cyy
+    + 2.0*(f12*CTxY + f13*CTyY + f14*CQpy)
+    + (f12*yp_tx + f13*yp_ty + f14*yp_q);
+
+  // cov(y', tx')
+  // cov(y,tx') = f22*CTxY + f23*CTyY + f24*CQpy
+  const double c12 =
+      (f22*CTxY + f23*CTyY + f24*CQpy)
+    + (f12*txp_tx + f13*txp_ty + f14*txp_q);
+
+  // cov(y', ty')
+  // cov(y,ty') = f32*CTxY + f33*CTyY + f34*CQpy
+  const double c13 =
+      (f32*CTxY + f33*CTyY + f34*CQpy)
+    + (f12*typ_tx + f13*typ_ty + f14*typ_q);
+
+  // cov(y', q')
+  const double c14 =
+      CQpy + f12*CQpTx + f13*CQpTy + f14*CQpQp;
+
+  // --- cov(x', y') ---
+  // cov(x',y') = cov(x,y) + ax*cov(u,y) + ay*cov(u,x) + ax*Cuu*ay^T
+  const double c01 =
+      Cyx
+    + (f02*CTxY + f03*CTyY + f04*CQpy)
+    + (f12*CTxX + f13*CTyX + f14*CQpx)
+    + (f02*yp_tx + f03*yp_ty + f04*yp_q);
+
+  // --- Write back packed lower triangle ---
+  mC[kXX]     = c00;
+
+  mC[kYX]     = c01;
+  mC[kYY]     = c11;
+
+  mC[kTxX]    = c02;
+  mC[kTxY]    = c12;
+  mC[kTxTx]   = c22;
+
+  mC[kTyX]    = c03;
+  mC[kTyY]    = c13;
+  mC[kTyTx]   = c23;
+  mC[kTyTy]   = c33;
+
+  mC[kQ2PX]   = c04;
+  mC[kQ2PY]   = c14;
+  mC[kQ2PTx]  = c24;
+  mC[kQ2PTy]  = c34;
+  // mC[kQ2PQ2P] unchanged
+
+  checkCorrelations();
+}
+
 
 void NA6PTrackParCov::propagateCov(double f02, double f03, double f04, double f13, double f22, double f23, double f24)
 {
