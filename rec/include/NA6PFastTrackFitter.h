@@ -66,6 +66,9 @@ class NA6PFastTrackFitter
   void setSeedFromOutermostHits() { mSeedOption = kOutermostAsSeed; }
   void setSeedFromInnermostHits() { mSeedOption = kInnermostAsSeed; }
   void setSeedFromInMidOutHits() { mSeedOption = kInMidOutAsSeed; }
+  int getLayersForSeed(std::array<int, 3>& layForSeed) const;
+  int sortLayersForSeed(std::array<int, 3>& layForSeed, int dir) const;
+  void computeSeed(int dir, std::array<int, 3>& layForSeed);
   void computeSeed(int dir = -1);
   void computeSeedOuter() { computeSeed(-1); }
   void computeSeedInner() { computeSeed(1); }
