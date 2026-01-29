@@ -29,10 +29,10 @@ struct TrackletCandidate {
   int startingLayer;
   int firstClusterIndex;
   int secondClusterIndex;
-  double tanL;
-  double phi;
-  double pxpz;
-  double pypz;
+  float tanL;
+  float phi;
+  float pxpz;
+  float pypz;
 };
 
 struct CellCandidate {
@@ -59,7 +59,7 @@ struct TrackFitted {
   std::vector<int> cluIDs;
   NA6PTrack trackFitFast;
   //    genfit::Track trackFit;
-  double chi2ndf;
+  float chi2ndf;
 };
 
 enum class ExtendDirection { kInward,
@@ -82,15 +82,15 @@ class NA6PTrackerCA
   void setZForOutwardPropagation(float zout) { mZOutProp = zout; }
   void setNumberOfIterations(int nIter);
   void setIterationParams(int iter,
-                          double maxDeltaThetaTracklets,
-                          double maxDeltaPhiTracklets,
-                          double maxDeltaTanLCells,
-                          double maxDeltaPhiCells,
-                          double maxDeltaPxPzCells,
-                          double maxDeltaPyPzCells,
-                          double maxChi2TrClCells,
-                          double maxChi2ndfCells,
-                          double maxChi2ndfTracks,
+                          float maxDeltaThetaTracklets,
+                          float maxDeltaPhiTracklets,
+                          float maxDeltaTanLCells,
+                          float maxDeltaPhiCells,
+                          float maxDeltaPxPzCells,
+                          float maxDeltaPyPzCells,
+                          float maxChi2TrClCells,
+                          float maxChi2ndfCells,
+                          float maxChi2ndfTracks,
                           int minNClusTracks);
   void configureFromRecoParam(const std::string& filename = "");
   void setVerbosity(bool opt = true) { mVerbose = opt; }
@@ -121,43 +121,43 @@ class NA6PTrackerCA
                              const std::vector<int>& firstIndex,
                              const std::vector<int>& lastIndex,
                              std::vector<TrackletCandidate>& tracklets,
-                             double deltaThetaMax,
-                             double deltaPhiMax);
+                             float deltaThetaMax,
+                             float deltaPhiMax);
   template <typename ClusterType>
   void computeLayerCells(const std::vector<TrackletCandidate>& tracklets,
                          const std::vector<int>& firstIndex,
                          const std::vector<int>& lastIndex,
                          const std::vector<ClusterType>& cluArr,
                          std::vector<CellCandidate>& cells,
-                         double deltaTanLMax,
-                         double deltaPhiMax,
-                         double deltaPxPzMax,
-                         double deltaPyPzMax,
-                         double maxChi2TrClu,
-                         double maxChi2NDF);
+                         float deltaTanLMax,
+                         float deltaPhiMax,
+                         float deltaPxPzMax,
+                         float deltaPyPzMax,
+                         float maxChi2TrClu,
+                         float maxChi2NDF);
   template <typename ClusterType>
-  double computeTrackToClusterChi2(const NA6PTrack& track,
-                                   const ClusterType& clu);
+  float computeTrackToClusterChi2(const NA6PTrack& track,
+                                  const ClusterType& clu);
   template <typename ClusterType>
   bool fitTrackPointsFast(const std::vector<int>& cluIDs,
                           const std::vector<ClusterType>& cluArr,
                           NA6PTrack& fitTrack,
-                          double maxChi2TrClu,
-                          double maxChi2NDF);
+                          float maxChi2TrClu,
+                          float maxChi2NDF);
   template <typename ClusterType>
   void findCellsNeighbours(const std::vector<CellCandidate>& cells,
                            const std::vector<int>& firstIndex,
                            const std::vector<int>& lastIndex,
                            std::vector<std::pair<int, int>>& cneigh,
                            const std::vector<ClusterType>& cluArr,
-                           double maxChi2TrClu);
+                           float maxChi2TrClu);
   template <typename ClusterType>
   std::vector<TrackCandidate> prolongSeed(const TrackCandidate& seed,
                                           const std::vector<CellCandidate>& cells,
                                           const std::vector<int>& firstIndex,
                                           const std::vector<int>& lastIndex,
                                           const std::vector<ClusterType>& cluArr,
-                                          double maxChi2TrClu,
+                                          float maxChi2TrClu,
                                           ExtendDirection dir);
   template <typename ClusterType>
   void findRoads(const std::vector<std::pair<int, int>>& cneigh,
@@ -167,14 +167,14 @@ class NA6PTrackerCA
                  const std::vector<TrackletCandidate>& tracklets,
                  const std::vector<ClusterType>& cluArr,
                  std::vector<TrackCandidate>& trackCands,
-                 double maxChi2TrClu);
+                 float maxChi2TrClu);
   template <typename ClusterType>
   void fitAndSelectTracks(const std::vector<TrackCandidate>& trackCands,
                           const std::vector<ClusterType>& cluArr,
                           std::vector<TrackFitted>& tracks,
-                          double maxChi2TrClu,
+                          float maxChi2TrClu,
                           int minNClu,
-                          double maxChi2NDF);
+                          float maxChi2NDF);
   template <typename T, typename ClusterType>
   void printStats(const std::vector<T>& candidates,
                   const std::vector<ClusterType>& cluArr,
@@ -185,7 +185,7 @@ class NA6PTrackerCA
  private:
   int mNLayers = 5;
   int mLayerStart = 0;
-  double mPrimVertPos[3] = {};
+  float mPrimVertPos[3] = {};
   NA6PFastTrackFitter* mTrackFitter = nullptr;
   std::vector<bool> mIsClusterUsed = {};
   std::vector<TrackFitted> mFinalTracks = {};
@@ -195,15 +195,15 @@ class NA6PTrackerCA
   bool mDoOutwardPropagation = false;
   float mZOutProp = 40.;
   int mNIterationsCA = 2;
-  double mMaxDeltaThetaTrackletsCA[kMaxIterationsCA] = {0.04, 0.1, 0.15, 0.3, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
-  double mMaxDeltaPhiTrackletsCA[kMaxIterationsCA] = {0.1, 0.2, 0.25, 0.5, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
-  double mMaxDeltaTanLCellsCA[kMaxIterationsCA] = {4., 9., 18., 40., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
-  double mMaxDeltaPhiCellsCA[kMaxIterationsCA] = {0.4, 0.6, 1.2, 2.4, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
-  double mMaxDeltaPxPzCellsCA[kMaxIterationsCA] = {0.02, 0.05, 0.1, 0.2, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
-  double mMaxDeltaPyPzCellsCA[kMaxIterationsCA] = {2e-3, 7.5e-3, 1.5e-2, 3.e-2, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
-  double mMaxChi2TrClCellsCA[kMaxIterationsCA] = {100., 500., 999., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
-  double mMaxChi2ndfCellsCA[kMaxIterationsCA] = {100., 500., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
-  double mMaxChi2ndfTracksCA[kMaxIterationsCA] = {100., 500., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
+  float mMaxDeltaThetaTrackletsCA[kMaxIterationsCA] = {0.04, 0.1, 0.15, 0.3, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
+  float mMaxDeltaPhiTrackletsCA[kMaxIterationsCA] = {0.1, 0.2, 0.25, 0.5, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
+  float mMaxDeltaTanLCellsCA[kMaxIterationsCA] = {4., 9., 18., 40., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
+  float mMaxDeltaPhiCellsCA[kMaxIterationsCA] = {0.4, 0.6, 1.2, 2.4, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
+  float mMaxDeltaPxPzCellsCA[kMaxIterationsCA] = {0.02, 0.05, 0.1, 0.2, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
+  float mMaxDeltaPyPzCellsCA[kMaxIterationsCA] = {2e-3, 7.5e-3, 1.5e-2, 3.e-2, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
+  float mMaxChi2TrClCellsCA[kMaxIterationsCA] = {100., 500., 999., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
+  float mMaxChi2ndfCellsCA[kMaxIterationsCA] = {100., 500., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
+  float mMaxChi2ndfTracksCA[kMaxIterationsCA] = {100., 500., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   int mMinNClusTracksCA[kMaxIterationsCA] = {5, 3, 0, 0, 0, 0, 0, 0, 0, 0};
 
   ClassDefNV(NA6PTrackerCA, 1);
