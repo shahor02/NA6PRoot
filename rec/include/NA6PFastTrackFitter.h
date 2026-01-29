@@ -33,6 +33,7 @@ class NA6PFastTrackFitter
   enum { kOutermostAsSeed = 0,
          kInnermostAsSeed = 1,
          kInMidOutAsSeed = 2 };
+  static constexpr int kMaxLayers = 20;
 
   NA6PFastTrackFitter();
   ~NA6PFastTrackFitter(){};
@@ -73,7 +74,8 @@ class NA6PFastTrackFitter
   void computeSeedOuter() { computeSeed(-1); }
   void computeSeedInner() { computeSeed(1); }
   void printSeed() const;
-
+  const double* getSeedMomentum() const { return mSeedMom; }
+  const double* getSeedPosition() const { return mSeedPos; }
   void addCluster(int jLay, const NA6PBaseCluster& cl);
   void resetClusters()
   {

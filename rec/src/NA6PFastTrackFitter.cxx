@@ -276,25 +276,25 @@ int NA6PFastTrackFitter::getLayersForSeed(std::array<int, 3>& layForSeed) const
 {
   // define layers to be used in seed calculation depending on the options
 
-  std::vector<int> layWithClus;
-  layWithClus.reserve(mNLayers);
+  int layWithClus[kMaxLayers];
+  int nLayWithClus = 0;
   for (int i = 0; i < mNLayers; ++i)
     if (mClusters[i])
-      layWithClus.push_back(i);
-  if (layWithClus.size() < 2) {
-    LOGP(error, "Array with clusters has less than 2 clusters {}", layWithClus.size());
+      layWithClus[nLayWithClus++] = i;
+  if (nLayWithClus < 2) {
+    LOGP(error, "Array with clusters has less than 2 clusters {}", nLayWithClus);
     return 0;
   }
   // select layers for seed determination
   if (mSeedOption == kInnermostAsSeed) {
-    for (int i = 0; i < 3 && i < (int)layWithClus.size(); ++i)
+    for (int i = 0; i < 3 && i < nLayWithClus; ++i)
       layForSeed[i] = layWithClus[i];
   } else if (mSeedOption == kOutermostAsSeed) {
-    for (int i = 0; i < 3 && i < (int)layWithClus.size(); ++i)
-      layForSeed[i] = layWithClus[layWithClus.size() - 1 - i];
+    for (int i = 0; i < 3 && i < nLayWithClus; ++i)
+      layForSeed[i] = layWithClus[nLayWithClus - 1 - i];
   } else { // kInMidOutAsSeed
-    layForSeed[0] = layWithClus.front();
-    layForSeed[2] = layWithClus.back();
+    layForSeed[0] = layWithClus[0];
+    layForSeed[2] = layWithClus[nLayWithClus - 1];
     if (layForSeed[0] == layForSeed[2]) {
       LOGP(error, "Innermost and outermost clusters coincide");
       return 0;
@@ -303,7 +303,8 @@ int NA6PFastTrackFitter::getLayersForSeed(std::array<int, 3>& layForSeed) const
     // Find closest layer to midpoint
     int best = -1;
     int bestDist = 999;
-    for (int lay : layWithClus) {
+    for (int i = 0; i < nLayWithClus; ++i) {
+      int lay = layWithClus[i];
       if (lay == layForSeed[0] || lay == layForSeed[2])
         continue;
       int dist = std::abs(lay - mid);
@@ -330,24 +331,26 @@ int NA6PFastTrackFitter::sortLayersForSeed(std::array<int, 3>& layForSeed, int d
   // dir = 1 -> forward (innermost first)
   // dir = -1 -> backward (outermost first)
   // Returns the number of valid layers after sorting (2 or 3)
-  std::vector<int> tmpArr;
-  tmpArr.reserve(3);
+
+  int tmpArr[3];
+  int valid = 0;
   for (int i = 0; i < 3; ++i)
     if (layForSeed[i] >= 0 && layForSeed[i] < mNLayers)
-      tmpArr.push_back(layForSeed[i]);
-  if (tmpArr.size() < 2) {
+      tmpArr[valid++] = layForSeed[i];
+
+  if (valid < 2) {
     LOGP(error, "Less than 2 clusters found in different layers. Seed cannot be computed");
     return 0;
   }
+
   if (dir > 0)
-    std::sort(tmpArr.begin(), tmpArr.end());
+    std::sort(tmpArr, tmpArr + valid);
   else
-    std::sort(tmpArr.begin(), tmpArr.end(), std::greater<int>());
+    std::sort(tmpArr, tmpArr + valid, std::greater<int>());
 
   for (int i = 0; i < 3; ++i)
-    layForSeed[i] = (i < (int)tmpArr.size() ? tmpArr[i] : -1);
-
-  return tmpArr.size();
+    layForSeed[i] = (i < valid) ? tmpArr[i] : -1;
+  return valid;
 }
 
 void NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed)
