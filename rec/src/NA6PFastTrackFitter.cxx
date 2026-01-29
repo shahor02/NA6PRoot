@@ -24,7 +24,8 @@ const double NA6PFastTrackFitter::kAlmostZero = 1.e-12;
 NA6PFastTrackFitter::NA6PFastTrackFitter() : mNLayers{5},
                                              mMaxChi2Cl{10.},
                                              mIsSeedSet{false},
-                                             mSeedOption{kThreePointSeed},
+                                             mSeedOption{kInMidOutAsSeed},
+                                             mSeedPoints{kThreePointSeed},
                                              mCharge{1},
                                              mMass{kMassPi},
                                              mPropagateToPrimVert{false},
@@ -271,95 +272,210 @@ bool NA6PFastTrackFitter::updateTrack(NA6PTrack* trc, const NA6PBaseCluster* cl)
   return true;
 }
 
-void NA6PFastTrackFitter::computeSeed()
+int NA6PFastTrackFitter::getLayersForSeed(std::array<int, 3>& layForSeed) const
 {
-  // compute track seed from the 3 (or 2) outermost clusters
+  // define layers to be used in seed calculation depending on the options
+
+  int layWithClus[kMaxLayers];
+  int nLayWithClus = 0;
+  for (int i = 0; i < mNLayers; ++i)
+    if (mClusters[i])
+      layWithClus[nLayWithClus++] = i;
+  if (nLayWithClus < 2) {
+    LOGP(error, "Array with clusters has less than 2 clusters {}", nLayWithClus);
+    return 0;
+  }
+  // select layers for seed determination
+  if (mSeedOption == kInnermostAsSeed) {
+    for (int i = 0; i < 3 && i < nLayWithClus; ++i)
+      layForSeed[i] = layWithClus[i];
+  } else if (mSeedOption == kOutermostAsSeed) {
+    for (int i = 0; i < 3 && i < nLayWithClus; ++i)
+      layForSeed[i] = layWithClus[nLayWithClus - 1 - i];
+  } else { // kInMidOutAsSeed
+    layForSeed[0] = layWithClus[0];
+    layForSeed[2] = layWithClus[nLayWithClus - 1];
+    if (layForSeed[0] == layForSeed[2]) {
+      LOGP(error, "Innermost and outermost clusters coincide");
+      return 0;
+    }
+    int mid = (layForSeed[0] + layForSeed[2]) / 2;
+    // Find closest layer to midpoint
+    int best = -1;
+    int bestDist = 999;
+    for (int i = 0; i < nLayWithClus; ++i) {
+      int lay = layWithClus[i];
+      if (lay == layForSeed[0] || lay == layForSeed[2])
+        continue;
+      int dist = std::abs(lay - mid);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = lay;
+      }
+    }
+    layForSeed[1] = best;
+    if (best == -1)
+      LOGP(warning, "Cannot find middle layer between {} and {}", layForSeed[0], layForSeed[2]);
+  }
+  // count layers
+  int nSeedLayers = 0;
+  for (int i = 0; i < 3; ++i)
+    if (layForSeed[i] >= 0)
+      ++nSeedLayers;
+  return nSeedLayers;
+}
+
+int NA6PFastTrackFitter::sortLayersForSeed(std::array<int, 3>& layForSeed, int dir) const
+{
+  // Sort according to fitting direction
+  // dir = 1 -> forward (innermost first)
+  // dir = -1 -> backward (outermost first)
+  // Returns the number of valid layers after sorting (2 or 3)
+
+  int tmpArr[3];
+  int valid = 0;
+  for (int i = 0; i < 3; ++i)
+    if (layForSeed[i] >= 0 && layForSeed[i] < mNLayers)
+      tmpArr[valid++] = layForSeed[i];
+
+  if (valid < 2) {
+    LOGP(error, "Less than 2 clusters found in different layers. Seed cannot be computed");
+    return 0;
+  }
+
+  if (dir > 0)
+    std::sort(tmpArr, tmpArr + valid);
+  else
+    std::sort(tmpArr, tmpArr + valid, std::greater<int>());
+
+  for (int i = 0; i < 3; ++i)
+    layForSeed[i] = (i < valid) ? tmpArr[i] : -1;
+  return valid;
+}
+
+void NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed)
+{
 
   int nClus = getNumberOfClusters();
   if (nClus < 2) {
     LOGP(error, "Cannot compute seed with {} clusters", nClus);
     return;
   }
-  if (nClus == 2 && mSeedOption == kThreePointSeed) {
+  if (nClus == 2 && mSeedPoints == kThreePointSeed) {
     LOGP(error, "Cannot compute seed with the 3-cluster option and only {} clusters -> resort to 2-point seed", nClus);
   }
 
-  for (int jLay = mNLayers - 1; jLay >= 0; --jLay) {
-    if (mClusters[jLay]) {
-      mSeedPos[0] = mClusters[jLay]->getXLab();
-      mSeedPos[1] = mClusters[jLay]->getYLab();
-      mSeedPos[2] = mClusters[jLay]->getZLab();
-      double bxyz[3] = {0.0, 0.0, 0.0};
-      TGeoGlobalMagField::Instance()->Field(mSeedPos, bxyz);
-      bool useTwoPoint = (mSeedOption == kTwoPointSeed) || (nClus == 2) || (std::abs(bxyz[1]) < kAlmostZero);
-      for (int kLay = jLay - 1; kLay >= 0; --kLay) {
-        if (mClusters[kLay]) {
-          double ux = mClusters[jLay]->getXLab() - mClusters[kLay]->getXLab();
-          double uy = mClusters[jLay]->getYLab() - mClusters[kLay]->getYLab();
-          double uz = mClusters[jLay]->getZLab() - mClusters[kLay]->getZLab();
-          double norm = std::sqrt(ux * ux + uy * uy + uz * uz);
-          if (norm > kAlmostZero) {
-            ux /= norm;
-            uy /= norm;
-            uz /= norm;
-          }
-          if (useTwoPoint) {
-            mSeedMom[0] = ux;
-            mSeedMom[1] = uy;
-            mSeedMom[2] = uz;
-            mIsSeedSet = true;
-            return;
-          }
-          for (int lLay = kLay - 1; lLay >= 0; --lLay) {
-            if (mClusters[lLay]) {
-              double x1 = mClusters[lLay]->getXLab();
-              double z1 = mClusters[lLay]->getZLab();
-              double x2 = mClusters[kLay]->getXLab();
-              double z2 = mClusters[kLay]->getZLab();
-              double x3 = mClusters[jLay]->getXLab();
-              double z3 = mClusters[jLay]->getZLab();
-              // circle fit: compute center (cx, cz) and radius
-              double determ = 2.0 * (x1 * (z2 - z3) - z1 * (x2 - x3) + (x2 * z3 - x3 * z2));
-              double cx = 0.0, cz = 0.0, radius = 1e6;
-              if (std::abs(determ) > kAlmostZero) {
-                double a1 = x1 * x1 + z1 * z1;
-                double a2 = x2 * x2 + z2 * z2;
-                double a3 = x3 * x3 + z3 * z3;
-                cx = (a1 * (z2 - z3) - z1 * (a2 - a3) + (a2 * z3 - a3 * z2)) / determ;
-                cz = (a1 * (x2 - x3) - x1 * (a2 - a3) + (x2 * a3 - x3 * a2)) / (-determ);
-                radius = std::sqrt((x1 - cx) * (x1 - cx) + (z1 - cz) * (z1 - cz));
-              }
-              if (radius > 1e5) {
-                // resort to 2-point seed
-                mSeedMom[0] = ux;
-                mSeedMom[1] = uy;
-                mSeedMom[2] = uz;
-                mIsSeedSet = true;
-                return;
-              }
-              double pt = 3.e-4 * std::abs(mCharge * bxyz[1]) * radius; // radius is in cm, By in kG, pt GeV/c
-              double nt = std::sqrt(ux * ux + uz * uz);
-              if (nt < kAlmostZero)
-                nt = 1.0;
-              mSeedMom[0] = pt * ux / nt;
-              mSeedMom[1] = pt * uy / nt;
-              mSeedMom[2] = pt * uz / nt;
-              double crossy = (x2 - x1) * (z3 - z2) - (z2 - z1) * (x3 - x2);
-              int qSign = (crossy * bxyz[1] > 0) ? +1 : -1;
-              if (mCharge * qSign < 0)
-                mCharge = -mCharge;
-              if (mSeedMom[2] < 0) { // enforce positive pz
-                for (int j = 0; j < 3; ++j)
-                  mSeedMom[j] = -mSeedMom[j];
-              }
-              mIsSeedSet = true;
-              return;
-            }
-          }
-        }
-      }
-    }
+  int nSeedLayers = sortLayersForSeed(layForSeed, dir);
+  double bxyz[3] = {0.0, 0.0, 0.0};
+  int jLay = layForSeed[0];
+  if (jLay < 0 || !mClusters[jLay]) {
+    LOGP(error, "First seed layer invalid");
+    return;
   }
+  mSeedPos[0] = mClusters[jLay]->getXLab();
+  mSeedPos[1] = mClusters[jLay]->getYLab();
+  mSeedPos[2] = mClusters[jLay]->getZLab();
+  TGeoGlobalMagField::Instance()->Field(mSeedPos, bxyz);
+  bool useTwoPoint = (mSeedPoints == kTwoPointSeed) || (nClus == 2) || (nSeedLayers == 2) || (std::abs(bxyz[1]) < kAlmostZero);
+  int kLay = layForSeed[1];
+  if (kLay < 0 || !mClusters[kLay]) {
+    LOGP(error, "Second seed layer invalid");
+    return;
+  }
+  double ux = mClusters[jLay]->getXLab() - mClusters[kLay]->getXLab();
+  double uy = mClusters[jLay]->getYLab() - mClusters[kLay]->getYLab();
+  double uz = mClusters[jLay]->getZLab() - mClusters[kLay]->getZLab();
+  double norm = std::sqrt(ux * ux + uy * uy + uz * uz);
+  if (norm > kAlmostZero) {
+    // Enforce track direction along +z
+    if (uz < 0)
+      norm = -norm;
+    ux /= norm;
+    uy /= norm;
+    uz /= norm;
+  }
+  if (useTwoPoint) {
+    mSeedMom[0] = ux;
+    mSeedMom[1] = uy;
+    mSeedMom[2] = uz;
+    mIsSeedSet = true;
+    return;
+  }
+  int lLay = layForSeed[2];
+  if (lLay < 0 || !mClusters[lLay]) {
+    LOGP(error, "Third seed layer invalid");
+    return;
+  }
+  if (dir < 0) {
+    // swap lLay and jLay to order the layers from innermost to outermost
+    int tmp = jLay;
+    jLay = lLay;
+    lLay = tmp;
+  }
+  auto* clJ = mClusters[jLay];
+  auto* clK = mClusters[kLay];
+  auto* clL = mClusters[lLay];
+  double x1 = clJ->getXLab();
+  double z1 = clJ->getZLab();
+  double x2 = clK->getXLab();
+  double z2 = clK->getZLab();
+  double x3 = clL->getXLab();
+  double z3 = clL->getZLab();
+  // get magnetic field in the middle point
+  double midPoint[3] = {clK->getXLab(), clK->getYLab(), clK->getZLab()};
+  TGeoGlobalMagField::Instance()->Field(midPoint, bxyz);
+
+  // circle fit: compute center (cx, cz) and radius
+  double determ = 2.0 * (x1 * (z2 - z3) - z1 * (x2 - x3) + (x2 * z3 - x3 * z2));
+  double cx = 0.0, cz = 0.0, radius = 1e6;
+  if (std::abs(determ) > kAlmostZero) {
+    double a1 = x1 * x1 + z1 * z1;
+    double a2 = x2 * x2 + z2 * z2;
+    double a3 = x3 * x3 + z3 * z3;
+    cx = (a1 * (z2 - z3) - z1 * (a2 - a3) + (a2 * z3 - a3 * z2)) / determ;
+    cz = (a1 * (x2 - x3) - x1 * (a2 - a3) + (x2 * a3 - x3 * a2)) / (-determ);
+    radius = std::sqrt((x1 - cx) * (x1 - cx) + (z1 - cz) * (z1 - cz));
+  }
+  if (radius > 1e5) {
+    // resort to 2-point seed
+    mSeedMom[0] = ux;
+    mSeedMom[1] = uy;
+    mSeedMom[2] = uz;
+    mIsSeedSet = true;
+    return;
+  }
+  double pt = 3.e-4 * std::abs(mCharge * bxyz[1]) * radius; // radius is in cm, By in kG, pt GeV/c
+  double nt = std::sqrt(ux * ux + uz * uz);
+  if (nt < kAlmostZero)
+    nt = 1.0;
+  mSeedMom[0] = pt * ux / nt;
+  mSeedMom[1] = pt * uy / nt;
+  mSeedMom[2] = pt * uz / nt;
+  double crossy = (x2 - x1) * (z3 - z2) - (z2 - z1) * (x3 - x2);
+  int qSign = (crossy * bxyz[1] > 0) ? +1 : -1;
+  // Ensure charge sign consistent with curvature direction in B-field
+  if (mCharge * qSign < 0)
+    mCharge = -mCharge;
+  if (mSeedMom[2] < 0) { // enforce positive pz
+    for (int j = 0; j < 3; ++j)
+      mSeedMom[j] = -mSeedMom[j];
+  }
+  mIsSeedSet = true;
+  return;
+}
+
+void NA6PFastTrackFitter::computeSeed(int dir)
+{
+  // compute track seed from 3 (or 2) clusters
+  // dir = 1 -> forward dir = -1 -> backward
+
+  std::array<int, 3> layForSeed = {-1, -1, -1};
+  int nSeedLayers = getLayersForSeed(layForSeed);
+  if (nSeedLayers < 2) {
+    LOGP(error, "Cannot compute seed with {} seeding layers", nSeedLayers);
+    return;
+  }
+  computeSeed(dir, layForSeed);
 }
 
 void NA6PFastTrackFitter::printSeed() const
@@ -373,7 +489,7 @@ void NA6PFastTrackFitter::printSeed() const
     LOGP(info, "Seed not set");
 }
 
-NA6PTrack* NA6PFastTrackFitter::fitTrackPoints()
+NA6PTrack* NA6PFastTrackFitter::fitTrackPoints(int dir, NA6PTrack* seed)
 {
 
   int nClus = getNumberOfClusters();
@@ -381,20 +497,26 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints()
     LOGP(error, "Cannot fit track with only {} clusters\n", nClus);
     return nullptr;
   }
-  // Set seed from cluster in the outer layer if not set from outside
-  if (!mIsSeedSet)
-    computeSeed();
-  if (!mIsSeedSet)
-    LOGP(warn, "Track seed not computed properly, will run the fit w/o seed");
-  NA6PTrack* currTr = new NA6PTrack();
-  if (mIsSeedSet)
-    currTr->init(mSeedPos, mSeedMom, mCharge);
+  NA6PTrack* currTr = nullptr;
+  if (seed) {
+    currTr = new NA6PTrack(*seed);
+    mIsSeedSet = true;
+  } else {
+    if (!mIsSeedSet) {
+      // Set seed from clusters in the outer (inner) layers if not set from outside
+      if (dir > 0)
+        computeSeedInner();
+      else
+        computeSeedOuter();
+    }
+    if (!mIsSeedSet)
+      LOGP(warn, "Track seed not computed properly, will run the fit w/o seed");
+    currTr = new NA6PTrack();
+    if (mIsSeedSet)
+      currTr->init(mSeedPos, mSeedMom, mCharge);
+  }
   currTr->setMass(mMass);
   currTr->resetCovariance(-1);
-  double zCurr = -999.;
-  double zNext = zCurr;
-  bool isGoodFit = true;
-  bool propToNext = true;
   // construct bit mask
   uint clusterMask = 0;
   for (int jLay = 0; jLay < mNLayers; ++jLay) {
@@ -402,8 +524,17 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints()
       clusterMask |= (1 << jLay);
   }
 
-  // track fit starts from the outer layer
-  for (int jLay = mNLayers - 1; jLay >= 0; jLay--) {
+  double zCurr = -999.;
+  double zNext = zCurr;
+  bool isGoodFit = true;
+  bool propToNext = true;
+
+  // Layer iteration setup
+  int startLay = (dir > 0) ? 0 : mNLayers - 1;
+  int endLay = (dir > 0) ? mNLayers : -1;
+  int stepLay = (dir > 0) ? 1 : -1;
+
+  for (int jLay = startLay; jLay != endLay; jLay += stepLay) {
     // update track with point in current layer
     if (mClusters[jLay]) {
       if (!updateTrack(currTr, mClusters[jLay])) {
@@ -412,14 +543,21 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints()
       } else {
         zCurr = mClusters[jLay]->getZLab();
         bool isInnermostHit = (clusterMask & ((1 << jLay) - 1)) == 0;
-        if (jLay == 0 || isInnermostHit) {
-          if (mPropagateToPrimVert && mIsPrimVertSet)
+        bool isOutermostHit = (clusterMask >> (jLay + 1)) == 0;
+        bool lastClu = false;
+        if (dir > 0)
+          lastClu = (jLay == mNLayers - 1) || isOutermostHit;
+        else
+          lastClu = (jLay == 0) || isInnermostHit;
+
+        if (lastClu) {
+          if (dir < 0 && mPropagateToPrimVert && mIsPrimVertSet)
             zNext = mPrimVertZ;
           else
             propToNext = false;
         } else {
-          if (mClusters[jLay - 1])
-            zNext = mClusters[jLay - 1]->getZLab();
+          if (mClusters[jLay + stepLay])
+            zNext = mClusters[jLay + stepLay]->getZLab();
           else
             continue;
         }
@@ -427,7 +565,7 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints()
     }
     // propagate to next layer
     if (zCurr > 0 && propToNext) {
-      if (propagateToZ(currTr, zCurr, zNext, -1) != 1) {
+      if (propagateToZ(currTr, zCurr, zNext, dir) != 1) {
         isGoodFit = false;
         break;
       }

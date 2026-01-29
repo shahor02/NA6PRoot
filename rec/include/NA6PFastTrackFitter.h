@@ -30,6 +30,10 @@ class NA6PFastTrackFitter
  public:
   enum { kTwoPointSeed = 0,
          kThreePointSeed = 1 };
+  enum { kOutermostAsSeed = 0,
+         kInnermostAsSeed = 1,
+         kInMidOutAsSeed = 2 };
+  static constexpr int kMaxLayers = 20;
 
   NA6PFastTrackFitter();
   ~NA6PFastTrackFitter(){};
@@ -58,11 +62,20 @@ class NA6PFastTrackFitter
       mCharge = ch;
   };
   void unsetSeed() { mIsSeedSet = false; }
-  void setSeedFromTwoOutermostHits() { mSeedOption = kTwoPointSeed; }
-  void setSeedFromThreeOutermostHits() { mSeedOption = kThreePointSeed; }
-  void computeSeed();
+  void setSeedFromTwoHits() { mSeedPoints = kTwoPointSeed; }
+  void setSeedFromThreeHits() { mSeedPoints = kThreePointSeed; }
+  void setSeedFromOutermostHits() { mSeedOption = kOutermostAsSeed; }
+  void setSeedFromInnermostHits() { mSeedOption = kInnermostAsSeed; }
+  void setSeedFromInMidOutHits() { mSeedOption = kInMidOutAsSeed; }
+  int getLayersForSeed(std::array<int, 3>& layForSeed) const;
+  int sortLayersForSeed(std::array<int, 3>& layForSeed, int dir) const;
+  void computeSeed(int dir, std::array<int, 3>& layForSeed);
+  void computeSeed(int dir = -1);
+  void computeSeedOuter() { computeSeed(-1); }
+  void computeSeedInner() { computeSeed(1); }
   void printSeed() const;
-
+  const double* getSeedMomentum() const { return mSeedMom; }
+  const double* getSeedPosition() const { return mSeedPos; }
   void addCluster(int jLay, const NA6PBaseCluster& cl);
   void resetClusters()
   {
@@ -76,7 +89,9 @@ class NA6PFastTrackFitter
 
   bool loadGeometry(const char* filename = "geometry.root", const char* geoname = "NA6P");
 
-  NA6PTrack* fitTrackPoints();
+  NA6PTrack* fitTrackPoints(int dir = -1, NA6PTrack* seed = nullptr);
+  NA6PTrack* fitTrackPointsInward() { return fitTrackPoints(-1); }
+  NA6PTrack* fitTrackPointsOutward(NA6PTrack* seed = nullptr) { return fitTrackPoints(1, seed); }
   bool updateTrack(NA6PTrack* trc, const NA6PBaseCluster* cl) const;
   int propagateToZ(NA6PTrack* trc, double zFrom, double zTo, int dir) const;
   int propagateToZ(NA6PTrack* trc, double zTo) const;
@@ -93,7 +108,8 @@ class NA6PFastTrackFitter
   int mNLayers = 5;                  // number of active
   double mMaxChi2Cl = 10.;           // max cluster-track chi2
   bool mIsSeedSet = false;           // flag for set seed
-  int mSeedOption = kThreePointSeed; // seed option (see enum)
+  int mSeedOption = kInMidOutAsSeed; // seed option (see enum)
+  int mSeedPoints = kThreePointSeed; // number of hits used for seed
   double mSeedPos[3];                // seed for track position
   double mSeedMom[3];                // seed for track momentum
   int mCharge = 1;                   // track charge for seed
