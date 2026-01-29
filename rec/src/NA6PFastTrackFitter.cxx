@@ -499,6 +499,7 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints(int dir, NA6PTrack* seed)
   }
   NA6PTrack* currTr = nullptr;
   if (seed) {
+    // Seed provided as a track from previous pass
     currTr = new NA6PTrack(*seed);
     mIsSeedSet = true;
   } else {

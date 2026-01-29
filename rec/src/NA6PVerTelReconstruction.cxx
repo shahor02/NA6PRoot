@@ -205,17 +205,16 @@ void NA6PVerTelReconstruction::closeTracksOutput()
 
 void NA6PVerTelReconstruction::runTracking()
 {
-  if (!mIsInitialized)
-  {
+  if (!mIsInitialized) {
     LOGP(error, "Magnetic field and geometry not initialized");
     return;
   }
-  if (!mVTTracker)
-  {
+  if (!mVTTracker) {
     LOGP(info, "Tracker not initialized, will call default initialization");
     initTracker();
   }
   clearTracks();
+  mVTTracker->setDoOutwardPropagation(true);
   mVTTracker->setPropagateTracksToPrimaryVertex(true);
   mVTTracker->findTracks(mClusters, mPrimaryVertex);
   mTracks = mVTTracker->getTracks();
