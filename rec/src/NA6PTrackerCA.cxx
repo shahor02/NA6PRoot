@@ -26,7 +26,7 @@ ClassImp(NA6PTrackerCA)
                                    mMaxSharedClusters{0},
                                    mPropagateTracksToPrimaryVertex{false},
                                    mDoOutwardPropagation{false},
-                                   mZOutProp{40.},
+                                   mZOutProp{38.1175},
                                    mVerbose{false},
                                    mNIterationsCA{2}
 {
