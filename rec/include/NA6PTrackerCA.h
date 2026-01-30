@@ -193,7 +193,7 @@ class NA6PTrackerCA
   bool mVerbose = false;
   bool mPropagateTracksToPrimaryVertex = false;
   bool mDoOutwardPropagation = false;
-  float mZOutProp = 40.;
+  float mZOutProp = 38.1175;
   int mNIterationsCA = 2;
   float mMaxDeltaThetaTrackletsCA[kMaxIterationsCA] = {0.04, 0.1, 0.15, 0.3, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   float mMaxDeltaPhiTrackletsCA[kMaxIterationsCA] = {0.1, 0.2, 0.25, 0.5, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};

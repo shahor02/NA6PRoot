@@ -36,7 +36,7 @@ class NA6PFastTrackFitter
   static constexpr int kMaxLayers = 20;
 
   NA6PFastTrackFitter();
-  ~NA6PFastTrackFitter(){};
+  ~NA6PFastTrackFitter() {};
 
   // setters for configurable parameters
   void setMaxChi2Cl(double v = 10) { mMaxChi2Cl = v; }
@@ -94,8 +94,13 @@ class NA6PFastTrackFitter
   NA6PTrack* fitTrackPointsInward() { return fitTrackPoints(-1); }
   NA6PTrack* fitTrackPointsOutward(NA6PTrack* seed = nullptr) { return fitTrackPoints(1, seed); }
   bool updateTrack(NA6PTrack* trc, const NA6PBaseCluster* cl) const;
-  int propagateToZ(NA6PTrack* trc, double zFrom, double zTo, int dir) const;
+
   int propagateToZ(NA6PTrack* trc, double zTo) const;
+  int propagateToZ(NA6PTrack* trc, double zFrom, double zTo, int dir) const;
+  int propagateToZOuter(NA6PTrack* trc, double zTo) const;
+  int propagateToZOuter(NA6PTrack* trc, double zFrom, double zTo, int dir) const;
+  int propagateToZImpl(NA6PTrack* trc, double zFrom, double zTo, int dir, bool outer) const;
+
   void getMeanMaterialBudgetFromGeom(double* start, double* end, double* mparam) const;
 
   static const Double_t kMassP;

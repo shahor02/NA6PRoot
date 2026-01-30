@@ -52,9 +52,10 @@ class NA6PTrack
   void setOuterParam(const ExtTrackPar& p) { mOuter = p; }
 
   double getMass() const { return mMass; }
-  double getChi2() const { return mChi2; }
+  double getChi2() const { return mChi2VT+mChi2MS; }
   double getChi2VT() const { return mChi2VT; }
   double getChi2MS() const { return mChi2MS; }
+  double getMatchChi2() const { return mMatchChi2; }
   const ExtTrackPar& getTrackExtParam() const { return mExtTrack; }
   const double* getCovariance() const { return mExtTrack.getCovariance(); }
   const ExtTrackPar& getOuterParam() const { return mOuter; }
@@ -75,6 +76,8 @@ class NA6PTrack
   double getXLab() const { return mExtTrack.getY(); }
   double getYLab() const { return mExtTrack.getZ(); }
   double getZLab() const { return negDir() ? -mExtTrack.getX() : mExtTrack.getX(); }
+  double getZLabOuter() const { return negDir() ? -mOuter.getX() : mOuter.getX(); }
+  
   double getR() const
   {
     double x = getXLab(), y = getYLab(), r = x * x + y * y;
@@ -85,7 +88,10 @@ class NA6PTrack
   double getZTF() const { return mExtTrack.getZ(); }
   void getXYZ(double* xyz) const;
   void getPXYZ(double* pxyz) const;
+  void getXYZOuter(double* xyz) const;
+  void getPXYZOuter(double* pxyz) const;
   double getP() const { return mExtTrack.getP(); }
+  double getPOuter() const { return mOuter.getP(); }
   double getSigmaX2() const { return mExtTrack.getSigmaY2(); }
   double getSigmaY2() const { return mExtTrack.getSigmaZ2(); }
   double getSigmaXY() const { return mExtTrack.getSigmaZY(); }
@@ -93,11 +99,11 @@ class NA6PTrack
   double getSigmaPX2() const;
   double getSigmaPY2() const;
   double getSigmaPZ2() const;
-  double getNormChi2() const { return mNClusters < 3 ? 0 : mChi2 / ((mNClusters << 1) - kNDOF); }
+  double getNormChi2() const { return mNClusters < 3 ? 0 : (mChi2VT+mChi2MS) / ((mNClusters << 1) - kNDOF); }
   double getPredictedChi2(double* p, double* cov) const { return mExtTrack.getPredictedChi2(p, cov); }
 
   void setMass(double m) { mMass = m; }
-  void setChi2(double chi2) { mChi2 = chi2; }
+  void setMatchChi2(double chi2) { mMatchChi2 = chi2; }
   void setChi2VT(double chi2) { mChi2VT = chi2; }
   void setChi2MS(double chi2) { mChi2MS = chi2; }
   void setParticleLabel(int idx, int lr)
@@ -122,8 +128,9 @@ class NA6PTrack
   {
     return mExtTrack.correctForMeanMaterial(xOverX0, xTimesRho, mMass, anglecorr);
   }
-  bool propagateToZBxByBz(double z, double maxDZ = 1.0, double xOverX0 = 0., double xTimesRho = 0.);
+  bool propagateToZBxByBz(double z, double maxDZ = 1.0, double xOverX0 = 0., double xTimesRho = 0., bool outer = false);
   bool propagateToZBxByBz(double z, const double* bxyz) { return mExtTrack.propagateToBxByBz(z, bxyz); }
+  bool propagateToZBxByBzOuter(double z, const double* bxyz) { return mOuter.propagateToBxByBz(z, bxyz); }
   bool propagateToDCA(NA6PTrack* partner);
   bool update(double p[2], double cov[3]) { return mExtTrack.Update(p, cov); }
 
@@ -132,7 +139,7 @@ class NA6PTrack
 
  protected:
   double mMass = 0.140;                      // particle mass
-  double mChi2 = 0.f;                        // total chi2
+  double mMatchChi2 = 0.f;                   // total chi2
   double mChi2VT = 0.f;                      // total chi2 VT
   double mChi2MS = 0.f;                      // total chi2 MS
   uint32_t mClusterMap = 0;                  // pattern of clusters per layer
@@ -185,5 +192,24 @@ inline void NA6PTrack::getPXYZ(double* pxyz) const
   mExtTrack.getPxPyPz(pxyzTrk);
   trk2lab(pxyzTrk, pxyz);
 }
+
+//_______________________________________________________________________
+inline void NA6PTrack::getXYZOuter(double* xyz) const
+{
+  // track position in Lab coordinates
+  double xyzTrk[3];
+  mOuter.getXYZ(xyzTrk);
+  trk2lab(xyzTrk, xyz);
+}
+
+//_______________________________________________________________________
+inline void NA6PTrack::getPXYZOuter(double* pxyz) const
+{
+  // track position in Lab coordinates
+  double pxyzTrk[3];
+  mOuter.getPxPyPz(pxyzTrk);
+  trk2lab(pxyzTrk, pxyz);
+}
+
 
 #endif
