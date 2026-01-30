@@ -14,21 +14,21 @@
 
 ClassImp(NA6PTrackerCA)
 
-  //______________________________________________________________________
+  static constexpr float kThetaMax = M_PI_2 * 0.99f;
 
-  //______________________________________________________________________
+//______________________________________________________________________
 
-  NA6PTrackerCA::NA6PTrackerCA() : mLayerStart{0},
-                                   mNLayers{5},
-                                   mPrimVertPos{0., 0., 0.},
-                                   mTrackFitter{nullptr},
-                                   mIsClusterUsed{false},
-                                   mMaxSharedClusters{0},
-                                   mPropagateTracksToPrimaryVertex{false},
-                                   mDoOutwardPropagation{false},
-                                   mZOutProp{40.},
-                                   mVerbose{false},
-                                   mNIterationsCA{2}
+NA6PTrackerCA::NA6PTrackerCA() : mLayerStart{0},
+                                 mNLayers{5},
+                                 mPrimVertPos{0., 0., 0.},
+                                 mTrackFitter{nullptr},
+                                 mIsClusterUsed{false},
+                                 mMaxSharedClusters{0},
+                                 mPropagateTracksToPrimaryVertex{false},
+                                 mDoOutwardPropagation{false},
+                                 mZOutProp{40.},
+                                 mVerbose{false},
+                                 mNIterationsCA{2}
 {
   mTrackFitter = new NA6PFastTrackFitter();
   mTrackFitter->setNLayers(mNLayers);
@@ -327,7 +327,7 @@ void NA6PTrackerCA::computeLayerTracklets(const std::vector<ClusterType>& cluArr
       float theta1 = std::atan2(z1, r1);
       float phi1 = std::atan2(y1, x1);
       float tanth2Min = std::max(0.f, std::tan(theta1 - 1.2f * deltaThetaMax)); // 1.2 is a safety margin, the tan(theta) range is limited at zero to protect for the case in which theta1 - 1.2 * deltaThetaMax is <0, which would give a negative tangent. The minimum acceptable value for theta is 0
-      float tanth2Max = std::tan(theta1 + 1.2f * deltaThetaMax);
+      float tanth2Max = std::tan(std::min(kThetaMax, theta1 + 1.2f * deltaThetaMax));
       auto lower = std::partition_point(layerBegin, layerEnd,
                                         [pvx, pvy, pvz, tanth2Min](const ClusterType& clu) {
                                           float x = clu.getX() - pvx;
@@ -464,15 +464,19 @@ bool NA6PTrackerCA::fitTrackPointsFast(const std::vector<int>& cluIDs,
   int nClus = cluIDs.size();
   mTrackFitter->cleanupAndStartFit();
   mTrackFitter->setMaxChi2Cl(maxChi2TrClu);
-  std::vector<const ClusterType*> clusters;
-  clusters.reserve(nClus);
+  std::array<int, 3> layForSeed = {-1, -1, -1}; // filled only for fit to cells
   for (int jClu = 0; jClu < nClus; jClu++) {
     int cluID = cluIDs[jClu];
     const auto& clu = cluArr[cluID];
     int nLay = clu.getLayer() - mLayerStart;
-    clusters.push_back(&clu); // store the pointer for later use
     mTrackFitter->addCluster(nLay, clu);
+    if (nClus == 3)
+      layForSeed[jClu] = nLay;
   }
+  // in case of fit to a cell (3 clusters): precompute the seed, skipping getLayersForSeed
+  // Instead, in case of fit to a full track, the layers for seed are defined based on the option in mTrackFitter
+  if (nClus == 3)
+    mTrackFitter->computeSeed(-1, layForSeed); // -1 = fit is done inwards
 
   std::unique_ptr<NA6PTrack> fitTrackPtr(mTrackFitter->fitTrackPoints());
   if (!fitTrackPtr)
