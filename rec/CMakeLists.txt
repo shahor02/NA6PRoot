@@ -33,6 +33,7 @@ set(DICTIONARY_HEADERS
   NA6PVertexerTracklets.h
   NA6PTrackerCA.h
   NA6PFastTrackFitter.h
+  NA6PMatching.h
   ) # Add all class headers requiring dictionary
   
 set(DICTIONARY_LINKDEF ${THIS_SRC_DIR}/${MOD_NAME}LinkDef.h)
