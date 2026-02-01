@@ -71,8 +71,27 @@ bool NA6PTrackParCov::propagateToZ(float z, float by)
     dPsi = sinPsi1 > 0.f ? (kPI - dPsi) : (-kPI - dPsi);
   }
   auto cosPsi1Inv = prec_t(1) / cosPsi1;
-  float xUpd = (cosPsi0 - cosPsi1) / kappa;
-  float yUpd = getTy() / (pxz2pz * kappa) * dPsi;
+  // ------------------------------------------------------------------
+  // Numerically stable state increments.
+  // Avoid division by kappa for high-momentum tracks where |kappa| (or |kappa*dz|)
+  // can be very small and (cosPsi0-cosPsi1) suffers cancellation.
+  //
+  // Using trig identities:
+  //   dz = (sinPsi1 - sinPsi0)/kappa
+  //   (cosPsi0 - cosPsi1)/(sinPsi1 - sinPsi0) = tan((psi0+psi1)/2)
+  // so
+  //   xUpd = dz * tan((psi0+psi1)/2) = dz * (sinPsi0 + sinPsi1)/(cosPsi0 + cosPsi1)
+  // and
+  //   s_perp = dPsi/kappa = dz * dPsi/(sinPsi1 - sinPsi0)
+  const prec_t dsin = sinPsi1 - sinPsi0;
+  const prec_t denom = cosPsi0 + cosPsi1;
+  const prec_t tanHalfSum = (std::abs(denom) > kTiny) ? ((sinPsi0 + sinPsi1) / denom) : (sinPsi1 / cosPsi1);
+  const float xUpd = float(dz * tanHalfSum);
+
+  // s_perp is the effective path-length factor in the non-bending plane.
+  // For very small dsin the ratio dPsi/dsin -> 1/cosPsi0.
+  const prec_t s_perp = (std::abs(dsin) > kTiny) ? (dz * dPsi / dsin) : (dz / cosPsi0);
+  const float yUpd = float((getTy() * cosPsi0) * s_perp);
   float txNew = sinPsi1 * cosPsi1Inv;             // tx1 = tan(psi1) = sin(psi1)/cos(psi1)
   float tyNew = getTy() * (cosPsi0 * cosPsi1Inv); // ty = p_y/p_z => ty1 = ty0 * (cosPsi0 / cosPsi1)   simplify this
   /* // The case of small kappa is already treated above.
@@ -95,6 +114,15 @@ bool NA6PTrackParCov::propagateToZ(float z, float by)
   auto invD = cosPsi0, invD3 = 1. / (pxz2pz2 * pxz2pz);
 
   // ------------------------------------------------------------------
+  // Small-bend protection
+  // The exact formulas for f02,f03,f04 (and therefore the q/p information flow)
+  // contain 1/kappa and 1/kappa^2 and become numerically ill-conditioned when
+  // |kappa*dz| is small (high momentum). Use stable series in that regime.
+  // ------------------------------------------------------------------
+  const prec_t kd = std::abs(kappa * dz);
+  const bool smallBend = (kd < prec_t(1e-3));
+
+  // ------------------------------------------------------------------
   // Derivatives of kappa wrt (tx, ty, qop)
   // kappa = K*qop*(A/D)
   // ------------------------------------------------------------------
@@ -113,71 +141,77 @@ bool NA6PTrackParCov::propagateToZ(float z, float by)
   auto ds1_dtx = ds0_dtx + dz * dk_dtx;
   auto ds1_dty = dz * dk_dty;
   auto ds1_dq = dz * dk_dq;
-  // ------------------------------------------------------------------
-  // f22,f23,f24 from tx1 = tan(psi1) = s1/c1
-  // d(tx1)/du = (1/c1^3) * ds1/du
-  // ------------------------------------------------------------------
-  double f22 = invC13 * ds1_dtx;
-  double f23 = invC13 * ds1_dty;
-  double f24 = invC13 * ds1_dq;
-  // ------------------------------------------------------------------
-  // f02,f03,f04 from x1 = x0 + (c0 - c1)/kappa
-  // dx/du = ((dc0/du - dc1/du)/kappa) - (c0 - c1)/kappa^2 * dk/du
-  // dc0/dtx = -tx/D^3 ; dc0/dty=0 ; dc0/dq=0
-  // dc1/du  = -(s1/c1) * ds1/du
-  // ------------------------------------------------------------------
-  auto invK = 1. / kappa;
-  auto invK2 = invK * invK;
+  // Jacobian elements (double)
+  double f02 = 0., f03 = 0., f04 = 0.;
+  double f12 = 0., f13 = 0., f14 = 0.;
+  double f22 = 0., f23 = 0., f24 = 0.;
+  double f32 = 0., f33 = 1., f34 = 0.;
 
+  // For Option B derivatives we still need these (stable, no 1/kappa)
   auto dc0_dtx = -getTx() * invD3;
-
   auto s1_over_c1 = sinPsi1 * cosPsi1Inv;
   auto dc1_dtx = -s1_over_c1 * ds1_dtx;
-  auto dc1_dty = -s1_over_c1 * ds1_dty;
-  auto dc1_dq = -s1_over_c1 * ds1_dq;
 
-  auto c0_minus_c1 = cosPsi0 - cosPsi1; // simplify
+  if (smallBend) {
+    // ----------------------------------------------------------------
+    // Stable series for small |kappa*dz|:
+    // Use the linearised expressions (consistent with the commented block).
+    // ----------------------------------------------------------------
+    const prec_t dzh = prec_t(0.5) * dz;
+    const prec_t invA2 = invA * invA;
+    const prec_t invD2 = invD * invD;
+    const prec_t f24_series = dz * kB2C * by * (p2pz * invD); // dz*dk/d(q/p)
+    const prec_t f23_series = dz * kappa * getTy() * invA2;
+    const prec_t tmpXA2D2 = dz * kappa * getTx() * (invA2 - invD2);
 
-  double f02 = ((dc0_dtx - dc1_dtx) * invK) - (c0_minus_c1 * invK2) * dk_dtx;
-  double f03 = (-dc1_dty * invK) - (c0_minus_c1 * invK2) * dk_dty;
-  double f04 = (-dc1_dq * invK) - (c0_minus_c1 * invK2) * dk_dq;
+    f02 = dz + dzh * tmpXA2D2;
+    f03 = dzh * f23_series;
+    f04 = dzh * f24_series;
+    f13 = dz;
+    f22 = 1. + tmpXA2D2;
+    f23 = f23_series;
+    f24 = f24_series;
 
-  // ------------------------------------------------------------------
-  // f13 from y1 = y0 + (ty/D) * (dpsi/kappa)
-  // here we keep the sparse structure: only dy/dty is retained.
-  //
-  // Let ny = ty/D (depends on ty only via ty), D depends on tx only.
-  // s_perp = dpsi/kappa
-  //
-  // f13 = (1/D)*s_perp + (ty/D) * d(s_perp)/dty
-  // d(dpsi)/dty = d(psi1)/dty = (1/c1) * ds1_dty
-  // d(s_perp)/dty = ( (d(dpsi)/dty)*kappa - dpsi*dk_dty ) / kappa^2
-  // ------------------------------------------------------------------
-  auto s_perp = dPsi * invK;             // dpsi/kappa
-  auto ddPsi_dty = cosPsi1Inv * ds1_dty; // (1/c1)*ds1_dty
-  auto dsperp_dty = (ddPsi_dty * kappa - dPsi * dk_dty) * invK2;
-  double f13 = invD * s_perp + (getTy() * invD) * dsperp_dty;
+    // In the small-bend limit y' ~ y + ty*dz, so dy/dtx and dy/d(q/p) are ~0
+    f12 = 0.;
+    f14 = 0.;
+  } else {
+    // ----------------------------------------------------------------
+    // Exact formulas
+    // ----------------------------------------------------------------
+    const prec_t invK = prec_t(1) / kappa;
+    const prec_t invK2 = invK * invK;
 
-  // --- additional Jacobian terms for Option B (ty evolves) ---
+    // f22,f23,f24 from tx1 = tan(psi1) = s1/c1
+    f22 = invC13 * ds1_dtx;
+    f23 = invC13 * ds1_dty;
+    f24 = invC13 * ds1_dq;
 
-  // d(psi1)/du = ds1_du / cosPsi1 ; d(psi0)/dtx = ds0_dtx / cosPsi0
-  double ddPsi_dtx = cosPsi1Inv * ds1_dtx - (ds0_dtx / cosPsi0);
-  ////  double ddPsi_dty = cosPsi1Inv * ds1_dty;     // you already used this
-  double ddPsi_dq  = cosPsi1Inv * ds1_dq;
+    // f02,f03,f04 from x1 = x0 + (c0 - c1)/kappa
+    const prec_t dc1_dty = -s1_over_c1 * ds1_dty;
+    const prec_t dc1_dq  = -s1_over_c1 * ds1_dq;
+    const prec_t c0_minus_c1 = cosPsi0 - cosPsi1;
 
-  // ds_perp/du where s_perp = dPsi/kappa
-  double dsperp_dtx = (ddPsi_dtx * kappa - dPsi * dk_dtx) * invK2;
-  ////  double dsperp_dty = (ddPsi_dty * kappa - dPsi * dk_dty) * invK2; // same as your current
-  double dsperp_dq  = (ddPsi_dq  * kappa - dPsi * dk_dq ) * invK2;
+    f02 = ((dc0_dtx - dc1_dtx) * invK) - (c0_minus_c1 * invK2) * dk_dtx;
+    f03 = (-dc1_dty * invK)             - (c0_minus_c1 * invK2) * dk_dty;
+    f04 = (-dc1_dq  * invK)             - (c0_minus_c1 * invK2) * dk_dq;
 
-  // ny = ty/D = ty*cosPsi0  (since cosPsi0 = 1/D)
-  double ny0 = getTy() * cosPsi0;
+    // y1 = y0 + (ty/D) * (dpsi/kappa)
+    const prec_t s_perp = dPsi * invK;                 // dpsi/kappa
+    const prec_t ddPsi_dty = cosPsi1Inv * ds1_dty;     // (1/c1)*ds1_dty
+    const prec_t dsperp_dty = (ddPsi_dty * kappa - dPsi * dk_dty) * invK2;
+    f13 = invD * s_perp + (getTy() * invD) * dsperp_dty;
 
-  // y1 = y0 + ny0 * s_perp
-  // f13 is existing dy/dty; now add dy/dtx and dy/d(q/p)
-  double dny_dtx = getTy() * dc0_dtx;     // dc0_dtx = d(1/D)/dtx
-  double f12 = dny_dtx * s_perp + ny0 * dsperp_dtx;
-  double f14 = ny0 * dsperp_dq;
+    // Option B: add dy/dtx and dy/d(q/p)
+    const prec_t ddPsi_dtx = cosPsi1Inv * ds1_dtx - (ds0_dtx / cosPsi0);
+    const prec_t ddPsi_dq  = cosPsi1Inv * ds1_dq;
+    const prec_t dsperp_dtx = (ddPsi_dtx * kappa - dPsi * dk_dtx) * invK2;
+    const prec_t dsperp_dq  = (ddPsi_dq  * kappa - dPsi * dk_dq ) * invK2;
+    const prec_t ny0 = getTy() * cosPsi0;
+    const prec_t dny_dtx = getTy() * dc0_dtx;
+    f12 = dny_dtx * s_perp + ny0 * dsperp_dtx;
+    f14 = ny0 * dsperp_dq;
+  }
 
   // ty1 = ty0 * (cosPsi0/cosPsi1)
   double R = cosPsi0 * cosPsi1Inv;
@@ -185,21 +219,16 @@ bool NA6PTrackParCov::propagateToZ(float z, float by)
 
   // f33 = dty1/dty0
   // d(1/cosPsi1)/dty = (sinPsi1 * ds1_dty)/cosPsi1^3 = sinPsi1*ds1_dty*invC13
-  double f33 = R + getTy() * cosPsi0 * sinPsi1 * ds1_dty * invC13;
+  f33 = R + getTy() * cosPsi0 * sinPsi1 * ds1_dty * invC13;
   
   // f34 = dty1/d(q/p)
-  double f34 = getTy() * cosPsi0 * sinPsi1 * ds1_dq * invC13;
+  f34 = getTy() * cosPsi0 * sinPsi1 * ds1_dq * invC13;
 
   // f32 = dty1/dtx0
   // dR/dtx = (dc0_dtx*cosPsi1 - cosPsi0*dc1_dtx)/cosPsi1^2
-  double f32 = getTy() * (dc0_dtx * cosPsi1 - cosPsi0 * dc1_dtx) * invC12;
+  f32 = getTy() * (dc0_dtx * cosPsi1 - cosPsi0 * dc1_dtx) * invC12;
   //
-  //------------------------
-  auto dzh = 0.5 * dz;
-  double tmpA2 = 1. / (p2pz * p2pz), tmpD2 = 1. / (pxz2pz * pxz2pz), f24XX{dz * kB2C * by * p2pz / pxz2pz};
-  double f23XX{dz * kappa * getTy() * tmpA2}, tmpXA2D2 = dz * kappa * getTx() * (tmpA2 - tmpD2);
-  double f02XX{dz + dzh * tmpXA2D2}, f03XX{dzh * f23}, f04XX{dzh * f24}, f13XX{dz}, f22XX{1. + tmpXA2D2};
-  //
+  // (Removed debug/alternative Jacobian block: now handled by smallBend branch.)
 
   // ---------------------------------------------------------------------------------------------------------------
   incParam(kX, xUpd);
