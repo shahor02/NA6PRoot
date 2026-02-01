@@ -772,7 +772,7 @@ void NA6PTrackParCov::resetCovariance(float s2)
     kCY2max = 5 * 5,        // SigmaY<=5cm
     kCTx2max = 0.3 * 0.3,   // tgX<=1
     kCTy2max = 0.3 * 0.3,   // tgY<=1
-    kC1P2max = 4,//30 * 30,   // Sigma1/P<=30 1/GeV
+    kC1P2max = 30 * 30,   // Sigma1/P<=30 1/GeV
     kMostProbablePt = 0.6f; // Most Probable Pt (GeV), for running with Bz=0
 
   // Reset the covarince matrix to "something big"
