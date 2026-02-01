@@ -51,11 +51,12 @@ bool NA6PTrackParCov::propagateToZ(float znew, float b_y)
   const auto D2 = getPxz2Pz2<prec_t>();                // D^2 of the into == pxz^2/pz^2 == 1.0 + tx0*tx0
   const auto D = std::sqrt(D2);                        // D of the into 
   const auto A = std::sqrt(D2 + ty0*ty0);         // A of the intro = p/pz = sqrt(1 + tx0*tx0 + ty0*ty0)
-  const prec_t kappa = K * q0 * (A / D);
+  const prec_t KQ0 = K * q0;
+  const prec_t kappa = KQ0 * (A / D);
 
   // Straight-line / negligible curvature branch
   // Triggered by very small |kappa| (i.e. small K or small q/p).
-  if (std::fabs(kappa) < static_cast<prec_t>(kSmallKappa)) {
+  if (std::abs(kappa) < static_cast<prec_t>(kSmallKappa)) {
     // State update: x += tx*dz ; y += ty*dz ; tx,ty,q unchanged
     x += tx0 * dz;
     y += ty0 * dz;    
@@ -76,10 +77,11 @@ bool NA6PTrackParCov::propagateToZ(float znew, float b_y)
     return true;
   }
 
-  // ---- Dipole propagation (Option B) ----
+  // ---- Dipole propagation ----
+  const prec_t bend = kappa * dz;
   const prec_t invD  = 1.0 / D, invD2 = invD*invD, invD3 = invD2*invD, invA  = 1.0 / A;
   const prec_t s0 = tx0 * invD, c0 = invD; // sin(psi0) and cos(psi0) = 1/D
-  prec_t s1 = s0 + kappa * dz; // sin(psi1)
+  prec_t s1 = s0 + bend; // sin(psi1)
   if (std::abs(s1) >= 1.) {
     return false;
   }
@@ -89,7 +91,7 @@ bool NA6PTrackParCov::propagateToZ(float znew, float b_y)
   // robust dpsi using atan2(s,c)
   const prec_t ds = s1 - s0;
   prec_t dpsi, ratio_dpsi_ds;
-  if (std::fabs(ds) > kSmallDs) {
+  if (std::abs(ds) > kSmallDs) {
     const prec_t psi0 = std::atan2(s0, c0);
     const prec_t psi1 = std::atan2(s1, c1);
     dpsi = psi1 - psi0;
@@ -106,7 +108,7 @@ bool NA6PTrackParCov::propagateToZ(float znew, float b_y)
 
   // State update (stable)
   prec_t denom_x = (c0 + c1);
-  if (std::fabs(denom_x) < static_cast<prec_t>(kTiny)) {
+  if (std::abs(denom_x) < static_cast<prec_t>(kTiny)) {
     denom_x = (denom_x >= 0.0 ? static_cast<prec_t>(kTiny) : -static_cast<prec_t>(kTiny));
   }
   x += dz * (s0 + s1) / denom_x;
@@ -129,8 +131,8 @@ bool NA6PTrackParCov::propagateToZ(float znew, float b_y)
   // ---- Jacobian ----
   // dkappa/du
   const prec_t dk_dq  = K * (A * invD);
-  const prec_t dk_dty = K * q0 * (ty0 * (invA * invD));
-  const prec_t dk_dtx = K * q0 * (tx0 * (invA*invD - A*invD3));
+  const prec_t dk_dty = KQ0 * (ty0 * (invA * invD));
+  const prec_t dk_dtx = KQ0 * (tx0 * (invA*invD - A*invD3));
 
   const prec_t ds0_dtx = invD3;
 
@@ -150,48 +152,40 @@ bool NA6PTrackParCov::propagateToZ(float znew, float b_y)
   const prec_t f23 = invC13 * ds1_dty;
   const prec_t f24 = invC13 * ds1_dq;
 
-  // x1 derivatives (use series if small bend)
-  prec_t f02, f03, f04;
-  const prec_t kd = std::fabs(kappa * dz);
-  if (kd < static_cast<prec_t>(kSmallBend)) {
-    const prec_t half_dz2 = 0.5 * dz * dz;
-    f02 = dz + half_dz2 * dk_dtx;
-    f03 =      half_dz2 * dk_dty;
-    f04 =      half_dz2 * dk_dq;
-  } else {
-    const prec_t invK  = 1.0 / kappa;
-    const prec_t invK2 = invK * invK;
-    const prec_t c0mc1 = (c0 - c1);
-    f02 = ((dc0_dtx - dc1_dtx) * invK) - (c0mc1 * invK2) * dk_dtx;
-    f03 = ((0.0     - dc1_dty) * invK) - (c0mc1 * invK2) * dk_dty;
-    f04 = ((0.0     - dc1_dq ) * invK) - (c0mc1 * invK2) * dk_dq;
-  }
-
   // dpsi derivatives
   const prec_t dpsi_dtx = invC1 * ds1_dtx - (1.0 / c0) * ds0_dtx;
   const prec_t dpsi_dty = invC1 * ds1_dty;
   const prec_t dpsi_dq  = invC1 * ds1_dq;
+  
+  prec_t f02, f03, f04;  // x1 derivatives (use series if small bend)
+  prec_t f12, f13, f14;  // y derivatives (small bend: straight-line leading order)
+  bool smallBend = std::abs(bend) < static_cast<prec_t>(kSmallBend);
+  if (smallBend) {
+    const prec_t half_dz2 = 0.5 * dz * dz;
+    f02 = dz + half_dz2 * dk_dtx;
+    f03 =      half_dz2 * dk_dty;
+    f04 =      half_dz2 * dk_dq;
 
-  // y derivatives (small bend: straight-line leading order)
-  prec_t f12, f13, f14;
-  if (kd < static_cast<prec_t>(kSmallBend)) {
     f12 = 0.0;
     f13 = dz;
-    f14 = 0.0;
+    f14 = 0.0;    
   } else {
     const prec_t invK  = 1.0 / kappa;
     const prec_t invK2 = invK * invK;
+    const prec_t c0mc1toK2 = (c0 - c1) * invK2;
+    f02 = ((dc0_dtx - dc1_dtx) * invK) - c0mc1toK2 * dk_dtx;
+    f03 = -( dc1_dty * invK + c0mc1toK2 * dk_dty);
+    f04 = -( dc1_dq  * invK + c0mc1toK2 * dk_dq);
 
     const prec_t dsperp_dtx = (dpsi_dtx * kappa - dpsi * dk_dtx) * invK2;
     const prec_t dsperp_dty = (dpsi_dty * kappa - dpsi * dk_dty) * invK2;
     const prec_t dsperp_dq  = (dpsi_dq  * kappa - dpsi * dk_dq ) * invK2;
-
     f13 = c0 * s_perp + ny0 * dsperp_dty;
     f12 = (ty0 * dc0_dtx) * s_perp + ny0 * dsperp_dtx;
-    f14 = ny0 * dsperp_dq;
+    f14 = ny0 * dsperp_dq;  
   }
 
-  // Option B: ty1 = ty0*(c0/c1)
+  // ty1 = ty0*(c0/c1)
   const prec_t f33 = R + ty0 * c0 * s1 * ds1_dty * invC13;
   const prec_t f34 = ty0 * c0 * s1 * ds1_dq  * invC13;
   const prec_t f32 = ty0 * (dc0_dtx * c1 - c0 * dc1_dtx) * invC12;
@@ -567,7 +561,7 @@ bool NA6PTrackParCov::update(float xm, float ym, float sx2, float sxy, float sy2
   auto make_spd_by_jitter = [&](double M[5][5]) {
     // Try a simple Cholesky test. If it fails, add diagonal jitter and retry.
     // This is cheap for 5x5 and avoids costly eigen-decomposition.
-    const double maxDiag = std::max({std::fabs(M[0][0]), std::fabs(M[1][1]), std::fabs(M[2][2]), std::fabs(M[3][3]), std::fabs(M[4][4]), 1.0});
+    const double maxDiag = std::max({std::abs(M[0][0]), std::abs(M[1][1]), std::abs(M[2][2]), std::abs(M[3][3]), std::abs(M[4][4]), 1.0});
     const double eps = 1e-12 * maxDiag; // pivot threshold
     double jitter = 0.0;
 
