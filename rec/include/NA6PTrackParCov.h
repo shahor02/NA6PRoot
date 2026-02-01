@@ -6,8 +6,8 @@
 #include "NA6PBaseCluster.h"
 
 #define _CHECK_BAD_CORRELATIONS_
-#define _FIX_BAD_CORRELATIONS_
-// #define _PRINT_BAD_CORRELATIONS_
+//#define _FIX_BAD_CORRELATIONS_
+#define _PRINT_BAD_CORRELATIONS_
 
 /*
   Add covariance matrix and related methods to NA6PTrackPar
@@ -80,16 +80,28 @@ class NA6PTrackParCov : public NA6PTrackPar
                                          {kQ2PX, kQ2PY, kQ2PTx, kQ2PTy, kQ2PQ2P}};
 
  protected:
-  void propagateCov(double f02, double f03, double f04, double f13, double f22, double f23, double f24);
-  void propagateCovB(double f02, double f03, double f04,
-		     double f12, double f13, double f14,
-		     double f22, double f23, double f24,
-		     double f32, double f33, double f34);
 
   std::array<float, 15> mC{}; // covariance matrix in lower triangle representation
-
+  void transportCovarianceFullJac(double f02, double f03, double f04,
+                                  double f12, double f13, double f14,
+                                  double f22, double f23, double f24,
+                                  double f32, double f33, double f34);
   ClassDefNV(NA6PTrackParCov, 1);
 };
+
+namespace {
+inline float clamp_pm1f(float v) {
+  if (v >  1.f) return  1.f;
+  if (v < -1.f) return -1.f;
+  return v;
+}
+inline double clamp_pm1(double v) {
+  if (v >  1.0) return  1.0;
+  if (v < -1.0) return -1.0;
+  return v;
+}
+} // namespace
+
 
 inline bool NA6PTrackParCov::update(const std::array<float, 2>& meas, const std::array<float, 3>& cov)
 {

@@ -28,7 +28,7 @@ void NA6PTrack::reset()
 {
   mChi2 = 0;
   mClusterMap = 0;
-  resetCovariance();
+  resetCovariance(-1);
   mParticleID = -2;
   mClusterIndices.fill(-1);
   mClusterPartID.fill(-2);

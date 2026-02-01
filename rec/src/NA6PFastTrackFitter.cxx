@@ -232,6 +232,7 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints()
     currTr->init(mSeedPos, mSeedMom, mCharge);
   currTr->setPID(mPID);
   currTr->resetCovariance(-1);
+  currTr->setCovMatElem(4,4, currTr->getCovMatElem(4,4)*currTr->getQ2P()*currTr->getQ2P());
   float zCurr = -999.;
   float zNext = zCurr;
   bool isGoodFit = true;

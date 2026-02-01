@@ -46,7 +46,7 @@ class NA6PBaseCluster
   {
     mSigXX = sxx;
     mSigYX = syx;
-    mSigXX = syy;
+    mSigYY = syy;
   }
 
   void print() const;
