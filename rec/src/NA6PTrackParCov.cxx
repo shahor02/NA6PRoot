@@ -36,114 +36,87 @@ std::string NA6PTrackParCov::asString() const
 // ------------------------------------------------------------------
 bool NA6PTrackParCov::propagateToZ(float znew, float b_y)
 {
-  constexpr double kB2C = -0.299792458e-3; // GeV/(kG*cm)
-  constexpr double kTiny  = 1e-15;
-  constexpr double kSmallBend = 1e-6;      // threshold on |kappa*dz|
-  constexpr double kSmallDs   = 1e-10;     // threshold on |s1-s0|
-  constexpr double kSmallKappa = 1e-14;    // threshold on |kappa| for "0 field"
+  const auto dz = znew - mZ;
+  if (std::abs(dz) == 1e-6f) {
+    return true;
+  }
+  const float K = kB2C * b_y;
 
-  const double dz = static_cast<double>(znew) - static_cast<double>(mZ);
-  if (dz == 0.0) return true;
-
-  const double K = kB2C * static_cast<double>(b_y);
-
-  // State in double
-  double x  = static_cast<double>(mP[0]);
-  double y  = static_cast<double>(mP[1]);
-  const double tx0 = static_cast<double>(mP[2]);
-  const double ty0 = static_cast<double>(mP[3]);
-  const double q0  = static_cast<double>(mP[4]);
+  // State in prec_t
+  prec_t x  = static_cast<prec_t>(mP[0]);
+  prec_t y  = static_cast<prec_t>(mP[1]);
+  const prec_t tx0 = static_cast<prec_t>(mP[2]);
+  const prec_t ty0 = static_cast<prec_t>(mP[3]);
+  const prec_t q0  = static_cast<prec_t>(mP[4]);
+  const auto D2 = getPxz2Pz2<prec_t>();                // D^2 of the into == pxz^2/pz^2 == 1.0 + tx0*tx0
+  const auto D = std::sqrt(D2);                        // D of the into 
+  const auto A = std::sqrt(D2 + ty0*ty0);         // A of the intro = p/pz = sqrt(1 + tx0*tx0 + ty0*ty0)
+  const prec_t kappa = K * q0 * (A / D);
 
   // Straight-line / negligible curvature branch
   // Triggered by very small |kappa| (i.e. small K or small q/p).
-  {
-    const double D  = std::sqrt(1.0 + tx0*tx0);
-    const double A  = std::sqrt(1.0 + tx0*tx0 + ty0*ty0);
-    const double kappa = K * q0 * (A / D);
-
-    if (std::fabs(kappa) < kSmallKappa) {
-      // State update: x += tx*dz ; y += ty*dz ; tx,ty,q unchanged
-      x += tx0 * dz;
-      y += ty0 * dz;
-
-      mP[0] = static_cast<float>(x);
-      mP[1] = static_cast<float>(y);
-      // tx, ty, q/p unchanged
-      mZ = znew;
-
-      // Jacobian for straight line:
-      // x1 = x0 + dz*tx0
-      // y1 = y0 + dz*ty0
-      // tx1=tx0, ty1=ty0, q1=q0
-      const double f02 = dz, f03 = 0.0, f04 = 0.0;
-      const double f12 = 0.0, f13 = dz,  f14 = 0.0;
-      const double f22 = 1.0, f23 = 0.0, f24 = 0.0;
-      const double f32 = 0.0, f33 = 1.0, f34 = 0.0;
-
-      transportCovarianceFullJac(f02,f03,f04, f12,f13,f14, f22,f23,f24, f32,f33,f34);
-      return true;
-    }
+  if (std::fabs(kappa) < static_cast<prec_t>(kSmallKappa)) {
+    // State update: x += tx*dz ; y += ty*dz ; tx,ty,q unchanged
+    x += tx0 * dz;
+    y += ty0 * dz;    
+    mP[0] = static_cast<float>(x);
+    mP[1] = static_cast<float>(y);
+    // tx, ty, q/p unchanged
+    mZ = znew;    
+    // Jacobian for straight line:
+    // x1 = x0 + dz*tx0
+    // y1 = y0 + dz*ty0
+    // tx1=tx0, ty1=ty0, q1=q0
+    const prec_t f02 = dz, f03 = 0.0, f04 = 0.0;
+    const prec_t f12 = 0.0, f13 = dz,  f14 = 0.0;
+    const prec_t f22 = 1.0, f23 = 0.0, f24 = 0.0;
+    const prec_t f32 = 0.0, f33 = 1.0, f34 = 0.0;
+    
+    transportCovarianceFullJac(f02,f03,f04, f12,f13,f14, f22,f23,f24, f32,f33,f34);
+    return true;
   }
 
   // ---- Dipole propagation (Option B) ----
-  const double tx2 = tx0*tx0;
-  const double ty2 = ty0*ty0;
-  const double D   = std::sqrt(1.0 + tx2);         // sqrt(1+tx^2)
-  const double A   = std::sqrt(1.0 + tx2 + ty2);   // sqrt(1+tx^2+ty^2)
-  const double invD  = 1.0 / D;
-  const double invD2 = invD*invD;
-  const double invD3 = invD2*invD;
-  const double invA  = 1.0 / A;
-
-  const double s0 = tx0 * invD; // sin(psi0)
-  const double c0 = invD;       // cos(psi0) = 1/D
-
-  const double kappa = K * q0 * (A * invD);
-
-  double s1 = s0 + kappa * dz;
-  s1 = clamp_pm1(s1);
-
-  double c1sq = 1.0 - s1*s1;
-  if (c1sq < 0.0) c1sq = 0.0;
-  double c1 = std::sqrt(c1sq);
-  if (c1 < kTiny) c1 = kTiny;
-
-  const double invC1  = 1.0 / c1;
-  const double invC12 = invC1 * invC1;
-  const double invC13 = invC12 * invC1;
+  const prec_t invD  = 1.0 / D, invD2 = invD*invD, invD3 = invD2*invD, invA  = 1.0 / A;
+  const prec_t s0 = tx0 * invD, c0 = invD; // sin(psi0) and cos(psi0) = 1/D
+  prec_t s1 = s0 + kappa * dz; // sin(psi1)
+  if (std::abs(s1) >= 1.) {
+    return false;
+  }
+  const prec_t c1 = std::sqrt((1.0 - s1)*(1.0 + s1)); // cos(psi1)
+  const prec_t invC1  = 1.0 / c1, invC12 = invC1 * invC1, invC13 = invC12 * invC1;
 
   // robust dpsi using atan2(s,c)
-  const double psi0 = std::atan2(s0, c0);
-  const double psi1 = std::atan2(s1, c1);
-  double dpsi = psi1 - psi0;
-
-  const double ds = s1 - s0;
-  double ratio_dpsi_ds;
+  const prec_t ds = s1 - s0;
+  prec_t dpsi, ratio_dpsi_ds;
   if (std::fabs(ds) > kSmallDs) {
+    const prec_t psi0 = std::atan2(s0, c0);
+    const prec_t psi1 = std::atan2(s1, c1);
+    dpsi = psi1 - psi0;
     ratio_dpsi_ds = dpsi / ds;
   } else {
     // dpsi/ds ≈ 1/c0 + (s0*ds)/(2*c0^3)
-    const double invc0  = 1.0 / c0;
-    const double invc03 = invc0*invc0*invc0;
+    const prec_t invc0  = 1.0 / c0;
+    const prec_t invc03 = invc0*invc0*invc0;
     ratio_dpsi_ds = invc0 + 0.5*s0*ds*invc03;
     dpsi = ds * ratio_dpsi_ds;
   }
-
   // s_perp = dpsi/kappa = dz*(dpsi/ds) (stable)
-  const double s_perp = dz * ratio_dpsi_ds;
+  const prec_t s_perp = dz * ratio_dpsi_ds;
 
   // State update (stable)
-  double denom_x = (c0 + c1);
-  if (std::fabs(denom_x) < kTiny) denom_x = (denom_x >= 0.0 ? kTiny : -kTiny);
-
+  prec_t denom_x = (c0 + c1);
+  if (std::fabs(denom_x) < static_cast<prec_t>(kTiny)) {
+    denom_x = (denom_x >= 0.0 ? static_cast<prec_t>(kTiny) : -static_cast<prec_t>(kTiny));
+  }
   x += dz * (s0 + s1) / denom_x;
 
-  const double ny0 = ty0 * c0;
+  const prec_t ny0 = ty0 * c0;
   y += ny0 * s_perp;
 
-  const double tx1 = s1 * invC1;
-  const double R   = c0 * invC1;
-  const double ty1 = ty0 * R;
+  const prec_t tx1 = s1 * invC1;
+  const prec_t R   = c0 * invC1;
+  const prec_t ty1 = ty0 * R;
 
   // Store state
   mP[0] = static_cast<float>(x);
@@ -155,63 +128,63 @@ bool NA6PTrackParCov::propagateToZ(float znew, float b_y)
 
   // ---- Jacobian ----
   // dkappa/du
-  const double dk_dq  = K * (A * invD);
-  const double dk_dty = K * q0 * (ty0 * (invA * invD));
-  const double dk_dtx = K * q0 * (tx0 * (invA*invD - A*invD3));
+  const prec_t dk_dq  = K * (A * invD);
+  const prec_t dk_dty = K * q0 * (ty0 * (invA * invD));
+  const prec_t dk_dtx = K * q0 * (tx0 * (invA*invD - A*invD3));
 
-  const double ds0_dtx = invD3;
+  const prec_t ds0_dtx = invD3;
 
-  const double ds1_dtx = ds0_dtx + dz * dk_dtx;
-  const double ds1_dty =          dz * dk_dty;
-  const double ds1_dq  =          dz * dk_dq;
+  const prec_t ds1_dtx = ds0_dtx + dz * dk_dtx;
+  const prec_t ds1_dty =          dz * dk_dty;
+  const prec_t ds1_dq  =          dz * dk_dq;
 
-  const double dc0_dtx = -tx0 * invD3;
+  const prec_t dc0_dtx = -tx0 * invD3;
 
-  const double s1_over_c1 = s1 * invC1;
-  const double dc1_dtx = -s1_over_c1 * ds1_dtx;
-  const double dc1_dty = -s1_over_c1 * ds1_dty;
-  const double dc1_dq  = -s1_over_c1 * ds1_dq;
+  const prec_t s1_over_c1 = s1 * invC1;
+  const prec_t dc1_dtx = -s1_over_c1 * ds1_dtx;
+  const prec_t dc1_dty = -s1_over_c1 * ds1_dty;
+  const prec_t dc1_dq  = -s1_over_c1 * ds1_dq;
 
   // tx1 derivatives
-  const double f22 = invC13 * ds1_dtx;
-  const double f23 = invC13 * ds1_dty;
-  const double f24 = invC13 * ds1_dq;
+  const prec_t f22 = invC13 * ds1_dtx;
+  const prec_t f23 = invC13 * ds1_dty;
+  const prec_t f24 = invC13 * ds1_dq;
 
   // x1 derivatives (use series if small bend)
-  double f02, f03, f04;
-  const double kd = std::fabs(kappa * dz);
-  if (kd < kSmallBend) {
-    const double half_dz2 = 0.5 * dz * dz;
+  prec_t f02, f03, f04;
+  const prec_t kd = std::fabs(kappa * dz);
+  if (kd < static_cast<prec_t>(kSmallBend)) {
+    const prec_t half_dz2 = 0.5 * dz * dz;
     f02 = dz + half_dz2 * dk_dtx;
     f03 =      half_dz2 * dk_dty;
     f04 =      half_dz2 * dk_dq;
   } else {
-    const double invK  = 1.0 / kappa;
-    const double invK2 = invK * invK;
-    const double c0mc1 = (c0 - c1);
+    const prec_t invK  = 1.0 / kappa;
+    const prec_t invK2 = invK * invK;
+    const prec_t c0mc1 = (c0 - c1);
     f02 = ((dc0_dtx - dc1_dtx) * invK) - (c0mc1 * invK2) * dk_dtx;
     f03 = ((0.0     - dc1_dty) * invK) - (c0mc1 * invK2) * dk_dty;
     f04 = ((0.0     - dc1_dq ) * invK) - (c0mc1 * invK2) * dk_dq;
   }
 
   // dpsi derivatives
-  const double dpsi_dtx = invC1 * ds1_dtx - (1.0 / c0) * ds0_dtx;
-  const double dpsi_dty = invC1 * ds1_dty;
-  const double dpsi_dq  = invC1 * ds1_dq;
+  const prec_t dpsi_dtx = invC1 * ds1_dtx - (1.0 / c0) * ds0_dtx;
+  const prec_t dpsi_dty = invC1 * ds1_dty;
+  const prec_t dpsi_dq  = invC1 * ds1_dq;
 
   // y derivatives (small bend: straight-line leading order)
-  double f12, f13, f14;
-  if (kd < kSmallBend) {
+  prec_t f12, f13, f14;
+  if (kd < static_cast<prec_t>(kSmallBend)) {
     f12 = 0.0;
     f13 = dz;
     f14 = 0.0;
   } else {
-    const double invK  = 1.0 / kappa;
-    const double invK2 = invK * invK;
+    const prec_t invK  = 1.0 / kappa;
+    const prec_t invK2 = invK * invK;
 
-    const double dsperp_dtx = (dpsi_dtx * kappa - dpsi * dk_dtx) * invK2;
-    const double dsperp_dty = (dpsi_dty * kappa - dpsi * dk_dty) * invK2;
-    const double dsperp_dq  = (dpsi_dq  * kappa - dpsi * dk_dq ) * invK2;
+    const prec_t dsperp_dtx = (dpsi_dtx * kappa - dpsi * dk_dtx) * invK2;
+    const prec_t dsperp_dty = (dpsi_dty * kappa - dpsi * dk_dty) * invK2;
+    const prec_t dsperp_dq  = (dpsi_dq  * kappa - dpsi * dk_dq ) * invK2;
 
     f13 = c0 * s_perp + ny0 * dsperp_dty;
     f12 = (ty0 * dc0_dtx) * s_perp + ny0 * dsperp_dtx;
@@ -219,9 +192,9 @@ bool NA6PTrackParCov::propagateToZ(float znew, float b_y)
   }
 
   // Option B: ty1 = ty0*(c0/c1)
-  const double f33 = R + ty0 * c0 * s1 * ds1_dty * invC13;
-  const double f34 = ty0 * c0 * s1 * ds1_dq  * invC13;
-  const double f32 = ty0 * (dc0_dtx * c1 - c0 * dc1_dtx) * invC12;
+  const prec_t f33 = R + ty0 * c0 * s1 * ds1_dty * invC13;
+  const prec_t f34 = ty0 * c0 * s1 * ds1_dq  * invC13;
+  const prec_t f32 = ty0 * (dc0_dtx * c1 - c0 * dc1_dtx) * invC12;
 
   // ---- Covariance transport ----
   transportCovarianceFullJac(f02,f03,f04, f12,f13,f14, f22,f23,f24, f32,f33,f34);
@@ -239,43 +212,44 @@ bool NA6PTrackParCov::propagateToZ(float znew, float b_y)
 // row3: [0,0,f32,f33,f34]
 // row4: [0,0, 0,  0, 1 ]
 // ------------------------------------------------------------------
-void NA6PTrackParCov::transportCovarianceFullJac(double f02, double f03, double f04,
-                                                 double f12, double f13, double f14,
-                                                 double f22, double f23, double f24,
-                                                 double f32, double f33, double f34)
+void NA6PTrackParCov::transportCovarianceFullJac(prec_t f02, prec_t f03, prec_t f04,
+                                                 prec_t f12, prec_t f13, prec_t f14,
+                                                 prec_t f22, prec_t f23, prec_t f24,
+                                                 prec_t f32, prec_t f33, prec_t f34)
 {
-  // Load old covariance to a full symmetric double matrix (5x5).
+  // Load old covariance to a full symmetric prec_t matrix (5x5).
   // This avoids overwrite hazards and improves numerical stability.
-  double C[5][5];
+  
+  prec_t C[5][5];
   for (int i = 0; i < 5; ++i) {
     for (int j = 0; j <= i; ++j) {
-      const double v = static_cast<double>( getCovMatElem(i,j) );
+      const prec_t v = static_cast<prec_t>( getCovMatElem(i,j) );
       C[i][j] = v;
       C[j][i] = v;
     }
   }
 
   // Extract u-subblock (tx,ty,q) where indices are 2,3,4
-  const double C22 = C[2][2], C23 = C[2][3], C24 = C[2][4];
-  const double C33 = C[3][3], C34 = C[3][4];
-  const double C44 = C[4][4];
+  const prec_t C22 = C[2][2], C23 = C[2][3], C24 = C[2][4];
+  const prec_t C33 = C[3][3], C34 = C[3][4];
+  const prec_t C44 = C[4][4];
 
-  auto dot_u = [](double a2, double a3, double a4, double b2, double b3, double b4) -> double {
+  auto dot_u = [](prec_t a2, prec_t a3, prec_t a4, prec_t b2, prec_t b3, prec_t b4) -> prec_t {
     return a2*b2 + a3*b3 + a4*b4;
   };
 
-  auto aT_Cuu = [&](double a2, double a3, double a4, double& v2, double& v3, double& v4) {
+  auto aT_Cuu = [&](prec_t a2, prec_t a3, prec_t a4, prec_t& v2, prec_t& v3, prec_t& v4) {
     // v = a^T * Cuu  (components correspond to columns tx,ty,q)
     v2 = a2*C22 + a3*C23 + a4*C24;
     v3 = a2*C23 + a3*C33 + a4*C34;
     v4 = a2*C24 + a3*C34 + a4*C44;
   };
 
-  double Cp[5][5] = {}; // new covariance
+  prec_t Cp[5][5] = {}; // new covariance
 
   // ---- block for rows/cols (2,3,4): depends only on Cuu ----
   {
-    double v2,v3,v4;
+    prec_t v2,v3,v4;
 
     // C'22
     aT_Cuu(f22,f23,f24, v2,v3,v4);
@@ -286,7 +260,7 @@ void NA6PTrackParCov::transportCovarianceFullJac(double f02, double f03, double 
     Cp[3][3] = dot_u(f32,f33,f34, v2,v3,v4);
 
     // C'23
-    double w2,w3,w4;
+    prec_t w2,w3,w4;
     aT_Cuu(f22,f23,f24, w2,w3,w4);
     Cp[2][3] = dot_u(f32,f33,f34, w2,w3,w4);
 
@@ -298,10 +272,10 @@ void NA6PTrackParCov::transportCovarianceFullJac(double f02, double f03, double 
 
   // ---- x' row/col ----
   {
-    const double C00 = C[0][0];
-    const double C02 = C[0][2], C03 = C[0][3], C04 = C[0][4];
+    const prec_t C00 = C[0][0];
+    const prec_t C02 = C[0][2], C03 = C[0][3], C04 = C[0][4];
 
-    double v2,v3,v4;
+    prec_t v2,v3,v4;
     aT_Cuu(f02,f03,f04, v2,v3,v4);
 
     // C'00
@@ -311,7 +285,7 @@ void NA6PTrackParCov::transportCovarianceFullJac(double f02, double f03, double 
       + dot_u(f02,f03,f04, v2,v3,v4);
 
     // C'02
-    const double cov_x_txp = f22*C02 + f23*C03 + f24*C04;
+    const prec_t cov_x_txp = f22*C02 + f23*C03 + f24*C04;
     Cp[0][2] =
         cov_x_txp
       + (f02*(f22*C22 + f23*C23 + f24*C24)
@@ -319,7 +293,7 @@ void NA6PTrackParCov::transportCovarianceFullJac(double f02, double f03, double 
        + f04*(f22*C24 + f23*C34 + f24*C44));
 
     // C'03
-    const double cov_x_typ = f32*C02 + f33*C03 + f34*C04;
+    const prec_t cov_x_typ = f32*C02 + f33*C03 + f34*C04;
     Cp[0][3] =
         cov_x_typ
       + (f02*(f32*C22 + f33*C23 + f34*C24)
@@ -332,10 +306,10 @@ void NA6PTrackParCov::transportCovarianceFullJac(double f02, double f03, double 
 
   // ---- y' row/col ----
   {
-    const double C11 = C[1][1];
-    const double C12 = C[1][2], C13 = C[1][3], C14 = C[1][4];
+    const prec_t C11 = C[1][1];
+    const prec_t C12 = C[1][2], C13 = C[1][3], C14 = C[1][4];
 
-    double v2,v3,v4;
+    prec_t v2,v3,v4;
     aT_Cuu(f12,f13,f14, v2,v3,v4);
 
     // C'11
@@ -345,7 +319,7 @@ void NA6PTrackParCov::transportCovarianceFullJac(double f02, double f03, double 
       + dot_u(f12,f13,f14, v2,v3,v4);
 
     // C'12
-    const double cov_y_txp = f22*C12 + f23*C13 + f24*C14;
+    const prec_t cov_y_txp = f22*C12 + f23*C13 + f24*C14;
     Cp[1][2] =
         cov_y_txp
       + (f12*(f22*C22 + f23*C23 + f24*C24)
@@ -353,7 +327,7 @@ void NA6PTrackParCov::transportCovarianceFullJac(double f02, double f03, double 
        + f14*(f22*C24 + f23*C34 + f24*C44));
 
     // C'13
-    const double cov_y_typ = f32*C12 + f33*C13 + f34*C14;
+    const prec_t cov_y_typ = f32*C12 + f33*C13 + f34*C14;
     Cp[1][3] =
         cov_y_typ
       + (f12*(f32*C22 + f33*C23 + f34*C24)
@@ -366,11 +340,11 @@ void NA6PTrackParCov::transportCovarianceFullJac(double f02, double f03, double 
 
   // ---- C'01 ----
   {
-    const double C01 = C[0][1];
-    const double C02 = C[0][2], C03 = C[0][3], C04 = C[0][4];
-    const double C12 = C[1][2], C13 = C[1][3], C14 = C[1][4];
+    const prec_t C01 = C[0][1];
+    const prec_t C02 = C[0][2], C03 = C[0][3], C04 = C[0][4];
+    const prec_t C12 = C[1][2], C13 = C[1][3], C14 = C[1][4];
 
-    double v2,v3,v4;
+    prec_t v2,v3,v4;
     aT_Cuu(f02,f03,f04, v2,v3,v4);
 
     Cp[0][1] =
@@ -397,7 +371,7 @@ void NA6PTrackParCov::transportCovarianceFullJac(double f02, double f03, double 
 }
 
 /*
-void NA6PTrackParCov::propagateCov(double f02, double f03, double f04, double f13, double f22, double f23, double f24)
+void NA6PTrackParCov::propagateCov(double_t f02, double f03, double f04, double f13, double f22, double f23, double f24)
 {
   const double Cxx = mC[kXX], Cyx = mC[kYX], Cyy = mC[kYY], CTxX = mC[kTxX], CTxY = mC[kTxY], CTxTx = mC[kTxTx], CTyX = mC[kTyX], CTyY = mC[kTyY];
   const double CTyTx = mC[kTyTx], CTyTy = mC[kTyTy], CQpx = mC[kQ2PX], CQpy = mC[kQ2PY], CQpTx = mC[kQ2PTx], CQpTy = mC[kQ2PTy], CQpQp = mC[kQ2PQ2P];
@@ -664,7 +638,7 @@ bool NA6PTrackParCov::update(float xm, float ym, float sx2, float sxy, float sy2
   const double S01 = Cyx + R01;
   const double S11 = Cyy + R11;
   const double detS = S00 * S11 - S01 * S01;
-  if (std::abs(detS) < kTiny) { // Singular or ill-conditioned S: skip update
+  if (std::abs(detS) < static_cast<prec_t>(kTiny)) { // Singular or ill-conditioned S: skip update
     return false;
   }
   const double invDetS = 1. / detS;

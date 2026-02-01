@@ -86,6 +86,7 @@
 class NA6PTrackPar
 {
  public:
+  using prec_t = double;
   enum ParLabels : int { kX,
                          kY,
                          kTx,
@@ -107,7 +108,10 @@ class NA6PTrackPar
                          kQ2PTy,
                          kQ2PQ2P };
   static constexpr float kB2C = -0.299792458e-3f; // GeV/(kG*cm)
-  static constexpr float kTiny = 1e-12f;
+  static constexpr float kTiny = 1e-15f;
+  static constexpr float kSmallBend = 1e-6;       // threshold on |kappa*dz|
+  static constexpr float kSmallKappa = 1e-14;     // threshold on |kappa| for "0 field"
+  static constexpr float kSmallDs   = 1e-10;      // threshold on |s1-s0| == |sin(phi1) - sin(phi0)|
   static constexpr float kPI = 3.14159265358979323846f;
   static constexpr float ELoss2EKinThreshInv = 1. / 0.025; // do not allow E.Loss correction step with dE/Ekin above the inverse of this value
   static constexpr float kMSConst2 = 0.0136f * 0.0136f;
