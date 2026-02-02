@@ -213,220 +213,64 @@ void NA6PTrackParCov::transportCovarianceFullJac(prec_t f02, prec_t f03, prec_t 
 {
   // Load old covariance to a full symmetric prec_t matrix (5x5).
   // This avoids overwrite hazards and improves numerical stability.
+
+  const prec_t C00 = mC[kXX], C01 = mC[kYX], C02 = mC[kTxX], C03 = mC[kTyX], C04 = mC[kQ2PX];
+  const prec_t C11 = mC[kYY], C12 = mC[kTxY], C13 = mC[kTyY], C14 = mC[kQ2PY];
+  const prec_t C22 = mC[kTxTx], C23 = mC[kTyTx], C24 = mC[kQ2PTx];
+  const prec_t C33 = mC[kTyTy], C34 = mC[kQ2PTy], C44 = mC[kQ2PQ2P];
   
-  prec_t C[5][5];
-  for (int i = 0; i < 5; ++i) {
-    for (int j = 0; j <= i; ++j) {
-      const prec_t v = static_cast<prec_t>( getCovMatElem(i,j) );
-      C[i][j] = v;
-      C[j][i] = v;
-    }
-  }
-
-  // Extract u-subblock (tx,ty,q) where indices are 2,3,4
-  const prec_t C22 = C[2][2], C23 = C[2][3], C24 = C[2][4];
-  const prec_t C33 = C[3][3], C34 = C[3][4];
-  const prec_t C44 = C[4][4];
-
   auto dot_u = [](prec_t a2, prec_t a3, prec_t a4, prec_t b2, prec_t b3, prec_t b4) -> prec_t {
     return a2*b2 + a3*b3 + a4*b4;
   };
 
-  auto aT_Cuu = [&](prec_t a2, prec_t a3, prec_t a4, prec_t& v2, prec_t& v3, prec_t& v4) {
-    // v = a^T * Cuu  (components correspond to columns tx,ty,q)
+  auto aT_Cuu = [&](prec_t a2, prec_t a3, prec_t a4, prec_t& v2, prec_t& v3, prec_t& v4) {    // v = a^T * Cuu  (components correspond to columns tx,ty,q)
     v2 = a2*C22 + a3*C23 + a4*C24;
     v3 = a2*C23 + a3*C33 + a4*C34;
     v4 = a2*C24 + a3*C34 + a4*C44;
   };
 
-  prec_t Cp[5][5] = {}; // new covariance
-
   // ---- block for rows/cols (2,3,4): depends only on Cuu ----
-  {
-    prec_t v2,v3,v4;
+  prec_t v2,v3,v4;  
+  aT_Cuu(f22,f23,f24, v2,v3,v4);
+  mC[kTxTx] = dot_u(f22,f23,f24, v2,v3,v4);
 
-    // C'22
-    aT_Cuu(f22,f23,f24, v2,v3,v4);
-    Cp[2][2] = dot_u(f22,f23,f24, v2,v3,v4);
+  aT_Cuu(f32,f33,f34, v2,v3,v4);
+  mC[kTyTy] = dot_u(f32,f33,f34, v2,v3,v4);
 
-    // C'33
-    aT_Cuu(f32,f33,f34, v2,v3,v4);
-    Cp[3][3] = dot_u(f32,f33,f34, v2,v3,v4);
-
-    // C'23
-    prec_t w2,w3,w4;
-    aT_Cuu(f22,f23,f24, w2,w3,w4);
-    Cp[2][3] = dot_u(f32,f33,f34, w2,w3,w4);
-
-    // C'24, C'34, C'44
-    Cp[2][4] = f22*C24 + f23*C34 + f24*C44;
-    Cp[3][4] = f32*C24 + f33*C34 + f34*C44;
-    Cp[4][4] = C44;
-  }
-
+  aT_Cuu(f22,f23,f24, v2,v3,v4);
+  mC[kTyTx] = dot_u(f32,f33,f34, v2,v3,v4);
+  mC[kQ2PTx] = f22*C24 + f23*C34 + f24*C44;
+  mC[kQ2PTy] = f32*C24 + f33*C34 + f34*C44;
+  
   // ---- x' row/col ----
-  {
-    const prec_t C00 = C[0][0];
-    const prec_t C02 = C[0][2], C03 = C[0][3], C04 = C[0][4];
+  aT_Cuu(f02,f03,f04, v2,v3,v4);
+  mC[kXX] += 2.0*(f02*C02 + f03*C03 + f04*C04) + dot_u(f02,f03,f04, v2,v3,v4);
 
-    prec_t v2,v3,v4;
-    aT_Cuu(f02,f03,f04, v2,v3,v4);
+  const prec_t cov_x_txp = f22*C02 + f23*C03 + f24*C04;
+  mC[kTxX] = cov_x_txp + (f02*(f22*C22 + f23*C23 + f24*C24) + f03*(f22*C23 + f23*C33 + f24*C34) + f04*(f22*C24 + f23*C34 + f24*C44));
 
-    // C'00
-    Cp[0][0] =
-        C00
-      + 2.0*(f02*C02 + f03*C03 + f04*C04)
-      + dot_u(f02,f03,f04, v2,v3,v4);
+  const prec_t cov_x_typ = f32*C02 + f33*C03 + f34*C04;
+  mC[kTyX] = cov_x_typ + (f02*(f32*C22 + f33*C23 + f34*C24) + f03*(f32*C23 + f33*C33 + f34*C34) + f04*(f32*C24 + f33*C34 + f34*C44));
 
-    // C'02
-    const prec_t cov_x_txp = f22*C02 + f23*C03 + f24*C04;
-    Cp[0][2] =
-        cov_x_txp
-      + (f02*(f22*C22 + f23*C23 + f24*C24)
-       + f03*(f22*C23 + f23*C33 + f24*C34)
-       + f04*(f22*C24 + f23*C34 + f24*C44));
-
-    // C'03
-    const prec_t cov_x_typ = f32*C02 + f33*C03 + f34*C04;
-    Cp[0][3] =
-        cov_x_typ
-      + (f02*(f32*C22 + f33*C23 + f34*C24)
-       + f03*(f32*C23 + f33*C33 + f34*C34)
-       + f04*(f32*C24 + f33*C34 + f34*C44));
-
-    // C'04
-    Cp[0][4] = C04 + (f02*C24 + f03*C34 + f04*C44);
-  }
+  mC[kQ2PX] +=  (f02*C24 + f03*C34 + f04*C44);
 
   // ---- y' row/col ----
-  {
-    const prec_t C11 = C[1][1];
-    const prec_t C12 = C[1][2], C13 = C[1][3], C14 = C[1][4];
+  aT_Cuu(f12,f13,f14, v2,v3,v4);
+  mC[kYY] += 2.0*(f12*C12 + f13*C13 + f14*C14)  + dot_u(f12,f13,f14, v2,v3,v4);
 
-    prec_t v2,v3,v4;
-    aT_Cuu(f12,f13,f14, v2,v3,v4);
+  const prec_t cov_y_txp = f22*C12 + f23*C13 + f24*C14;
+  mC[kTxY] = cov_y_txp + (f12*(f22*C22 + f23*C23 + f24*C24) + f13*(f22*C23 + f23*C33 + f24*C34) + f14*(f22*C24 + f23*C34 + f24*C44));
 
-    // C'11
-    Cp[1][1] =
-        C11
-      + 2.0*(f12*C12 + f13*C13 + f14*C14)
-      + dot_u(f12,f13,f14, v2,v3,v4);
-
-    // C'12
-    const prec_t cov_y_txp = f22*C12 + f23*C13 + f24*C14;
-    Cp[1][2] =
-        cov_y_txp
-      + (f12*(f22*C22 + f23*C23 + f24*C24)
-       + f13*(f22*C23 + f23*C33 + f24*C34)
-       + f14*(f22*C24 + f23*C34 + f24*C44));
-
-    // C'13
-    const prec_t cov_y_typ = f32*C12 + f33*C13 + f34*C14;
-    Cp[1][3] =
-        cov_y_typ
-      + (f12*(f32*C22 + f33*C23 + f34*C24)
-       + f13*(f32*C23 + f33*C33 + f34*C34)
-       + f14*(f32*C24 + f33*C34 + f34*C44));
-
-    // C'14
-    Cp[1][4] = C14 + (f12*C24 + f13*C34 + f14*C44);
-  }
-
-  // ---- C'01 ----
-  {
-    const prec_t C01 = C[0][1];
-    const prec_t C02 = C[0][2], C03 = C[0][3], C04 = C[0][4];
-    const prec_t C12 = C[1][2], C13 = C[1][3], C14 = C[1][4];
-
-    prec_t v2,v3,v4;
-    aT_Cuu(f02,f03,f04, v2,v3,v4);
-
-    Cp[0][1] =
-        C01
-      + (f02*C12 + f03*C13 + f04*C14)
-      + (f12*C02 + f13*C03 + f14*C04)
-      + dot_u(f12,f13,f14, v2,v3,v4);
-  }
+  const prec_t cov_y_typ = f32*C12 + f33*C13 + f34*C14;
+  mC[kTyY] = cov_y_typ + (f12*(f32*C22 + f33*C23 + f34*C24) + f13*(f32*C23 + f33*C33 + f34*C34) + f14*(f32*C24 + f33*C34 + f34*C44));
   
-  // Symmetrize for storage convenience
-  Cp[1][0]=Cp[0][1];
-  Cp[2][0]=Cp[0][2]; Cp[2][1]=Cp[1][2];
-  Cp[3][0]=Cp[0][3]; Cp[3][1]=Cp[1][3]; Cp[3][2]=Cp[2][3];
-  Cp[4][0]=Cp[0][4]; Cp[4][1]=Cp[1][4]; Cp[4][2]=Cp[2][4]; Cp[4][3]=Cp[3][4];
+  mC[kQ2PY] += (f12*C24 + f13*C34 + f14*C44);
 
-  // Store back packed lower triangle
-  for (int i = 0; i < 5; ++i) {
-    for (int j = 0; j <= i; ++j) {
-      setCovMatElem(i,j, static_cast<float>(Cp[i][j]));
-    }
-  }
+  aT_Cuu(f02,f03,f04, v2,v3,v4);
+  mC[kYX] += (f02*C12 + f03*C13 + f04*C14) + (f12*C02 + f13*C03 + f14*C04) + dot_u(f12,f13,f14, v2,v3,v4);
   checkCorrelations();
 
 }
-
-/*
-void NA6PTrackParCov::propagateCov(double_t f02, double f03, double f04, double f13, double f22, double f23, double f24)
-{
-  const double Cxx = mC[kXX], Cyx = mC[kYX], Cyy = mC[kYY], CTxX = mC[kTxX], CTxY = mC[kTxY], CTxTx = mC[kTxTx], CTyX = mC[kTyX], CTyY = mC[kTyY];
-  const double CTyTx = mC[kTyTx], CTyTy = mC[kTyTy], CQpx = mC[kQ2PX], CQpy = mC[kQ2PY], CQpTx = mC[kQ2PTx], CQpTy = mC[kQ2PTy], CQpQp = mC[kQ2PQ2P];
-
-  // --- frequently reused products with f22,f23,f24 ---
-  const double f22TxTx = f22 * CTxTx;                       // f22 * C(2,2)
-  const double f23TyTx = f23 * CTyTx;                       // f23 * C(3,2)
-  const double f23TyTy = f23 * CTyTy;                       // f23 * C(3,3)
-  const double f24Q2PTy = f24 * CQpTy;                      // f24 * C(4,3)
-  const double f24Q2PQ2P = f24 * CQpQp;                     // f24 * C(4,4)
-  const double f22Q2PTx = f22 * CQpTx;                      // f22 * C(4,2)
-  const double f23Q2PTy = f23 * CQpTy;                      // f23 * C(4,3)
-  const double f22TyTx = f22 * CTyTx;                       // f22 * C(3,2)
-  const double sumTy = f22TyTx + f23TyTy + f24Q2PTy;        // common combination: f22*CTyTx + f23*CTyTy + f24*CQpTy
-  const double sumTxQpTx = f22TxTx + f23TyTx + f24 * CQpTx; // common combination: f22*CTxTx + f23*CTyTx + f24*CQpTx
-  const double sumQp = f22Q2PTx + f23Q2PTy + f24Q2PQ2P;     // common combination: f22*CQpTx + f23*CQpTy + f24*CQpQp
-
-  // --- frequently reused products with f02,f03,f04 ---
-  const double f02TyTx = f02 * CTyTx;   // used in c01, c03
-  const double f03TyTy = f03 * CTyTy;   // used in c00, c03
-  const double f04Q2PTy = f04 * CQpTy;  // used in c00, c03
-  const double f02Q2PTx = f02 * CQpTx;  // used in c00, c04
-  const double f03Q2PTy = f03 * CQpTy;  // used in c02, c04
-  const double f04Q2PQ2P = f04 * CQpQp; // used in c00, c04
-
-  // --- frequently reused products with f13 ---
-  const double f13TyTy = f13 * CTyTy;  // used in c11, c01, c13
-  const double f13TyTx = f13 * CTyTx;  // used in c01, c12
-  const double f13Q2PTy = f13 * CQpTy; // used in c01, c12, c14
-
-  double c22 = f22 * (f22TxTx + 2. * f23TyTx) + f23 * (f23TyTy + 2. * f24Q2PTy) + f24 * (f24Q2PQ2P + 2. * f22Q2PTx);
-  double c23 = sumTy;
-  double c24 = sumQp;
-  double c00 = Cxx + f02 * (f02 * CTxTx + 2. * (CTxX + f03 * CTyTx)) + f03 * (f03 * CTyTy + 2. * (CTyX + f04Q2PTy)) + f04 * (f04Q2PQ2P + 2. * (CQpx + f02Q2PTx));
-  double c11 = Cyy + f13 * (f13TyTy + 2. * CTyY);
-  double c01 = Cyx + f02 * CTxY + f13 * (CTyX + f02TyTx) + f03 * (CTyY + f13TyTy) + f04 * (CQpy + f13Q2PTy);
-  double c13 = CTyY + f13TyTy;
-  double c14 = CQpy + f13Q2PTy;
-  double c03 = CTyX + f02TyTx + f03TyTy + f04Q2PTy;
-  double c04 = CQpx + f02Q2PTx + f03Q2PTy + f04Q2PQ2P;
-  double c02 = f22 * CTxX + f23 * CTyX + f24 * CQpx + f02 * sumTxQpTx + f03 * sumTy + f04 * sumQp;
-  double c12 = f22 * CTxY + f23 * CTyY + f24 * CQpy + f13 * sumTy;
-
-  mC[kXX] = c00;
-  mC[kYX] = c01;
-  mC[kYY] = c11;
-  mC[kTxX] = c02;
-  mC[kTxY] = c12;
-  mC[kTxTx] = c22;
-  mC[kTyX] = c03;
-  mC[kTyY] = c13;
-  mC[kTyTx] = c23;
-  // mC[kTyTy]  unchanged
-  mC[kQ2PX] = c04;
-  mC[kQ2PY] = c14;
-  mC[kQ2PTx] = c24;
-  // mC[kQ2PTy] unchanged
-  // mC[kQ2PQ2P] unchanged
-  checkCorrelations();
-}
-*/
 
 // calculate chi2 between the track and the cluster
 float NA6PTrackParCov::getPredictedChi2(float xm, float ym, float sx2, float syx, float sy2) const
