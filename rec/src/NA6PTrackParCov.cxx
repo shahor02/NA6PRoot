@@ -43,36 +43,27 @@ bool NA6PTrackParCov::propagateToZ(float znew, float b_y)
   const float K = kB2C * b_y;
 
   // State in prec_t
-  prec_t x  = static_cast<prec_t>(mP[0]);
-  prec_t y  = static_cast<prec_t>(mP[1]);
-  const prec_t tx0 = static_cast<prec_t>(mP[2]);
-  const prec_t ty0 = static_cast<prec_t>(mP[3]);
-  const prec_t q0  = static_cast<prec_t>(mP[4]);
+  const prec_t tx0 = mP[2];
+  const prec_t ty0 = mP[3];
+  
   const auto D2 = getPxz2Pz2<prec_t>();                // D^2 of the into == pxz^2/pz^2 == 1.0 + tx0*tx0
   const auto D = std::sqrt(D2);                        // D of the into 
-  const auto A = std::sqrt(D2 + ty0*ty0);         // A of the intro = p/pz = sqrt(1 + tx0*tx0 + ty0*ty0)
-  const prec_t KQ0 = K * q0;
+  const auto A = std::sqrt(D2 + getTy()*getTy());      // A of the intro = p/pz = sqrt(1 + tx0*tx0 + ty0*ty0)
+  const prec_t KQ0 = K * getQ2P();
   const prec_t kappa = KQ0 * (A / D);
 
   // Straight-line / negligible curvature branch
   // Triggered by very small |kappa| (i.e. small K or small q/p).
-  if (std::abs(kappa) < static_cast<prec_t>(kSmallKappa)) {
+  if (std::abs(kappa) < kSmallKappa) {
     // State update: x += tx*dz ; y += ty*dz ; tx,ty,q unchanged
-    x += tx0 * dz;
-    y += ty0 * dz;    
-    mP[0] = static_cast<float>(x);
-    mP[1] = static_cast<float>(y);
-    // tx, ty, q/p unchanged
+    mP[0] += mP[2] * dz;
+    mP[1] += mP[3] * dz;
     mZ = znew;    
     // Jacobian for straight line:
-    // x1 = x0 + dz*tx0
-    // y1 = y0 + dz*ty0
-    // tx1=tx0, ty1=ty0, q1=q0
     const prec_t f02 = dz, f03 = 0.0, f04 = 0.0;
     const prec_t f12 = 0.0, f13 = dz,  f14 = 0.0;
     const prec_t f22 = 1.0, f23 = 0.0, f24 = 0.0;
-    const prec_t f32 = 0.0, f33 = 1.0, f34 = 0.0;
-    
+    const prec_t f32 = 0.0, f33 = 1.0, f34 = 0.0;    
     transportCovarianceFullJac(f02,f03,f04, f12,f13,f14, f22,f23,f24, f32,f33,f34);
     return true;
   }
@@ -90,41 +81,30 @@ bool NA6PTrackParCov::propagateToZ(float znew, float b_y)
 
   // robust dpsi using atan2(s,c)
   const prec_t ds = s1 - s0;
-  prec_t dpsi, ratio_dpsi_ds;
+  prec_t dpsi, dpsi2ds;
   if (std::abs(ds) > kSmallDs) {
     const prec_t psi0 = std::atan2(s0, c0);
     const prec_t psi1 = std::atan2(s1, c1);
     dpsi = psi1 - psi0;
-    ratio_dpsi_ds = dpsi / ds;
-  } else {
-    // dpsi/ds ≈ 1/c0 + (s0*ds)/(2*c0^3)
+    dpsi2ds = dpsi / ds;
+  } else {  // dpsi/ds ≈ 1/c0 + (s0*ds)/(2*c0^3)
     const prec_t invc0  = 1.0 / c0;
     const prec_t invc03 = invc0*invc0*invc0;
-    ratio_dpsi_ds = invc0 + 0.5*s0*ds*invc03;
-    dpsi = ds * ratio_dpsi_ds;
+    dpsi2ds = invc0 + 0.5*s0*ds*invc03;
+    dpsi = ds * dpsi2ds;
   }
-  // s_perp = dpsi/kappa = dz*(dpsi/ds) (stable)
-  const prec_t s_perp = dz * ratio_dpsi_ds;
+  const prec_t s_perp = dz * dpsi2ds;  // s_perp = dpsi/kappa = dz*(dpsi/ds) (stable)
 
   // State update (stable)
   prec_t denom_x = (c0 + c1);
-  if (std::abs(denom_x) < static_cast<prec_t>(kTiny)) {
-    denom_x = (denom_x >= 0.0 ? static_cast<prec_t>(kTiny) : -static_cast<prec_t>(kTiny));
+  if (std::abs(denom_x) < kTiny) {
+    denom_x = (denom_x >= 0.0 ? kTiny : -kTiny);
   }
-  x += dz * (s0 + s1) / denom_x;
-
-  const prec_t ny0 = ty0 * c0;
-  y += ny0 * s_perp;
-
-  const prec_t tx1 = s1 * invC1;
-  const prec_t R   = c0 * invC1;
-  const prec_t ty1 = ty0 * R;
-
-  // Store state
-  mP[0] = static_cast<float>(x);
-  mP[1] = static_cast<float>(y);
-  mP[2] = static_cast<float>(tx1);
-  mP[3] = static_cast<float>(ty1);
+  const prec_t ny0 = ty0 * c0, R = c0 * invC1;
+  mP[0] += dz * (s0 + s1) / denom_x;
+  mP[1] += ny0 * s_perp;
+  mP[2] = s1 * invC1;
+  mP[3] = ty0 * R;
   // q/p unchanged
   mZ = znew;
 
@@ -275,9 +255,9 @@ void NA6PTrackParCov::transportCovarianceFullJac(prec_t f02, prec_t f03, prec_t 
 // calculate chi2 between the track and the cluster
 float NA6PTrackParCov::getPredictedChi2(float xm, float ym, float sx2, float syx, float sy2) const
 {
-  auto exx = static_cast<double>(getSigmaX2()) + static_cast<double>(sx2);
-  auto eyx = static_cast<double>(getSigmaYX()) + static_cast<double>(syx);
-  auto eyy = static_cast<double>(getSigmaY2()) + static_cast<double>(sy2);
+  auto exx = static_cast<prec_t>(getSigmaX2()) + static_cast<prec_t>(sx2);
+  auto eyx = static_cast<prec_t>(getSigmaYX()) + static_cast<prec_t>(syx);
+  auto eyy = static_cast<prec_t>(getSigmaY2()) + static_cast<prec_t>(sy2);
   auto det = exx * eyy - eyx * eyx;
 
   if (det < 1e-16) {
@@ -294,128 +274,44 @@ float NA6PTrackParCov::getPredictedChi2(float xm, float ym, float sx2, float syx
   return chi2;
 }
 
-/* // old update
-// Kalman update with 2D measurement (xm, ym), and covariance (sx2, sxy, sy2)
-bool NA6PTrackParCov::update(float xm, float ym, float sx2, float sxy, float sy2)
-{
-  auto sav = *this; // TOREM
-
-  double dx = xm - getX(), dy = ym - getY(); // innovation (residual)
-  const double Cxx = mC[kXX], Cyx = mC[kYX], Cyy = mC[kYY], CTxX = mC[kTxX], CTxY = mC[kTxY], CTxTx = mC[kTxTx], CTyX = mC[kTyX], CTyY = mC[kTyY];
-  const double CTyTx = mC[kTyTx], CTyTy = mC[kTyTy], CQpx = mC[kQ2PX], CQpy = mC[kQ2PY], CQpTx = mC[kQ2PTx], CQpTy = mC[kQ2PTy], CQpQp = mC[kQ2PQ2P];
-
-  // innovation covariance S = H C H^T + R (2x2) ---
-  //  if (sx2 / Cxx < 1e-4) {
-  //    sx2 = Cxx * 1e-4;
-  //  }
-  //  if (sy2 / Cyy < 1e-4) {
-  //    sy2 = Cyy * 1e-4;
-  //  }
-  //  const double S00 = Cxx + sx2, S01 = Cyx + sxy, S11 = Cyy + sy2, detS = S00 * S11 - S01 * S01;
-  //  if (std::abs(detS) < kTiny) { // Singular or ill-conditioned S: skip update
-  //    return false;
-  //  }
-  const double invDetS = 1. / detS;
-  const double invS00 = S11 * invDetS;
-  const double invS11 = S00 * invDetS;
-  const double invS01 = -S01 * invDetS;
-
-  // Kalman gain K (5x2)
-  const double K0_0 = Cxx * invS00 + Cyx * invS01;
-  const double K0_1 = Cxx * invS01 + Cyx * invS11;
-  const double K1_0 = Cyx * invS00 + Cyy * invS01;
-  const double K1_1 = Cyx * invS01 + Cyy * invS11;
-  const double K2_0 = CTxX * invS00 + CTxY * invS01;
-  const double K2_1 = CTxX * invS01 + CTxY * invS11;
-  const double K3_0 = CTyX * invS00 + CTyY * invS01;
-  const double K3_1 = CTyX * invS01 + CTyY * invS11;
-  const double K4_0 = CQpx * invS00 + CQpy * invS01;
-  const double K4_1 = CQpx * invS01 + CQpy * invS11;
-
-  // State update: a += K r ---
-  incParam(kX, K0_0 * dx + K0_1 * dy);
-  incParam(kY, K1_0 * dx + K1_1 * dy);
-  incParam(kTx, K2_0 * dx + K2_1 * dy);
-  incParam(kTy, K3_0 * dx + K3_1 * dy);
-  incParam(kQ2P, K4_0 * dx + K4_1 * dy);
-
-  // Covariance update: C' = C - K S K^T ---
-  // Precompute for each j:
-  //   t0[j] = S00*K[j,0] + S01*K[j,1]
-  //   t1[j] = S01*K[j,0] + S11*K[j,1]
-  // then dP_ij = K[i,0]*t0[j] + K[i,1]*t1[j]
-
-  const double t0_0 = S00 * K0_0 + S01 * K0_1;
-  const double t0_1 = S00 * K1_0 + S01 * K1_1;
-  const double t0_2 = S00 * K2_0 + S01 * K2_1;
-  const double t0_3 = S00 * K3_0 + S01 * K3_1;
-  const double t0_4 = S00 * K4_0 + S01 * K4_1;
-
-  const double t1_0 = S01 * K0_0 + S11 * K0_1;
-  const double t1_1 = S01 * K1_0 + S11 * K1_1;
-  const double t1_2 = S01 * K2_0 + S11 * K2_1;
-  const double t1_3 = S01 * K3_0 + S11 * K3_1;
-  const double t1_4 = S01 * K4_0 + S11 * K4_1;
-
-  mC[kXX] -= (K0_0 * t0_0 + K0_1 * t1_0);
-  mC[kYX] -= (K1_0 * t0_0 + K1_1 * t1_0);
-  mC[kYY] -= (K1_0 * t0_1 + K1_1 * t1_1);
-  mC[kTxX] -= (K2_0 * t0_0 + K2_1 * t1_0);
-  mC[kTxY] -= (K2_0 * t0_1 + K2_1 * t1_1);
-  mC[kTxTx] -= (K2_0 * t0_2 + K2_1 * t1_2);
-  mC[kTyX] -= (K3_0 * t0_0 + K3_1 * t1_0);
-  mC[kTyY] -= (K3_0 * t0_1 + K3_1 * t1_1);
-  mC[kTyTx] -= (K3_0 * t0_2 + K3_1 * t1_2);
-  mC[kTyTy] -= (K3_0 * t0_3 + K3_1 * t1_3);
-  mC[kQ2PX] -= (K4_0 * t0_0 + K4_1 * t1_0);
-  mC[kQ2PY] -= (K4_0 * t0_1 + K4_1 * t1_1);
-  mC[kQ2PTx] -= (K4_0 * t0_2 + K4_1 * t1_2);
-  mC[kQ2PTy] -= (K4_0 * t0_3 + K4_1 * t1_3);
-  mC[kQ2PQ2P] -= (K4_0 * t0_4 + K4_1 * t1_4);
-  checkCorrelations();
-  return true;
-}
-   
- */
-
 
 // Kalman update with 2D measurement (xm, ym), and covariance (sx2, sxy, sy2)
 bool NA6PTrackParCov::update(float xm, float ym, float sx2, float sxy, float sy2)
 {
   auto sav = *this; // TOREM
   // Innovation (residual)
-  const double dx = static_cast<double>(xm) - static_cast<double>(getX());
-  const double dy = static_cast<double>(ym) - static_cast<double>(getY());
+  const prec_t dx = static_cast<prec_t>(xm) - static_cast<prec_t>(getX());
+  const prec_t dy = static_cast<prec_t>(ym) - static_cast<prec_t>(getY());
 
   // ------------------------------------------------------------------
-  // Build full covariance matrix in double and (if needed) repair it to
+  // Build full covariance matrix in prec_t and (if needed) repair it to
   // be numerically SPD by adding a tiny diagonal "jitter".
   //
   // Motivation: even very small negative eigenvalues (from transport
   // roundoff) can yield negative diagonal elements after an extremely
   // strong measurement update (tiny R).
   // ------------------------------------------------------------------
-  double C[5][5];
+  prec_t C[5][5];
   for (int i = 0; i < 5; ++i) {
     for (int j = 0; j <= i; ++j) {
-      C[i][j] = C[j][i] = static_cast<double>(getCovMatElem(i, j));
+      C[i][j] = C[j][i] = static_cast<prec_t>(getCovMatElem(i, j));
     }
   }
 
-  auto make_spd_by_jitter = [&](double M[5][5]) {
+  auto make_spd_by_jitter = [&](prec_t M[5][5]) {
     // Try a simple Cholesky test. If it fails, add diagonal jitter and retry.
     // This is cheap for 5x5 and avoids costly eigen-decomposition.
-    const double maxDiag = std::max({std::abs(M[0][0]), std::abs(M[1][1]), std::abs(M[2][2]), std::abs(M[3][3]), std::abs(M[4][4]), 1.0});
-    const double eps = 1e-12 * maxDiag; // pivot threshold
-    double jitter = 0.0;
+    const prec_t maxDiag = std::max({std::abs(M[0][0]), std::abs(M[1][1]), std::abs(M[2][2]), std::abs(M[3][3]), std::abs(M[4][4]), 1.0});
+    const prec_t eps = 1e-12 * maxDiag; // pivot threshold
+    prec_t jitter = 0.0;
 
     for (int it = 0; it < 6; ++it) {
       // Cholesky attempt: M + jitter*I
-      double L[5][5] = {{0.0}};
+      prec_t L[5][5] = {{0.0}};
       bool ok = true;
       for (int i = 0; i < 5 && ok; ++i) {
         for (int j = 0; j <= i; ++j) {
-          double s = M[i][j];
+          prec_t s = M[i][j];
           if (i == j) {
             s += jitter;
           }
@@ -457,44 +353,44 @@ bool NA6PTrackParCov::update(float xm, float ym, float sx2, float sxy, float sy2
   //  make_spd_by_jitter(C);
 
   // Pull the needed covariance elements from the repaired matrix.
-  const double Cxx   = C[0][0];
-  const double Cyx   = C[1][0];
-  const double Cyy   = C[1][1];
-  const double CTxX  = C[2][0];
-  const double CTxY  = C[2][1];
-  const double CTyX  = C[3][0];
-  const double CTyY  = C[3][1];
-  const double CQpx  = C[4][0];
-  const double CQpy  = C[4][1];
+  const prec_t Cxx   = C[0][0];
+  const prec_t Cyx   = C[1][0];
+  const prec_t Cyy   = C[1][1];
+  const prec_t CTxX  = C[2][0];
+  const prec_t CTxY  = C[2][1];
+  const prec_t CTyX  = C[3][0];
+  const prec_t CTyY  = C[3][1];
+  const prec_t CQpx  = C[4][0];
+  const prec_t CQpy  = C[4][1];
 
   // Innovation covariance S = H C H^T + R (2x2)
-  const double R00 = static_cast<double>(sx2);
-  const double R01 = static_cast<double>(sxy);
-  const double R11 = static_cast<double>(sy2);
+  const prec_t R00 = static_cast<prec_t>(sx2);
+  const prec_t R01 = static_cast<prec_t>(sxy);
+  const prec_t R11 = static_cast<prec_t>(sy2);
 
-  const double S00 = Cxx + R00;
-  const double S01 = Cyx + R01;
-  const double S11 = Cyy + R11;
-  const double detS = S00 * S11 - S01 * S01;
+  const prec_t S00 = Cxx + R00;
+  const prec_t S01 = Cyx + R01;
+  const prec_t S11 = Cyy + R11;
+  const prec_t detS = S00 * S11 - S01 * S01;
   if (std::abs(detS) < static_cast<prec_t>(kTiny)) { // Singular or ill-conditioned S: skip update
     return false;
   }
-  const double invDetS = 1. / detS;
-  const double invS00 = S11 * invDetS;
-  const double invS11 = S00 * invDetS;
-  const double invS01 = -S01 * invDetS;
+  const prec_t invDetS = 1. / detS;
+  const prec_t invS00 = S11 * invDetS;
+  const prec_t invS11 = S00 * invDetS;
+  const prec_t invS01 = -S01 * invDetS;
 
   // Kalman gain K (5x2). H selects (x,y) so K = C H^T S^{-1}.
-  const double K0_0 = Cxx  * invS00 + Cyx  * invS01;
-  const double K0_1 = Cxx  * invS01 + Cyx  * invS11;
-  const double K1_0 = Cyx  * invS00 + Cyy  * invS01;
-  const double K1_1 = Cyx  * invS01 + Cyy  * invS11;
-  const double K2_0 = CTxX * invS00 + CTxY * invS01;
-  const double K2_1 = CTxX * invS01 + CTxY * invS11;
-  const double K3_0 = CTyX * invS00 + CTyY * invS01;
-  const double K3_1 = CTyX * invS01 + CTyY * invS11;
-  const double K4_0 = CQpx * invS00 + CQpy * invS01;
-  const double K4_1 = CQpx * invS01 + CQpy * invS11;
+  const prec_t K0_0 = Cxx  * invS00 + Cyx  * invS01;
+  const prec_t K0_1 = Cxx  * invS01 + Cyx  * invS11;
+  const prec_t K1_0 = Cyx  * invS00 + Cyy  * invS01;
+  const prec_t K1_1 = Cyx  * invS01 + Cyy  * invS11;
+  const prec_t K2_0 = CTxX * invS00 + CTxY * invS01;
+  const prec_t K2_1 = CTxX * invS01 + CTxY * invS11;
+  const prec_t K3_0 = CTyX * invS00 + CTyY * invS01;
+  const prec_t K3_1 = CTyX * invS01 + CTyY * invS11;
+  const prec_t K4_0 = CQpx * invS00 + CQpy * invS01;
+  const prec_t K4_1 = CQpx * invS01 + CQpy * invS11;
 
   // State update: a += K r ---
   incParam(kX, K0_0 * dx + K0_1 * dy);
@@ -507,13 +403,13 @@ bool NA6PTrackParCov::update(float xm, float ym, float sx2, float sxy, float sy2
   // Joseph-stabilized covariance update (PSD-safe in finite precision):
   //   C+ = (I - K H) C (I - K H)^T + K R K^T
   // Here H selects (x,y), so KH only modifies columns 0 and 1.
-  // We compute in double and store back to float.
+  // We compute in prec_t and store back to float.
   // ------------------------------------------------------------------
 
   // Note: we reuse the already repaired C[5][5] built above.
 
   // A = I - K H, only columns 0 and 1 differ from identity
-  double A[5][5] = {0};
+  prec_t A[5][5] = {0};
   for (int i = 0; i < 5; ++i) {
     for (int j = 0; j < 5; ++j) {
       A[i][j] = (i == j) ? 1.0 : 0.0;
@@ -526,7 +422,7 @@ bool NA6PTrackParCov::update(float xm, float ym, float sx2, float sxy, float sy2
   A[4][0] -= K4_0;  A[4][1] -= K4_1;
 
   // Temp = A*C
-  double T[5][5];
+  prec_t T[5][5];
   for (int i = 0; i < 5; ++i) {
     for (int j = 0; j < 5; ++j) {
       T[i][j] = 0.0;
@@ -537,7 +433,7 @@ bool NA6PTrackParCov::update(float xm, float ym, float sx2, float sxy, float sy2
   }
 
   // Cp = Temp * A^T
-  double Cp[5][5];
+  prec_t Cp[5][5];
   for (int i = 0; i < 5; ++i) {
     for (int j = 0; j < 5; ++j) {
       Cp[i][j] = 0.0;
@@ -549,16 +445,16 @@ bool NA6PTrackParCov::update(float xm, float ym, float sx2, float sxy, float sy2
 
   // Add K R K^T
   // KR rows: (K_i0*K_i1) times R
-  auto add_KRKt = [&](int i, int j, double Ki0, double Ki1, double Kj0, double Kj1) {
+  auto add_KRKt = [&](int i, int j, prec_t Ki0, prec_t Ki1, prec_t Kj0, prec_t Kj1) {
     return Ki0 * (R00 * Kj0 + R01 * Kj1) + Ki1 * (R01 * Kj0 + R11 * Kj1);
   };
 
-  const double K0[2] = {K0_0, K0_1};
-  const double K1[2] = {K1_0, K1_1};
-  const double K2[2] = {K2_0, K2_1};
-  const double K3[2] = {K3_0, K3_1};
-  const double K4[2] = {K4_0, K4_1};
-  const double* Krows[5] = {K0, K1, K2, K3, K4};
+  const prec_t K0[2] = {K0_0, K0_1};
+  const prec_t K1[2] = {K1_0, K1_1};
+  const prec_t K2[2] = {K2_0, K2_1};
+  const prec_t K3[2] = {K3_0, K3_1};
+  const prec_t K4[2] = {K4_0, K4_1};
+  const prec_t* Krows[5] = {K0, K1, K2, K3, K4};
 
   for (int i = 0; i < 5; ++i) {
     for (int j = 0; j < 5; ++j) {
@@ -569,7 +465,7 @@ bool NA6PTrackParCov::update(float xm, float ym, float sx2, float sxy, float sy2
   // Enforce symmetry and write back packed lower triangle
   for (int i = 0; i < 5; ++i) {
     for (int j = 0; j <= i; ++j) {
-      const double sym = 0.5 * (Cp[i][j] + Cp[j][i]);
+      const prec_t sym = 0.5 * (Cp[i][j] + Cp[j][i]);
       setCovMatElem(i,j, static_cast<float>(sym));
     }
   }
