@@ -59,7 +59,6 @@ class NA6PMuonSpecReconstruction : public NA6PReconstruction
   void setClusters(const std::vector<NA6PMuonSpecCluster>& clusters)
   {
     mClusters = clusters;
-    hClusPtr = &mClusters;
   }
 
   void createTracksOutput() override;

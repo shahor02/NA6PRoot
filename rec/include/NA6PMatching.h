@@ -52,25 +52,21 @@ class NA6PMatching : public NA6PReconstruction
   void setVerTelTracks(const std::vector<NA6PTrack>& tracks)
   {
     mVerTelTracks = tracks;
-    hVerTelTrackPtr = &mVerTelTracks;
   }
 
   void setMuonSpecTracks(const std::vector<NA6PTrack>& tracks)
   {
     mMuonSpecTracks = tracks;
-    hMuonSpecTrackPtr = &mMuonSpecTracks;
   }
 
   void setVerTelClusters(const std::vector<NA6PVerTelCluster>& clusters)
   {
     mVerTelClusters = clusters;
-    hVerTelClusPtr = &mVerTelClusters;
   }
 
   void setMuonSpecClusters(const std::vector<NA6PMuonSpecCluster>& clusters)
   {
     mMuonSpecClusters = clusters;
-    hMuonSpecClusPtr = &mMuonSpecClusters;
   }
 
   bool init(const char* filename, const char* geoname = "NA6P") override;
