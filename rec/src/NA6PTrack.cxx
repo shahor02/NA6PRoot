@@ -91,19 +91,10 @@ Bool_t NA6PTrack::init(const double *xyz, const double *pxyz, int sign, double e
 }
 
 //_______________________________________________________________________
-Bool_t NA6PTrack::propagateToZBxByBz(double z, double maxDZ, double xOverX0, double xTimesRho, bool outward)
+Bool_t NA6PTrack::propagateToZBxByBz(double z, double maxDZ, double xOverX0, double xTimesRho, bool outer)
 {
-  // Propagate track to position z in uniform material with xOverX0 rad length and xTimesRho length*density
-  
-  // Select methods based on parametrization
-  auto getZ = outward ? &NA6PTrack::getZLabOuter : &NA6PTrack::getZLab;
-  auto getPos = outward ? &NA6PTrack::getXYZOuter : &NA6PTrack::getXYZ;
-  using PropagateFunc = Bool_t (NA6PTrack::*)(double, const double*);
-  PropagateFunc propagateStep = outward ? 
-    static_cast<PropagateFunc>(&NA6PTrack::propagateToZBxByBzOuter) : 
-    static_cast<PropagateFunc>(&NA6PTrack::propagateToZBxByBz);
-  
-  double zCurr = (this->*getZ)();
+  // propagate the track to position Z in uniform material with xOverX0 rad lgt and xTimesRho lgt*density 
+  double zCurr = outer ? getZLabOuter() : getZLab();
   double dz = z - zCurr;
   
   if (TMath::Abs(dz) < kAlmost0) {
@@ -115,12 +106,24 @@ Bool_t NA6PTrack::propagateToZBxByBz(double z, double maxDZ, double xOverX0, dou
   double xyz[3], bxyz[3], bxyzFwd[3];
   
   for (int iz = 0; iz < nz; iz++) {
-    (this->*getPos)(xyz);  // coordinates in Lab frame
+    if (outer) {
+      getXYZOuter(xyz);  // coordinates in Lab frame
+    } else {
+      getXYZ(xyz);  // coordinates in Lab frame
+    }
     TGeoGlobalMagField::Instance()->Field(xyz, bxyz);
     lab2trk(bxyz, bxyzFwd);  // field in Fwd frame
     
     zCurr += zstep;
-    if (!(this->*propagateStep)(zCurr, bxyzFwd)) {
+
+    Bool_t success;
+    if (outer) {
+      success = propagateToZBxByBzOuter(zCurr, bxyzFwd);
+    } else {
+      success = propagateToZBxByBz(zCurr, bxyzFwd);
+    }
+    
+    if (!success) {
       return false;
     }
     

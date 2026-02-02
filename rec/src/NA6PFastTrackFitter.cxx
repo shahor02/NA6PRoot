@@ -234,11 +234,7 @@ int NA6PFastTrackFitter::propagateToZImpl(NA6PTrack* trc, double zFrom, double z
     return -1;
   }
   
-  // Select appropriate methods based on parametrization
-  auto getPosition = outer ? &NA6PTrack::getXYZOuter : &NA6PTrack::getXYZ;
-  auto getZ = outer ? &NA6PTrack::getZLabOuter : &NA6PTrack::getZLab;
-  
-  double currentZ = (trc->*getZ)();
+  double currentZ = outer ? trc->getZLabOuter() : trc->getZLab();
   if (std::abs(currentZ - zFrom) > 1.e-4) {
     LOGP(fatal, "Track is not in the expected z position: {} vs {}", zFrom, currentZ);
     return -1;
@@ -251,8 +247,12 @@ int NA6PFastTrackFitter::propagateToZImpl(NA6PTrack* trc, double zFrom, double z
 
   // Get starting position
   double start[3];
-  (trc->*getPosition)(start);
-  
+  if (outer) {
+    trc->getXYZOuter(start);
+  } else {
+    trc->getXYZ(start);
+  }
+
   // Create temporary track and propagate without material to get endpoint
   NA6PTrack tmpTrc = *trc;
   if (!tmpTrc.propagateToZBxByBz(zTo, 1., 0., 0., outer)) {
@@ -260,7 +260,11 @@ int NA6PFastTrackFitter::propagateToZImpl(NA6PTrack* trc, double zFrom, double z
   }
   
   double end[3];
-  (tmpTrc.*getPosition)(end);
+  if (outer) {
+    tmpTrc.getXYZOuter(end);
+  } else {
+    tmpTrc.getXYZ(end);
+  }
   
   // Calculate material budget along path
   double mparam[7] = {0.};
