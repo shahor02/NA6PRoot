@@ -76,6 +76,7 @@ class NA6PFastTrackFitter
   void printSeed() const;
   const double* getSeedMomentum() const { return mSeedMom; }
   const double* getSeedPosition() const { return mSeedPos; }
+  int getCharge() const { return mCharge; }
   void addCluster(int jLay, const NA6PBaseCluster& cl);
   void resetClusters()
   {
@@ -105,19 +106,19 @@ class NA6PFastTrackFitter
   static const Double_t kAlmostZero;
 
  protected:
-  int mNLayers = 5;                  // number of active
-  double mMaxChi2Cl = 10.;           // max cluster-track chi2
-  bool mIsSeedSet = false;           // flag for set seed
-  int mSeedOption = kInMidOutAsSeed; // seed option (see enum)
-  int mSeedPoints = kThreePointSeed; // number of hits used for seed
-  double mSeedPos[3];                // seed for track position
-  double mSeedMom[3];                // seed for track momentum
-  int mCharge = 1;                   // track charge for seed
-  double mMass = kMassPi;            // mass hypothesis for particle
-  bool mPropagateToPrimVert = false; // flag for propagation to primary vertex
-  double mPrimVertZ = 0.0;           // primary vertex z
-  bool mIsPrimVertSet = false;       // flag for presence of prim vert z
-  bool mCorrectForMaterial = true;   // flag for material corrections
+  int mNLayers = 5;                   // number of active
+  double mMaxChi2Cl = 10.;            // max cluster-track chi2
+  bool mIsSeedSet = false;            // flag for set seed
+  int mSeedOption = kOutermostAsSeed; // seed option (see enum)
+  int mSeedPoints = kThreePointSeed;  // number of hits used for seed
+  double mSeedPos[3];                 // seed for track position
+  double mSeedMom[3];                 // seed for track momentum
+  int mCharge = 1;                    // track charge for seed
+  double mMass = kMassPi;             // mass hypothesis for particle
+  bool mPropagateToPrimVert = false;  // flag for propagation to primary vertex
+  double mPrimVertZ = 0.0;            // primary vertex z
+  bool mIsPrimVertSet = false;        // flag for presence of prim vert z
+  bool mCorrectForMaterial = true;    // flag for material corrections
 
   std::vector<const NA6PBaseCluster*> mClusters; // array with clusters
 
