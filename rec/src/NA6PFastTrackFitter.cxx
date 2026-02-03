@@ -24,7 +24,7 @@ const double NA6PFastTrackFitter::kAlmostZero = 1.e-12;
 NA6PFastTrackFitter::NA6PFastTrackFitter() : mNLayers{5},
                                              mMaxChi2Cl{10.},
                                              mIsSeedSet{false},
-                                             mSeedOption{kInMidOutAsSeed},
+                                             mSeedOption{kOutermostAsSeed},
                                              mSeedPoints{kThreePointSeed},
                                              mCharge{1},
                                              mMass{kMassPi},
@@ -426,16 +426,17 @@ void NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed)
   TGeoGlobalMagField::Instance()->Field(midPoint, bxyz);
 
   // circle fit: compute center (cx, cz) and radius
-  double determ = 2.0 * (x1 * (z2 - z3) - z1 * (x2 - x3) + (x2 * z3 - x3 * z2));
+  double determ = 2.0 * (x1 * (z2 - z3) + x2 * (z3 - z1) + x3 * (z1 - z2));
   double cx = 0.0, cz = 0.0, radius = 1e6;
   if (std::abs(determ) > kAlmostZero) {
     double a1 = x1 * x1 + z1 * z1;
     double a2 = x2 * x2 + z2 * z2;
     double a3 = x3 * x3 + z3 * z3;
-    cx = (a1 * (z2 - z3) - z1 * (a2 - a3) + (a2 * z3 - a3 * z2)) / determ;
-    cz = (a1 * (x2 - x3) - x1 * (a2 - a3) + (x2 * a3 - x3 * a2)) / (-determ);
+    cx = (a1 * (z2 - z3) + a2 * (z3 - z1) + a3 * (z1 - z2)) / determ;
+    cz = (a1 * (x3 - x2) + a2 * (x1 - x3) + a3 * (x2 - x1)) / determ;
     radius = std::sqrt((x1 - cx) * (x1 - cx) + (z1 - cz) * (z1 - cz));
   }
+
   if (radius > 1e5) {
     // resort to 2-point seed
     mSeedMom[0] = ux;
@@ -444,13 +445,13 @@ void NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed)
     mIsSeedSet = true;
     return;
   }
-  double pt = 3.e-4 * std::abs(mCharge * bxyz[1]) * radius; // radius is in cm, By in kG, pt GeV/c
+  double pxz = 3.e-4 * std::abs(mCharge * bxyz[1]) * radius; // radius is in cm, By in kG, pxz GeV/c
   double nt = std::sqrt(ux * ux + uz * uz);
   if (nt < kAlmostZero)
     nt = 1.0;
-  mSeedMom[0] = pt * ux / nt;
-  mSeedMom[1] = pt * uy / nt;
-  mSeedMom[2] = pt * uz / nt;
+  mSeedMom[0] = pxz * ux / nt;
+  mSeedMom[1] = pxz * uy / nt;
+  mSeedMom[2] = pxz * uz / nt;
   double crossy = (x2 - x1) * (z3 - z2) - (z2 - z1) * (x3 - x2);
   int qSign = (crossy * bxyz[1] > 0) ? +1 : -1;
   // Ensure charge sign consistent with curvature direction in B-field
