@@ -66,7 +66,6 @@ class NA6PVerTelReconstruction : public NA6PReconstruction
   void setClusters(const std::vector<NA6PVerTelCluster>& clusters)
   {
     mClusters = clusters;
-    hClusPtr = &mClusters;
   }
   void createVerticesOutput() override;
   void clearVertices() override { mVertices.clear(); }

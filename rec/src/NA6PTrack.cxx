@@ -13,7 +13,9 @@ ClassImp(NA6PTrack)
 //_______________________________________________________________________
 NA6PTrack::NA6PTrack() :
   mMass{0.140},
-  mChi2{0.0},
+  mMatchChi2{0.0},
+  mChi2VT{0.0},
+  mChi2MS{0.0},
   mClusterMap{0},
   mNClusters{0},
   mNClustersVT{0},
@@ -31,7 +33,9 @@ NA6PTrack::NA6PTrack() :
 //_______________________________________________________________________
 NA6PTrack::NA6PTrack(const double* xyz, const double* pxyz, int sign, double errLoose) :
   mMass{0.140},
-  mChi2{0.0},
+  mMatchChi2{0.0},
+  mChi2VT{0.0},
+  mChi2MS{0.0},
   mClusterMap{0},
   mNClusters{0},
   mNClustersVT{0},
@@ -53,7 +57,9 @@ NA6PTrack::NA6PTrack(const double* xyz, const double* pxyz, int sign, double err
 void NA6PTrack::reset() 
 {
   mMass = 0.14; 
-  mChi2 = 0; 
+  mMatchChi2 = 0; 
+  mChi2VT = 0;
+  mChi2MS = 0;
   mClusterMap = 0;
   mExtTrack.Reset();
   resetCovariance();
@@ -85,27 +91,48 @@ Bool_t NA6PTrack::init(const double *xyz, const double *pxyz, int sign, double e
 }
 
 //_______________________________________________________________________
-Bool_t NA6PTrack::propagateToZBxByBz(double z, double maxDZ, double xOverX0, double xTimesRho)
+Bool_t NA6PTrack::propagateToZBxByBz(double z, double maxDZ, double xOverX0, double xTimesRho, bool outer)
 {
-  // propagate the track to position Z in uniform material with xOverX0 rad lgt and xTimesRho lgt*density
-  //
-  double zCurr = getZLab();
+  // propagate the track to position Z in uniform material with xOverX0 rad lgt and xTimesRho lgt*density 
+  double zCurr = outer ? getZLabOuter() : getZLab();
   double dz = z - zCurr;
-  if (TMath::Abs(dz)<kAlmost0) return true;
-  int nz = TMath::Abs(dz)/maxDZ + 1;
-  double zstep = dz/nz;
-  double xyz[3],bxyz[3],bxyzFwd[3];
-  for (int iz=0;iz<nz;iz++) {
-    getXYZ(xyz);              // coordinates in Lab frame
-    TGeoGlobalMagField::Instance()->Field(xyz,bxyz);
-    lab2trk(bxyz,bxyzFwd);  // field in Fwd frame
+  
+  if (TMath::Abs(dz) < kAlmost0) {
+    return true;
+  }
+  
+  int nz = TMath::Abs(dz) / maxDZ + 1;
+  double zstep = dz / nz;
+  double xyz[3], bxyz[3], bxyzFwd[3];
+  
+  for (int iz = 0; iz < nz; iz++) {
+    if (outer) {
+      getXYZOuter(xyz);  // coordinates in Lab frame
+    } else {
+      getXYZ(xyz);  // coordinates in Lab frame
+    }
+    TGeoGlobalMagField::Instance()->Field(xyz, bxyz);
+    lab2trk(bxyz, bxyzFwd);  // field in Fwd frame
+    
     zCurr += zstep;
-    if (!propagateToZBxByBz(zCurr,bxyzFwd)) return false;
-    if (TMath::Abs(xTimesRho)>1e-6 && 
-	!correctForMeanMaterial(xOverX0/nz, xTimesRho/nz)) return false;
+
+    Bool_t success;
+    if (outer) {
+      success = propagateToZBxByBzOuter(zCurr, bxyzFwd);
+    } else {
+      success = propagateToZBxByBz(zCurr, bxyzFwd);
+    }
+    
+    if (!success) {
+      return false;
+    }
+    
+    if (TMath::Abs(xTimesRho) > 1e-6 && 
+        !correctForMeanMaterial(xOverX0 / nz, xTimesRho / nz)) {
+      return false;
+    }
   }
   return true;
-  //
 }
 
 //_______________________________________________________________________
@@ -225,8 +252,8 @@ std::string NA6PTrack::asString() const
 {
   double pxyz[3];
   getPXYZ(pxyz);
-  return fmt::format("Track: Nclusters:{} NVTclusters:{} NMSclusters:{} NTRclusters:{} chi2:{} chi2VT:{} chi2MS:{} pos:{:.4f},{:.4f},{:.4f} mom:{:.3f},{:.3f},{:.3f}",
-                     mNClusters,mNClustersVT,mNClustersMS,mNClustersTR,mChi2,mChi2VT,mChi2MS,getXLab(),getYLab(),getZLab(),pxyz[0],pxyz[1],pxyz[2]);
+  return fmt::format("Track: Nclusters:{} NVTclusters:{} NMSclusters:{} NTRclusters:{} match chi2:{} chi2VT:{} chi2MS:{} pos:{:.4f},{:.4f},{:.4f} mom:{:.3f},{:.3f},{:.3f}",
+                     mNClusters,mNClustersVT,mNClustersMS,mNClustersTR,mMatchChi2,mChi2VT,mChi2MS,getXLab(),getYLab(),getZLab(),pxyz[0],pxyz[1],pxyz[2]);
 }
 
 //_______________________________________________________________________
@@ -240,7 +267,6 @@ template <typename ClusterType>
 void NA6PTrack::addCluster(const ClusterType* clu, int cluIndex, double chi2) {
 
   mNClusters++;
-  mChi2 += chi2;
   int trackID = clu->getParticleID();
   
   int nLay = clu->getLayer();

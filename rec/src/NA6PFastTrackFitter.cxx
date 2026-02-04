@@ -220,36 +220,78 @@ int NA6PFastTrackFitter::propagateToZ(NA6PTrack* trc, double zTo) const
   return propagateToZ(trc, zCurr, zTo, dir);
 }
 
-int NA6PFastTrackFitter::propagateToZ(NA6PTrack* trc, double zFrom, double zTo, int dir) const
-{
+int NA6PFastTrackFitter::propagateToZOuter(NA6PTrack* trc, double zTo) const
+{  
+  double zCurr = trc->getZLabOuter();
+  int dir = (zTo - zCurr) > 0 ? 1 : -1;
+  return propagateToZOuter(trc, zCurr, zTo, dir);
+}
 
-  if (trc->getTrackExtParam().getAlpha() < 0)
-    return -1;
-  if (std::abs(trc->getZLab() - zFrom) > 1.e-4) {
-    LOGP(fatal, "Track is not in the expected z position: {} vs {}", zFrom, trc->getZLab());
+int NA6PFastTrackFitter::propagateToZImpl(NA6PTrack* trc, double zFrom, double zTo, int dir, bool outer) const
+{
+  // Validate track state
+  if (trc->getTrackExtParam().getAlpha() < 0) {
     return -1;
   }
+  
+  double currentZ = outer ? trc->getZLabOuter() : trc->getZLab();
+  if (std::abs(currentZ - zFrom) > 1.e-4) {
+    LOGP(fatal, "Track is not in the expected z position: {} vs {}", zFrom, currentZ);
+    return -1;
+  }
+  
   if (dir * (zTo - zFrom) < 0) {
     LOGP(fatal, "Wrong coordinates: Dir:{} Zstart:{} Zend:{}", dir, zFrom, zTo);
     return -1;
   }
-  double start[3], end[3];
-  trc->getXYZ(start);
+
+  // Get starting position
+  double start[3];
+  if (outer) {
+    trc->getXYZOuter(start);
+  } else {
+    trc->getXYZ(start);
+  }
+
+  // Create temporary track and propagate without material to get endpoint
   NA6PTrack tmpTrc = *trc;
-  tmpTrc.propagateToZBxByBz(zTo);
-  tmpTrc.getXYZ(end);
-  double p1[3], p2[3];
-  trc->getXYZ(p1);
-  tmpTrc.getXYZ(p2);
-  double mparam[7] = {0.};
-  if (mCorrectForMaterial)
-    getMeanMaterialBudgetFromGeom(start, end, mparam);
-  double xrho = mparam[0] * mparam[4];
-  double x2x0 = mparam[1];
-  double corrELoss = 1;
-  if (!trc->propagateToZBxByBz(zTo, 1., x2x0, -dir * xrho * corrELoss))
+  if (!tmpTrc.propagateToZBxByBz(zTo, 1., 0., 0., outer)) {
     return 0;
+  }
+  
+  double end[3];
+  if (outer) {
+    tmpTrc.getXYZOuter(end);
+  } else {
+    tmpTrc.getXYZ(end);
+  }
+  
+  // Calculate material budget along path
+  double mparam[7] = {0.};
+  if (mCorrectForMaterial) {
+    getMeanMaterialBudgetFromGeom(start, end, mparam);
+  }
+  
+  double xrho = mparam[0] * mparam[4];  // length * density
+  double x2x0 = mparam[1];               // X/X0
+  double corrELoss = 1.0;
+  
+  // Propagate with material corrections
+  if (!trc->propagateToZBxByBz(zTo, 1., x2x0, -dir * xrho * corrELoss, outer)) {
+    return 0;
+  }
+  
   return 1;
+}
+
+int NA6PFastTrackFitter::propagateToZ(NA6PTrack* trc, double zFrom, double zTo, int dir) const
+{
+  return propagateToZImpl(trc, zFrom, zTo, dir, false);
+}
+
+int NA6PFastTrackFitter::propagateToZOuter(NA6PTrack* trc, double zFrom, double zTo, int dir) const
+{
+  return propagateToZImpl(trc, zFrom, zTo, dir, true);
 }
 
 bool NA6PFastTrackFitter::updateTrack(NA6PTrack* trc, const NA6PBaseCluster* cl) const
