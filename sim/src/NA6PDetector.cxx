@@ -153,7 +153,7 @@ void NA6PDetector::createGeometry(const std::string& name)
 
   // Path to the GDML file can be overridden via NA6P_BOTHMAGNETS_GDML.
   const char* gdmlPathEnv = std::getenv("NA6P_BOTHMAGNETS_GDML");
-  std::string gdmlPath = gdmlPathEnv ? gdmlPathEnv : "/home/access/Alice/BothMagnets.gdml";
+  std::string gdmlPath = gdmlPathEnv ? gdmlPathEnv : "/home/access/Alice/NA6PRoot/data/BothMagnets.gdml";
 
   LOGP(info, "Importing geometry from GDML file: {}", gdmlPath);
   TGeoManager::Import(gdmlPath.c_str());
