@@ -40,8 +40,10 @@ struct NA6PRecoParam : public na6p::conf::ConfigurableParamHelper<NA6PRecoParam>
   std::string vertexerMultiVertexMode = "Iterative";
   bool vertexerAllowSingleConstribClusters = false;
   // VerTel CA tracker
-  bool vtDoOutwardPropagation = false;
+  bool vtDoOutwardPropagation = true;
   float vtZOutProp = 40.;
+  bool vtDoInwardRefit = false;
+  bool vtPropagateTracksToPV = true;
   int vtNIterationsTrackerCA = 2;
   float vtMaxDeltaThetaTrackletsCA[MaxIterationsTrackerCA] = {0.04, 0.1, 0.15, 0.3, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   float vtMaxDeltaPhiTrackletsCA[MaxIterationsTrackerCA] = {0.1, 0.2, 0.25, 0.5, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};

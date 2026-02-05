@@ -26,6 +26,7 @@ NA6PTrackerCA::NA6PTrackerCA() : mLayerStart{0},
                                  mMaxSharedClusters{0},
                                  mPropagateTracksToPrimaryVertex{false},
                                  mDoOutwardPropagation{false},
+                                 mDoInwardRefit{false},
                                  mZOutProp{40.},
                                  mVerbose{false},
                                  mNIterationsCA{2}
@@ -93,9 +94,11 @@ void NA6PTrackerCA::configureFromRecoParamVT(const std::string& filename)
   const auto& param = NA6PRecoParam::Instance();
   setDoOutwardPropagation(param.vtDoOutwardPropagation);
   setZForOutwardPropagation(param.vtZOutProp);
+  setDoInwardRefit(param.vtDoInwardRefit);
+  setPropagateTracksToPrimaryVertex(param.vtPropagateTracksToPV);
   setNumberOfIterations(param.vtNIterationsTrackerCA);
   setNLayers(param.vtNLayers);
-  
+
   for (int jIter = 0; jIter < mNIterationsCA; ++jIter) {
     setIterationParams(jIter,
                        param.vtMaxDeltaThetaTrackletsCA[jIter],
@@ -777,6 +780,14 @@ void NA6PTrackerCA::fitAndSelectTracks(const std::vector<TrackCandidate>& trackC
       // outward fit (needed in VT for matching to Muon Spectrometer)
       std::unique_ptr<NA6PTrack> outwRefitPtr(mTrackFitter->fitTrackPointsOutward(&fitTrackFast));
       if (outwRefitPtr) {
+        if (mDoInwardRefit) {
+          std::unique_ptr<NA6PTrack> inwRefitPtr(mTrackFitter->fitTrackPointsInward(outwRefitPtr.get()));
+          if (inwRefitPtr) {
+            fitTrackFast.setParam(inwRefitPtr->getTrackExtParam());
+            fitTrackFast.setStatusRefitInward(true);
+          } else
+            fitTrackFast.setStatusRefitInward(false);
+        }
         mTrackFitter->propagateToZ(outwRefitPtr.get(), mZOutProp);
         fitTrackFast.setOuterParam(outwRefitPtr->getTrackExtParam());
       }

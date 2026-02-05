@@ -49,10 +49,13 @@ class NA6PTrack
   void imposeKinematics(const double* xyzLab, const double* cosinesLab, double en, double mass, int charge);
   void reset();
   void resetCovariance(float err = -1.);
+  void setParam(const ExtTrackPar& p) { mExtTrack = p; }
   void setOuterParam(const ExtTrackPar& p) { mOuter = p; }
+  void setStatusRefitInward(bool status) { mStatusRefitInward = status; }
 
+  bool getStatusRefitInward() const { return mStatusRefitInward; }
   double getMass() const { return mMass; }
-  double getChi2() const { return mChi2VT+mChi2MS; }
+  double getChi2() const { return mChi2VT + mChi2MS; }
   double getChi2VT() const { return mChi2VT; }
   double getChi2MS() const { return mChi2MS; }
   double getMatchChi2() const { return mMatchChi2; }
@@ -77,7 +80,7 @@ class NA6PTrack
   double getYLab() const { return mExtTrack.getZ(); }
   double getZLab() const { return negDir() ? -mExtTrack.getX() : mExtTrack.getX(); }
   double getZLabOuter() const { return negDir() ? -mOuter.getX() : mOuter.getX(); }
-  
+
   double getR() const
   {
     double x = getXLab(), y = getYLab(), r = x * x + y * y;
@@ -99,7 +102,7 @@ class NA6PTrack
   double getSigmaPX2() const;
   double getSigmaPY2() const;
   double getSigmaPZ2() const;
-  double getNormChi2() const { return mNClusters < 3 ? 0 : (mChi2VT+mChi2MS) / ((mNClusters << 1) - kNDOF); }
+  double getNormChi2() const { return mNClusters < 3 ? 0 : (mChi2VT + mChi2MS) / ((mNClusters << 1) - kNDOF); }
   double getPredictedChi2(double* p, double* cov) const { return mExtTrack.getPredictedChi2(p, cov); }
 
   void setMass(double m) { mMass = m; }
@@ -129,8 +132,6 @@ class NA6PTrack
     return mExtTrack.correctForMeanMaterial(xOverX0, xTimesRho, mMass, anglecorr);
   }
   bool propagateToZBxByBz(double z, double maxDZ = 1.0, double xOverX0 = 0., double xTimesRho = 0., bool outer = false);
-  bool propagateToZBxByBz(double z, const double* bxyz) { return mExtTrack.propagateToBxByBz(z, bxyz); }
-  bool propagateToZBxByBzOuter(double z, const double* bxyz) { return mOuter.propagateToBxByBz(z, bxyz); }
   bool propagateToDCA(NA6PTrack* partner);
   bool update(double p[2], double cov[3]) { return mExtTrack.Update(p, cov); }
 
@@ -153,6 +154,11 @@ class NA6PTrack
   int mCAIteration = -1;                     //! CA iteration (for debug)
   ExtTrackPar mExtTrack;                     // track params
   ExtTrackPar mOuter{};                      // parametrization for outward fit
+  bool mStatusRefitInward = false;           // boolean for status of inward refit
+
+ private:
+  bool propagateToZBxByBz(double z, const double* bxyz) { return mExtTrack.propagateToBxByBz(z, bxyz); }
+  bool propagateToZBxByBzOuter(double z, const double* bxyz) { return mOuter.propagateToBxByBz(z, bxyz); }
 
   ClassDefNV(NA6PTrack, 1)
 };
@@ -210,6 +216,5 @@ inline void NA6PTrack::getPXYZOuter(double* pxyz) const
   mOuter.getPxPyPz(pxyzTrk);
   trk2lab(pxyzTrk, pxyz);
 }
-
 
 #endif
