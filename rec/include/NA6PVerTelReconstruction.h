@@ -63,10 +63,7 @@ class NA6PVerTelReconstruction : public NA6PReconstruction
     mPrimaryVertex.SetXYZ(x, y, z);
   }
   // methods to steer tracking
-  void setClusters(const std::vector<NA6PVerTelCluster>& clusters)
-  {
-    mClusters = clusters;
-  }
+  void setClusters(const std::vector<NA6PVerTelCluster>& clusters);
   void createVerticesOutput() override;
   void clearVertices() override { mVertices.clear(); }
   void writeVertices() override;
@@ -82,21 +79,21 @@ class NA6PVerTelReconstruction : public NA6PReconstruction
 
  private:
   std::vector<NA6PVerTelCluster> mClusters, *hClusPtr = &mClusters; // vector of clusters
-  std::string mGeoFilName{};                                      // name of geometry file
-  std::string mGeoObjName{};                                      // name of geometry object
-  std::string mRecoParFilName{};                                  // name of reco param file
-  TFile* mClusFile = nullptr;                                     // file with clusters
-  TTree* mClusTree = nullptr;                                     // tree of clusters
-  double mCluRes = 5.e-4;                                         // cluster resolution, cm (for fast simu)
-  std::vector<NA6PVertex> mVertices, *hVerticesPtr = &mVertices;  // vector of vertices
-  TFile* mVertexFile = nullptr;                                   // file with vertices
-  TTree* mVertexTree = nullptr;                                   // tree of vertices
-  NA6PVertexerTracklets* mVTTrackletVertexer = nullptr;           // vertexer
-  TVector3 mPrimaryVertex{0.0, 0.0, 0.0};                         // primary vertex position
-  std::vector<NA6PTrack> mTracks, *hTrackPtr = &mTracks;          // vector of tracks
-  TFile* mTrackFile = nullptr;                                    // file with tracks
-  TTree* mTrackTree = nullptr;                                    // tree of tracks
-  NA6PTrackerCA* mVTTracker = nullptr;                            // tracker
+  std::string mGeoFilName{};                                        // name of geometry file
+  std::string mGeoObjName{};                                        // name of geometry object
+  std::string mRecoParFilName{};                                    // name of reco param file
+  TFile* mClusFile = nullptr;                                       // file with clusters
+  TTree* mClusTree = nullptr;                                       // tree of clusters
+  double mCluRes = 5.e-4;                                           // cluster resolution, cm (for fast simu)
+  std::vector<NA6PVertex> mVertices, *hVerticesPtr = &mVertices;    // vector of vertices
+  TFile* mVertexFile = nullptr;                                     // file with vertices
+  TTree* mVertexTree = nullptr;                                     // tree of vertices
+  NA6PVertexerTracklets* mVTTrackletVertexer = nullptr;             // vertexer
+  TVector3 mPrimaryVertex{0.0, 0.0, 0.0};                           // primary vertex position
+  std::vector<NA6PTrack> mTracks, *hTrackPtr = &mTracks;            // vector of tracks
+  TFile* mTrackFile = nullptr;                                      // file with tracks
+  TTree* mTrackTree = nullptr;                                      // tree of tracks
+  NA6PTrackerCA* mVTTracker = nullptr;                              // tracker
 
   ClassDefNV(NA6PVerTelReconstruction, 1);
 };

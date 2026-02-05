@@ -57,6 +57,16 @@ void NA6PMuonSpecReconstruction::closeClustersOutput()
   }
 }
 
+void NA6PMuonSpecReconstruction::setClusters(const std::vector<NA6PMuonSpecCluster>& clusters)
+{
+  mClusters = clusters;
+  // Assign a transient index based on position in the vector
+  // to be used for storing the cluster indices in the track
+  for (size_t i = 0; i < mClusters.size(); ++i) {
+    mClusters[i].setClusterIndex(static_cast<int>(i));
+  }
+}
+
 void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecModularHit>& hits)
 {
   int nHits = hits.size();
@@ -82,10 +92,10 @@ void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecM
     int nDet = hit.getDetectorID();
     int idPart = hit.getTrackID();
     // Set layer based on Z position - find closest plane
-        
+
     float minDist = std::abs(z - layout.posMSPlaneZ[0]);
     int layer = layout.nVerTelPlanes;
-    
+
     for (int i = 1; i < layout.nMSPlanes; ++i) {
       float dist = std::abs(z - layout.posMSPlaneZ[i]);
       if (dist < minDist) {

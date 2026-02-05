@@ -221,7 +221,7 @@ int NA6PFastTrackFitter::propagateToZ(NA6PTrack* trc, double zTo) const
 }
 
 int NA6PFastTrackFitter::propagateToZOuter(NA6PTrack* trc, double zTo) const
-{  
+{
   double zCurr = trc->getZLabOuter();
   int dir = (zTo - zCurr) > 0 ? 1 : -1;
   return propagateToZOuter(trc, zCurr, zTo, dir);
@@ -233,13 +233,13 @@ int NA6PFastTrackFitter::propagateToZImpl(NA6PTrack* trc, double zFrom, double z
   if (trc->getTrackExtParam().getAlpha() < 0) {
     return -1;
   }
-  
+
   double currentZ = outer ? trc->getZLabOuter() : trc->getZLab();
   if (std::abs(currentZ - zFrom) > 1.e-4) {
     LOGP(fatal, "Track is not in the expected z position: {} vs {}", zFrom, currentZ);
     return -1;
   }
-  
+
   if (dir * (zTo - zFrom) < 0) {
     LOGP(fatal, "Wrong coordinates: Dir:{} Zstart:{} Zend:{}", dir, zFrom, zTo);
     return -1;
@@ -258,29 +258,29 @@ int NA6PFastTrackFitter::propagateToZImpl(NA6PTrack* trc, double zFrom, double z
   if (!tmpTrc.propagateToZBxByBz(zTo, 1., 0., 0., outer)) {
     return 0;
   }
-  
+
   double end[3];
   if (outer) {
     tmpTrc.getXYZOuter(end);
   } else {
     tmpTrc.getXYZ(end);
   }
-  
+
   // Calculate material budget along path
   double mparam[7] = {0.};
   if (mCorrectForMaterial) {
     getMeanMaterialBudgetFromGeom(start, end, mparam);
   }
-  
-  double xrho = mparam[0] * mparam[4];  // length * density
-  double x2x0 = mparam[1];               // X/X0
+
+  double xrho = mparam[0] * mparam[4]; // length * density
+  double x2x0 = mparam[1];             // X/X0
   double corrELoss = 1.0;
-  
+
   // Propagate with material corrections
   if (!trc->propagateToZBxByBz(zTo, 1., x2x0, -dir * xrho * corrELoss, outer)) {
     return 0;
   }
-  
+
   return 1;
 }
 
@@ -309,7 +309,7 @@ bool NA6PFastTrackFitter::updateTrack(NA6PTrack* trc, const NA6PBaseCluster* cl)
   if (!trc->update(meas, measErr2)) {
     return false;
   }
-  trc->addCluster(cl, cl->getHitID(), chi2);
+  trc->addCluster(cl, cl->getClusterIndex(), chi2);
   //
   return true;
 }
@@ -513,11 +513,17 @@ void NA6PFastTrackFitter::computeSeed(int dir)
   // dir = 1 -> forward dir = -1 -> backward
 
   std::array<int, 3> layForSeed = {-1, -1, -1};
+  int origSeedOption = mSeedOption;
+  if (dir == 1 && mSeedOption == kOutermostAsSeed)
+    mSeedOption = kInnermostAsSeed;
+  if (dir == -1 && mSeedOption == kInnermostAsSeed)
+    mSeedOption = kOutermostAsSeed;
   int nSeedLayers = getLayersForSeed(layForSeed);
   if (nSeedLayers < 2) {
     LOGP(error, "Cannot compute seed with {} seeding layers", nSeedLayers);
     return;
   }
+  mSeedOption = origSeedOption;
   computeSeed(dir, layForSeed);
 }
 

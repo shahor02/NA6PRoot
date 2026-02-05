@@ -94,6 +94,16 @@ void NA6PVerTelReconstruction::closeClustersOutput()
   }
 }
 
+void NA6PVerTelReconstruction::setClusters(const std::vector<NA6PVerTelCluster>& clusters)
+{
+  mClusters = clusters;
+  // Assign a transient index based on position in the vector
+  // to be used for storing the cluster indices in the track
+  for (size_t i = 0; i < mClusters.size(); ++i) {
+    mClusters[i].setClusterIndex(static_cast<int>(i));
+  }
+}
+
 void NA6PVerTelReconstruction::hitsToRecPoints(const std::vector<NA6PVerTelHit>& hits)
 {
   int nHits = hits.size();
