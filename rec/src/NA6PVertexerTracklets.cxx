@@ -20,7 +20,7 @@ void NA6PVertexerTracklets::configureFromRecoParam(const std::string& filename)
     na6p::conf::ConfigurableParamHelper<NA6PRecoParam>::updateFromFile(filename);
   }
   const auto& param = NA6PRecoParam::Instance();
-  mNLayersVT = param.nLayers;
+  mNLayersVT = param.vtNLayers;
   mLayerToStart = param.vertexerLayerToStart;
   mMaxDeltaThetaTracklet = param.vertexerMaxDeltaThetaTracklet;
   mMaxDeltaPhiTracklet = param.vertexerMaxDeltaPhiTracklet;

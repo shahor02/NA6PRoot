@@ -30,6 +30,24 @@ bool NA6PMatching::init(const char* filename, const char* geoname)
   return true;
 }
 
+void NA6PMatching::configureFromRecoParam(const std::string& filename)
+{
+  if (filename != "") {
+    na6p::conf::ConfigurableParamHelper<NA6PRecoParam>::updateFromFile(filename);
+  }
+  const auto& param = NA6PRecoParam::Instance();
+
+  if (param.isZMatchingSet)
+    setZMatching(param.zMatching);
+  setMCMatching(param.mcMatching);
+  setMinVTHits(param.minVTHits);
+  setMinMSHits(param.minMSHits);
+  setMinTrackP(param.minTrackP);
+  setMaxChi2Match(param.maxChi2Match);
+  setMaxChi2Refit(param.maxChi2Refit);
+  setPMatchWindow(param.pMatchWindow);
+}
+
 void NA6PMatching::createTracksOutput()
 {
   auto nm = fmt::format("Tracks{}.root", getName());

@@ -85,26 +85,52 @@ void NA6PTrackerCA::setIterationParams(int iter,
   mMinNClusTracksCA[iter] = minNClusTracks;
 }
 
-void NA6PTrackerCA::configureFromRecoParam(const std::string& filename)
+void NA6PTrackerCA::configureFromRecoParamVT(const std::string& filename)
 {
   if (filename != "") {
     na6p::conf::ConfigurableParamHelper<NA6PRecoParam>::updateFromFile(filename);
   }
   const auto& param = NA6PRecoParam::Instance();
-  setNumberOfIterations(param.nIterationsTrackerCA);
-  setNLayers(param.nLayers);
+  setDoOutwardPropagation(param.vtDoOutwardPropagation);
+  setZForOutwardPropagation(param.vtZOutProp);
+  setNumberOfIterations(param.vtNIterationsTrackerCA);
+  setNLayers(param.vtNLayers);
+  
   for (int jIter = 0; jIter < mNIterationsCA; ++jIter) {
     setIterationParams(jIter,
-                       param.maxDeltaThetaTrackletsCA[jIter],
-                       param.maxDeltaPhiTrackletsCA[jIter],
-                       param.maxDeltaTanLCellsCA[jIter],
-                       param.maxDeltaPhiCellsCA[jIter],
-                       param.maxDeltaPxPzCellsCA[jIter],
-                       param.maxDeltaPyPzCellsCA[jIter],
-                       param.maxChi2TrClCellsCA[jIter],
-                       param.maxChi2ndfCellsCA[jIter],
-                       param.maxChi2ndfTracksCA[jIter],
-                       param.minNClusTracksCA[jIter]);
+                       param.vtMaxDeltaThetaTrackletsCA[jIter],
+                       param.vtMaxDeltaPhiTrackletsCA[jIter],
+                       param.vtMaxDeltaTanLCellsCA[jIter],
+                       param.vtMaxDeltaPhiCellsCA[jIter],
+                       param.vtMaxDeltaPxPzCellsCA[jIter],
+                       param.vtMaxDeltaPyPzCellsCA[jIter],
+                       param.vtMaxChi2TrClCellsCA[jIter],
+                       param.vtMaxChi2ndfCellsCA[jIter],
+                       param.vtMaxChi2ndfTracksCA[jIter],
+                       param.vtMinNClusTracksCA[jIter]);
+  }
+}
+
+void NA6PTrackerCA::configureFromRecoParamMS(const std::string& filename)
+{
+  if (filename != "") {
+    na6p::conf::ConfigurableParamHelper<NA6PRecoParam>::updateFromFile(filename);
+  }
+  const auto& param = NA6PRecoParam::Instance();
+  setNumberOfIterations(param.msNIterationsTrackerCA);
+  setNLayers(param.msNLayers);
+  for (int jIter = 0; jIter < mNIterationsCA; ++jIter) {
+    setIterationParams(jIter,
+                       param.msMaxDeltaThetaTrackletsCA[jIter],
+                       param.msMaxDeltaPhiTrackletsCA[jIter],
+                       param.msMaxDeltaTanLCellsCA[jIter],
+                       param.msMaxDeltaPhiCellsCA[jIter],
+                       param.msMaxDeltaPxPzCellsCA[jIter],
+                       param.msMaxDeltaPyPzCellsCA[jIter],
+                       param.msMaxChi2TrClCellsCA[jIter],
+                       param.msMaxChi2ndfCellsCA[jIter],
+                       param.msMaxChi2ndfTracksCA[jIter],
+                       param.msMinNClusTracksCA[jIter]);
   }
 }
 

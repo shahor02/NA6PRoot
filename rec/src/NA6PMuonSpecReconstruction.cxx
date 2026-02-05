@@ -20,7 +20,7 @@ bool NA6PMuonSpecReconstruction::init(const char* filename, const char* geoname)
 {
   NA6PReconstruction::init(filename, geoname);
   mMSTracker = new NA6PTrackerCA();
-  mMSTracker->configureFromRecoParam();
+  mMSTracker->configureFromRecoParamMS();
   mMSTracker->setNLayers(6); 
   mMSTracker->setStartLayer(5);
   createTracksOutput();

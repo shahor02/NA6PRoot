@@ -59,7 +59,7 @@ bool NA6PVerTelReconstruction::initTracker()
     LOGP(info, "Initializing tracker with default parameters");
   else
     LOGP(info, "Initializing tracker from file {}", mRecoParFilName.c_str());
-  mVTTracker->configureFromRecoParam(mRecoParFilName.c_str());
+  mVTTracker->configureFromRecoParamVT(mRecoParFilName.c_str());
   createTracksOutput();
   return true;
 }

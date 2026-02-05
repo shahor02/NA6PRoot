@@ -92,7 +92,8 @@ class NA6PTrackerCA
                           float maxChi2ndfCells,
                           float maxChi2ndfTracks,
                           int minNClusTracks);
-  void configureFromRecoParam(const std::string& filename = "");
+  void configureFromRecoParamVT(const std::string& filename = "");
+  void configureFromRecoParamMS(const std::string& filename = "");
   void setVerbosity(bool opt = true) { mVerbose = opt; }
 
   void printConfiguration() const;

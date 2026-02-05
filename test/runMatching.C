@@ -11,7 +11,7 @@
 
 void runMatching(
                  bool useMC = false,
-                 double zprop = 38.1175,
+                 double zmatch = 38.1175,
                  int firstEv = 0,
                  int lastEv = 99999,
                  const char* dirSimu = "../tst",
@@ -53,13 +53,10 @@ void runMatching(
   NA6PMatching* matching = new NA6PMatching();
   na6p::conf::ConfigurableParam::updateFromFile(Form("%s/na6pLayout.ini",dirSimu), "", true);
   matching->init(Form("%s/geometry.root", dirSimu));
-  matching->setZMatching(zprop);
-  matching->useChi2Matching();
-  matching->setPMatchWindow(3.0);
-  if (useMC)
-    matching->useMCMatching();
+  matching->setZMatching(zmatch);
+  matching->setMCMatching(useMC);
   
-  int nEv = tvertelc->GetEntries();
+  int nEv = tmstracks->GetEntries();
   if (lastEv > nEv || lastEv < 0)
     lastEv = nEv;
   if (firstEv < 0)

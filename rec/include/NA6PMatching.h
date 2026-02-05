@@ -13,11 +13,10 @@
 #include "NA6PVerTelCluster.h"
 #include "NA6PMuonSpecCluster.h"
 #include "NA6PFastTrackFitter.h"
+#include "NA6PRecoParam.h"
 
 #include "NA6PTrack.h"
 #include "NA6PVertex.h"
-class TH1D;
-class TH2D;
 
 class TFile;
 class TTree;
@@ -29,9 +28,8 @@ class NA6PMatching : public NA6PReconstruction
   NA6PMatching();
   ~NA6PMatching() override = default;
 
-  void useMCMatching() { mMCMatching = true; }
-  void useChi2Matching() { mMCMatching = false; }
-
+  void configureFromRecoParam(const std::string& filename = "");
+  void setMCMatching(bool mc) { mMCMatching = mc; }
   void setMaxChi2Match(double v) { mMaxChi2Match = v; }
   void setMaxChi2Refit(double v) { mMaxChi2Refit = v; }
   void setMinTrackP(double p) { mMinTrackP = p; }
@@ -103,7 +101,7 @@ class NA6PMatching : public NA6PReconstruction
   TVector3 mPrimaryVertex{0.0, 0.0, 0.0};                                                     // primary vertex position
   double mZMatching = 38.1175;
   bool mIsZMatchingSet = false;
-  bool mMCMatching = true;
+  bool mMCMatching = false;
   int mMinVTHits = 5;
   int mMinMSHits = 6;
   double mMinTrackP = 2.0;
