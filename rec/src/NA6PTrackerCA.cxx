@@ -91,10 +91,10 @@ void NA6PTrackerCA::configureFromRecoParamVT(const std::string& filename)
     na6p::conf::ConfigurableParamHelper<NA6PRecoParam>::updateFromFile(filename);
   }
   const auto& param = NA6PRecoParam::Instance();
-  setDoOutwardPropagation(param.doOutwardPropagation);
-  setZForOutwardPropagation(param.zOutProp);
+  setDoOutwardPropagation(param.vtDoOutwardPropagation);
+  setZForOutwardPropagation(param.vtZOutProp);
   setNumberOfIterations(param.vtNIterationsTrackerCA);
-  setNLayers(param.nLayers);
+  setNLayers(param.vtNLayers);
   
   for (int jIter = 0; jIter < mNIterationsCA; ++jIter) {
     setIterationParams(jIter,
@@ -118,7 +118,7 @@ void NA6PTrackerCA::configureFromRecoParamMS(const std::string& filename)
   }
   const auto& param = NA6PRecoParam::Instance();
   setNumberOfIterations(param.msNIterationsTrackerCA);
-  setNLayers(param.nLayers);
+  setNLayers(param.msNLayers);
   for (int jIter = 0; jIter < mNIterationsCA; ++jIter) {
     setIterationParams(jIter,
                        param.msMaxDeltaThetaTrackletsCA[jIter],

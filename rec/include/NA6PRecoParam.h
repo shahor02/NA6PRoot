@@ -11,7 +11,7 @@ struct NA6PRecoParam : public na6p::conf::ConfigurableParamHelper<NA6PRecoParam>
   static constexpr int MaxIterationsTrackerCA = 10;
 
   // VerTel reconstruction parameters
-  int nLayers = 5;
+  int vtNLayers = 5;
   // tracklet vertexer
   int vertexerLayerToStart = 0;
   float vertexerMaxDeltaThetaTracklet = 0.6;
@@ -40,8 +40,8 @@ struct NA6PRecoParam : public na6p::conf::ConfigurableParamHelper<NA6PRecoParam>
   std::string vertexerMultiVertexMode = "Iterative";
   bool vertexerAllowSingleConstribClusters = false;
   // VerTel CA tracker
-  bool doOutwardPropagation = false;
-  float zOutProp = 40.;
+  bool vtDoOutwardPropagation = false;
+  float vtZOutProp = 40.;
   int vtNIterationsTrackerCA = 2;
   float vtMaxDeltaThetaTrackletsCA[MaxIterationsTrackerCA] = {0.04, 0.1, 0.15, 0.3, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   float vtMaxDeltaPhiTrackletsCA[MaxIterationsTrackerCA] = {0.1, 0.2, 0.25, 0.5, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
@@ -54,6 +54,7 @@ struct NA6PRecoParam : public na6p::conf::ConfigurableParamHelper<NA6PRecoParam>
   float vtMaxChi2ndfTracksCA[MaxIterationsTrackerCA] = {100., 500., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   int vtMinNClusTracksCA[MaxIterationsTrackerCA] = {5, 3, 0, 0, 0, 0, 0, 0, 0, 0};
   // MuonSpec CA tracker
+  int msNLayers = 6;
   int msNIterationsTrackerCA = 2;
   float msMaxDeltaThetaTrackletsCA[MaxIterationsTrackerCA] = {0.06, 0.1, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   float msMaxDeltaPhiTrackletsCA[MaxIterationsTrackerCA] = {0.1, 0.6, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
@@ -75,7 +76,7 @@ struct NA6PRecoParam : public na6p::conf::ConfigurableParamHelper<NA6PRecoParam>
   float maxChi2Match = std::numeric_limits<float>::max();
   float maxChi2Refit = std::numeric_limits<float>::max();
   float pMatchWindow = 3; // GeV/c
-  
+
   NA6PParamDef(NA6PRecoParam, "reco");
 };
 
