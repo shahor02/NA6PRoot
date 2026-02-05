@@ -36,7 +36,7 @@ class NA6PFastTrackFitter
   static constexpr int kMaxLayers = 20;
 
   NA6PFastTrackFitter();
-  ~NA6PFastTrackFitter() {};
+  ~NA6PFastTrackFitter(){};
 
   // setters for configurable parameters
   void setMaxChi2Cl(double v = 10) { mMaxChi2Cl = v; }
@@ -91,7 +91,7 @@ class NA6PFastTrackFitter
   bool loadGeometry(const char* filename = "geometry.root", const char* geoname = "NA6P");
 
   NA6PTrack* fitTrackPoints(int dir = -1, NA6PTrack* seed = nullptr);
-  NA6PTrack* fitTrackPointsInward() { return fitTrackPoints(-1); }
+  NA6PTrack* fitTrackPointsInward(NA6PTrack* seed = nullptr) { return fitTrackPoints(-1, seed); }
   NA6PTrack* fitTrackPointsOutward(NA6PTrack* seed = nullptr) { return fitTrackPoints(1, seed); }
   bool updateTrack(NA6PTrack* trc, const NA6PBaseCluster* cl) const;
 

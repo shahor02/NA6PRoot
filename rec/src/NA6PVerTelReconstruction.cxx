@@ -224,8 +224,6 @@ void NA6PVerTelReconstruction::runTracking()
     initTracker();
   }
   clearTracks();
-  mVTTracker->setDoOutwardPropagation(true);
-  mVTTracker->setPropagateTracksToPrimaryVertex(true);
   mVTTracker->findTracks(mClusters, mPrimaryVertex);
   mTracks = mVTTracker->getTracks();
   writeTracks();
