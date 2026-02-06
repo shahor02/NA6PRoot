@@ -42,11 +42,6 @@ class NA6PMatching : public NA6PReconstruction
     mIsZMatchingSet = true;
   }
 
-  void setPrimaryVertexPosition(double x, double y, double z)
-  {
-    mPrimaryVertex.SetXYZ(x, y, z);
-  }
-
   void setVerTelTracks(const std::vector<NA6PTrack>& tracks)
   {
     mVerTelTracks = tracks;
@@ -81,7 +76,7 @@ class NA6PMatching : public NA6PReconstruction
                      const double* par2, const double* cov2);
   void propToZMatching(std::vector<NA6PTrack>& tracks, double z, bool outer = false);
   void runMatching();
-  
+
   bool fitAndStoreMatchedTrack(const NA6PTrack& vtTrk, const NA6PTrack& msTrk, int particleId, double matchChi2);
 
  private:
@@ -91,14 +86,13 @@ class NA6PMatching : public NA6PReconstruction
   std::unordered_map<int, int> buildMCMatchingIndex();
 
   std::tuple<int, bool, double> findBestChi2Match(
-      const NA6PTrack& msTrack,
-      const std::vector<size_t>& validVerTelIndices);
+    const NA6PTrack& msTrack,
+    const std::vector<size_t>& validVerTelIndices);
 
   std::vector<size_t> prefilterVerTelTracks();
 
   std::vector<NA6PVerTelCluster> mVerTelClusters, *hVerTelClusPtr = &mVerTelClusters;         // vector of clusters
   std::vector<NA6PMuonSpecCluster> mMuonSpecClusters, *hMuonSpecClusPtr = &mMuonSpecClusters; // vector of clusters                                                     // cluster resolution, cm (for fast simu)
-  TVector3 mPrimaryVertex{0.0, 0.0, 0.0};                                                     // primary vertex position
   double mZMatching = 38.1175;
   bool mIsZMatchingSet = false;
   bool mMCMatching = false;

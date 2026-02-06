@@ -8,6 +8,7 @@
 #include "MagneticField.h"
 #include "NA6PFastTrackFitter.h"
 #include "NA6PRecoParam.h"
+#include "NA6PVertex.h"
 #include "NA6PTrackerCA.h"
 #include "NA6PMuonSpecCluster.h"
 #include "NA6PVerTelCluster.h"
@@ -27,6 +28,7 @@ NA6PTrackerCA::NA6PTrackerCA() : mLayerStart{0},
                                  mPropagateTracksToPrimaryVertex{false},
                                  mDoOutwardPropagation{false},
                                  mDoInwardRefit{false},
+                                 mDoTrackConstrainedToPrimVert{false},
                                  mZOutProp{40.},
                                  mVerbose{false},
                                  mNIterationsCA{2}
@@ -103,6 +105,7 @@ void NA6PTrackerCA::configureFromRecoParamVT(const std::string& filename)
   setZForOutwardPropagation(param.vtZOutProp);
   setDoInwardRefit(param.vtDoInwardRefit);
   setPropagateTracksToPrimaryVertex(param.vtPropagateTracksToPV);
+  setDoTrackConstrainedToPrimVert(param.vtDoConstrainedTrack);
   setNumberOfIterations(param.vtNIterationsTrackerCA);
   setNLayers(param.vtNLayers);
 
@@ -130,6 +133,7 @@ void NA6PTrackerCA::configureFromRecoParamMS(const std::string& filename)
   setNumberOfIterations(param.msNIterationsTrackerCA);
   setNLayers(param.msNLayers);
   setStartLayer(param.vtNLayers);
+  setDoTrackConstrainedToPrimVert(param.msDoConstrainedTrack);
   for (int jIter = 0; jIter < mNIterationsCA; ++jIter) {
     setIterationParams(jIter,
                        param.msMaxDeltaThetaTrackletsCA[jIter],
@@ -751,6 +755,7 @@ template <typename ClusterType>
 void NA6PTrackerCA::fitAndSelectTracks(const std::vector<TrackCandidate>& trackCands,
                                        const std::vector<ClusterType>& cluArr,
                                        std::vector<TrackFitted>& tracks,
+                                       const NA6PVertex* primVert,
                                        float maxChi2TrClu,
                                        int minNClu,
                                        float maxChi2NDF)
@@ -802,6 +807,11 @@ void NA6PTrackerCA::fitAndSelectTracks(const std::vector<TrackCandidate>& trackC
     }
     if (mPropagateTracksToPrimaryVertex)
       mTrackFitter->propagateToZ(&fitTrackFast, mPrimVertPos[2]);
+    if (mDoTrackConstrainedToPrimVert && primVert) {
+      NA6PTrack constrainedTr = fitTrackFast;
+      mTrackFitter->constrainTrackToVertex(&constrainedTr, *primVert);
+      fitTrackFast.setVertexConstrainedParam(constrainedTr.getTrackExtParam());
+    }
     fittedTracks.emplace_back(cand.innerLayer, cand.outerLayer, nClus, cand.cluIDs, std::move(fitTrackFast), chi2ndf);
   }
   // sort by chi2 in view of selection
@@ -864,14 +874,36 @@ void NA6PTrackerCA::fitAndSelectTracks(const std::vector<TrackCandidate>& trackC
 //______________________________________________________________________
 
 template <typename ClusterType>
-void NA6PTrackerCA::findTracks(std::vector<ClusterType>& cluArr, TVector3 primVert)
+void NA6PTrackerCA::findTracks(std::vector<ClusterType>& cluArr, const NA6PVertex* primVert)
 {
 
   mFinalTracks.clear();
   uint nClus = cluArr.size();
-  mPrimVertPos[0] = primVert.X();
-  mPrimVertPos[1] = primVert.Y();
-  mPrimVertPos[2] = primVert.Z();
+  if (primVert) {
+    mPrimVertPos[0] = primVert->getX();
+    mPrimVertPos[1] = primVert->getY();
+    mPrimVertPos[2] = primVert->getZ();
+    if (primVert->getSigmaX2() <= 0.f ||
+        primVert->getSigmaY2() <= 0.f ||
+        primVert->getSigmaZ2() <= 0.f) {
+      if (mDoTrackConstrainedToPrimVert)
+        LOGP(warn, "Covariance matrix of vertex not set. Use default values");
+      // Assign default values to covariance matrix (based on beam width and target thickness)
+      float defaultSigmaXY = 0.02f;
+      float defaultSigmaZ = 0.15f;
+      NA6PVertex vertWithDefaultCov = *primVert;
+      vertWithDefaultCov.setSigmaX(defaultSigmaXY);
+      vertWithDefaultCov.setSigmaY(defaultSigmaXY);
+      vertWithDefaultCov.setSigmaZ(defaultSigmaZ);
+      vertWithDefaultCov.setSigmaXY(0.f);
+      vertWithDefaultCov.setSigmaXZ(0.f);
+      vertWithDefaultCov.setSigmaYZ(0.f);
+      primVert = &vertWithDefaultCov;
+    }
+  } else {
+    mPrimVertPos[0] = mPrimVertPos[1] = mPrimVertPos[2] = 0.0f;
+  }
+
   LOGP(info, "Process event with nClusters {}, primary vertex in z = {} cm", nClus, mPrimVertPos[2]);
   mIsClusterUsed.resize(nClus);
   for (uint jClu = 0; jClu < nClus; jClu++)
@@ -914,7 +946,7 @@ void NA6PTrackerCA::findTracks(std::vector<ClusterType>& cluArr, TVector3 primVe
     if (mVerbose)
       printStats(trackCandidates, cluArr, foundCells, "track candidates");
     //
-    fitAndSelectTracks(trackCandidates, cluArr, iterationTracks, mMaxChi2TrClCellsCA[jIteration], mMinNClusTracksCA[jIteration], mMaxChi2ndfTracksCA[jIteration]);
+    fitAndSelectTracks(trackCandidates, cluArr, iterationTracks, primVert, mMaxChi2TrClCellsCA[jIteration], mMinNClusTracksCA[jIteration], mMaxChi2ndfTracksCA[jIteration]);
     if (mVerbose) {
       printStats(iterationTracks, cluArr, foundCells, "selected tracks");
       printStats(iterationTracks, cluArr, foundCells, "selected tracks", 5);
@@ -1028,5 +1060,5 @@ void NA6PTrackerCA::printStats(const std::vector<T>& candidates,
   }
 }
 
-template void NA6PTrackerCA::findTracks<NA6PMuonSpecCluster>(std::vector<NA6PMuonSpecCluster>&, TVector3);
-template void NA6PTrackerCA::findTracks<NA6PVerTelCluster>(std::vector<NA6PVerTelCluster>&, TVector3);
+template void NA6PTrackerCA::findTracks<NA6PMuonSpecCluster>(std::vector<NA6PMuonSpecCluster>&, const NA6PVertex*);
+template void NA6PTrackerCA::findTracks<NA6PVerTelCluster>(std::vector<NA6PVerTelCluster>&, const NA6PVertex*);

@@ -58,10 +58,6 @@ class NA6PVerTelReconstruction : public NA6PReconstruction
   void hitsToRecPoints(const std::vector<NA6PVerTelHit>& hits);
   NA6PTrackerCA* getTracker() const { return mVTTracker; }
 
-  void setPrimaryVertexPosition(double x, double y, double z)
-  {
-    mPrimaryVertex.SetXYZ(x, y, z);
-  }
   // methods to steer tracking
   void setClusters(const std::vector<NA6PVerTelCluster>& clusters);
   void createVerticesOutput() override;
@@ -89,7 +85,6 @@ class NA6PVerTelReconstruction : public NA6PReconstruction
   TFile* mVertexFile = nullptr;                                     // file with vertices
   TTree* mVertexTree = nullptr;                                     // tree of vertices
   NA6PVertexerTracklets* mVTTrackletVertexer = nullptr;             // vertexer
-  TVector3 mPrimaryVertex{0.0, 0.0, 0.0};                           // primary vertex position
   std::vector<NA6PTrack> mTracks, *hTrackPtr = &mTracks;            // vector of tracks
   TFile* mTrackFile = nullptr;                                      // file with tracks
   TTree* mTrackTree = nullptr;                                      // tree of tracks

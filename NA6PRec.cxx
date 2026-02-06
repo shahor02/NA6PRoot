@@ -168,9 +168,10 @@ int main(int argc, char** argv)
 
     for (int jEv = firstEv; jEv < lastEv; jEv++) {
       LOGP(info, "Process event {}", jEv);
+      vtrec->clearEvent();
       mcTree->GetEvent(jEv);
       int nPart = mcArr->size();
-      double zvert = 0;
+      float zvert = 0;
       // get primary vertex position from the Kine Tree
       for (int jp = 0; jp < nPart; jp++) {
         auto curPart = mcArr->at(jp);
@@ -180,7 +181,9 @@ int main(int argc, char** argv)
         }
       }
       tc->GetEvent(jEv);
-      vtrec->setPrimaryVertexPosition(0., 0., zvert);
+      NA6PVertex pvert;
+      pvert.setXYZ(0., 0., zvert);
+      vtrec->setPrimaryVertex(&pvert);
       vtrec->setClusters(vtClus);
       if (vm["doTrackletVertex"].as<bool>())
         vtrec->runVertexerTracklets();

@@ -18,11 +18,11 @@
 #include <string>
 #include <Rtypes.h>
 #include "NA6PTrack.h"
-#include <TVector3.h>
 
 // Cellular Automaton track finder
 
 class NA6PFastTrackFitter;
+class NA6PVertex;
 
 // structures for temporary objects used in track finding
 struct TrackletCandidate {
@@ -81,6 +81,7 @@ class NA6PTrackerCA
   void setDoOutwardPropagation(bool opt = true) { mDoOutwardPropagation = opt; }
   void setZForOutwardPropagation(float zout) { mZOutProp = zout; }
   void setDoInwardRefit(bool opt = true) { mDoInwardRefit = opt; }
+  void setDoTrackConstrainedToPrimVert(bool opt = true) { mDoTrackConstrainedToPrimVert = opt; }
   void setNumberOfIterations(int nIter);
   void setIterationParams(int iter,
                           float maxDeltaThetaTracklets,
@@ -103,7 +104,7 @@ class NA6PTrackerCA
   bool loadGeometry(const char* filename, const char* geoname = "NA6P");
 
   template <typename ClusterType>
-  void findTracks(std::vector<ClusterType>& cluArr, TVector3 primVert);
+  void findTracks(std::vector<ClusterType>& cluArr, const NA6PVertex* primVert);
 
   std::vector<NA6PTrack> getTracks();
 
@@ -175,6 +176,7 @@ class NA6PTrackerCA
   void fitAndSelectTracks(const std::vector<TrackCandidate>& trackCands,
                           const std::vector<ClusterType>& cluArr,
                           std::vector<TrackFitted>& tracks,
+                          const NA6PVertex* primVert,
                           float maxChi2TrClu,
                           int minNClu,
                           float maxChi2NDF);
@@ -197,6 +199,7 @@ class NA6PTrackerCA
   bool mPropagateTracksToPrimaryVertex = false;
   bool mDoOutwardPropagation = false;
   bool mDoInwardRefit = false;
+  bool mDoTrackConstrainedToPrimVert = false;
   float mZOutProp = 38.1175;
   int mNIterationsCA = 2;
   float mMaxDeltaThetaTrackletsCA[kMaxIterationsCA] = {0.04, 0.1, 0.15, 0.3, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
