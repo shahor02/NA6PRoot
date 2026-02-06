@@ -279,11 +279,11 @@ void NA6PTrack::addCluster(const ClusterType* clu, int cluIndex, double chi2) {
     mChi2VT += chi2;
   }
   else if (nLay >= NA6PLayoutParam::Instance().nVerTelPlanes + NA6PLayoutParam::Instance().nMSPlanes - 2) {
-    mNClustersMS++;
+    mNClustersTR++;
     mChi2MS += chi2;
   }
   else {
-    mNClustersTR++;
+    mNClustersMS++;
     mChi2MS += chi2;
   }
 }
