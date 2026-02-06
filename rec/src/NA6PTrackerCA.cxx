@@ -86,6 +86,13 @@ void NA6PTrackerCA::setIterationParams(int iter,
   mMinNClusTracksCA[iter] = minNClusTracks;
 }
 
+void NA6PTrackerCA::setParticleHypothesis(int pdg)
+{
+  if (mTrackFitter) {
+    mTrackFitter->setParticleHypothesis(pdg);
+  }
+}
+
 void NA6PTrackerCA::configureFromRecoParamVT(const std::string& filename)
 {
   if (filename != "") {
@@ -122,6 +129,7 @@ void NA6PTrackerCA::configureFromRecoParamMS(const std::string& filename)
   const auto& param = NA6PRecoParam::Instance();
   setNumberOfIterations(param.msNIterationsTrackerCA);
   setNLayers(param.msNLayers);
+  setStartLayer(param.vtNLayers);
   for (int jIter = 0; jIter < mNIterationsCA; ++jIter) {
     setIterationParams(jIter,
                        param.msMaxDeltaThetaTrackletsCA[jIter],
