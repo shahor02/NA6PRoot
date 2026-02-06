@@ -51,10 +51,6 @@ class NA6PMuonSpecReconstruction : public NA6PReconstruction
   void hitsToRecPoints(const std::vector<NA6PMuonSpecModularHit>& hits);
   NA6PTrackerCA* getTracker() const { return mMSTracker; }
 
-  void setPrimaryVertexPosition(double x, double y, double z)
-  {
-    mPrimaryVertex.SetXYZ(x, y, z);
-  }
   // methods to steer tracking
   void setClusters(const std::vector<NA6PMuonSpecCluster>& clusters);
 
@@ -70,7 +66,6 @@ class NA6PMuonSpecReconstruction : public NA6PReconstruction
   TTree* mClusTree = nullptr;                                         // tree of clusters
   double mCluResX = 100.e-4;                                          // cluster resolution, cm (for fast simu)
   double mCluResY = 500.e-4;                                          // cluster resolution, cm (for fast simu)
-  TVector3 mPrimaryVertex{0.0, 0.0, 0.0};                             // primary vertex position
   std::vector<NA6PTrack> mTracks, *hTrackPtr = &mTracks;              // vector of tracks
   TFile* mTrackFile = nullptr;                                        // file with tracks
   TTree* mTrackTree = nullptr;                                        // tree of tracks

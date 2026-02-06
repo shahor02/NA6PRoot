@@ -6,6 +6,7 @@
 #include <TFile.h>
 #include <TSystem.h>
 #include "NA6PTrack.h"
+#include "NA6PVertex.h"
 #include "MagneticField.h"
 #include "NA6PFastTrackFitter.h"
 #include "NA6PVerTelCluster.h"
@@ -312,6 +313,33 @@ bool NA6PFastTrackFitter::updateTrack(NA6PTrack* trc, const NA6PBaseCluster* cl)
   trc->addCluster(cl, cl->getClusterIndex(), chi2);
   //
   return true;
+}
+
+bool NA6PFastTrackFitter::constrainTrackToVertex(NA6PTrack* trc, const NA6PVertex& pv) const
+{
+
+  if (!trc)
+    return false;
+
+  if (!propagateToZ(trc, pv.getZ()))
+    return false;
+
+  // create a pseudocluster for the vertex
+  // use -1 for layer to distinguish it from detector hits
+  NA6PBaseCluster vClu(pv.getX(), pv.getY(), pv.getZ(), 1, -1);
+  // project covariance matrix elements using track direction
+  double pxyz[3];
+  trc->getPXYZ(pxyz);
+  if (std::abs(pxyz[2]) < 1e-6)
+    return false;
+  float tx = static_cast<float>(pxyz[0] / pxyz[2]);
+  float ty = static_cast<float>(pxyz[1] / pxyz[2]);
+  float sYY = pv.getSigmaX2() + (tx * tx * pv.getSigmaZ2()) - (2.0f * tx * pv.getSigmaXZ());
+  float sZZ = pv.getSigmaY2() + (ty * ty * pv.getSigmaZ2()) - (2.0f * ty * pv.getSigmaYZ());
+  float sYZ = pv.getSigmaXY() + (tx * ty * pv.getSigmaZ2()) - (tx * pv.getSigmaYZ()) - (ty * pv.getSigmaXZ());
+  vClu.setErr(sYY, sYZ, sZZ);
+  // update the track with the pseudo cluster
+  return updateTrack(trc, &vClu);
 }
 
 int NA6PFastTrackFitter::getLayersForSeed(std::array<int, 3>& layForSeed) const

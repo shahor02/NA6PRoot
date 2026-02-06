@@ -44,6 +44,7 @@ struct NA6PRecoParam : public na6p::conf::ConfigurableParamHelper<NA6PRecoParam>
   float vtZOutProp = 40.;
   bool vtDoInwardRefit = false;
   bool vtPropagateTracksToPV = true;
+  bool vtDoConstrainedTrack = false;
   int vtNIterationsTrackerCA = 2;
   float vtMaxDeltaThetaTrackletsCA[MaxIterationsTrackerCA] = {0.04, 0.1, 0.15, 0.3, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   float vtMaxDeltaPhiTrackletsCA[MaxIterationsTrackerCA] = {0.1, 0.2, 0.25, 0.5, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
@@ -68,6 +69,7 @@ struct NA6PRecoParam : public na6p::conf::ConfigurableParamHelper<NA6PRecoParam>
   float msMaxChi2ndfCellsCA[MaxIterationsTrackerCA] = {5., 100., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   float msMaxChi2ndfTracksCA[MaxIterationsTrackerCA] = {5., 100., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   int msMinNClusTracksCA[MaxIterationsTrackerCA] = {6, 6, 0, 0, 0, 0, 0, 0, 0};
+  bool msDoConstrainedTrack = false;
   // Matching parameters
   float zMatching = 40;
   bool isZMatchingSet = false;

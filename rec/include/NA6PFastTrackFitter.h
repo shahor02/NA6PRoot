@@ -23,6 +23,7 @@
 
 class TGeoManager;
 class NA6PTrack;
+class NA6PVertex;
 
 class NA6PFastTrackFitter
 {
@@ -94,6 +95,7 @@ class NA6PFastTrackFitter
   NA6PTrack* fitTrackPointsInward(NA6PTrack* seed = nullptr) { return fitTrackPoints(-1, seed); }
   NA6PTrack* fitTrackPointsOutward(NA6PTrack* seed = nullptr) { return fitTrackPoints(1, seed); }
   bool updateTrack(NA6PTrack* trc, const NA6PBaseCluster* cl) const;
+  bool constrainTrackToVertex(NA6PTrack* trc, const NA6PVertex& pv) const;
 
   int propagateToZ(NA6PTrack* trc, double zTo) const;
   int propagateToZ(NA6PTrack* trc, double zFrom, double zTo, int dir) const;

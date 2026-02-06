@@ -132,7 +132,6 @@ void NA6PMatching::addClustersToFitter(const NA6PTrack& trk, const auto* clusPtr
   }
 }
 
-
 std::tuple<int, bool, double> NA6PMatching::findBestChi2Match(
   const NA6PTrack& msTrack,
   const std::vector<size_t>& validVerTelIndices)
@@ -144,11 +143,10 @@ std::tuple<int, bool, double> NA6PMatching::findBestChi2Match(
   const int msPartId = msTrack.getParticleID();
 
   auto lower = std::partition_point(validVerTelIndices.begin(), validVerTelIndices.end(),
-    [&](size_t vIdx) { return mVerTelTracks[vIdx].getPOuter() > msP + mPMatchWindow; });
-  
+                                    [&](size_t vIdx) { return mVerTelTracks[vIdx].getPOuter() > msP + mPMatchWindow; });
+
   auto upper = std::partition_point(lower, validVerTelIndices.end(),
-    [&](size_t vIdx) { return mVerTelTracks[vIdx].getPOuter() >= msP - mPMatchWindow; });
-  
+                                    [&](size_t vIdx) { return mVerTelTracks[vIdx].getPOuter() >= msP - mPMatchWindow; });
 
   float bestChi2 = mMaxChi2Match;
   int bestIdx = -1;
@@ -225,12 +223,11 @@ bool NA6PMatching::fitAndStoreMatchedTrack(const NA6PTrack& vtTrk, const NA6PTra
 
   matchedTrack->setParticleID(particleId);
   matchedTrack->setMatchChi2(matchChi2);
-  mTrackFitter->propagateToZ(matchedTrack.get(), mPrimaryVertex.Z());
+  mTrackFitter->propagateToZ(matchedTrack.get(), mPrimaryVertex->getZ());
   mMatchedTracks.push_back(*matchedTrack);
 
   return true;
 }
-
 
 void NA6PMatching::runMCMatching()
 {

@@ -51,6 +51,7 @@ class NA6PTrack
   void resetCovariance(float err = -1.);
   void setParam(const ExtTrackPar& p) { mExtTrack = p; }
   void setOuterParam(const ExtTrackPar& p) { mOuter = p; }
+  void setVertexConstrainedParam(const ExtTrackPar& p) { mConstrained = p; }
   void setStatusRefitInward(bool status) { mStatusRefitInward = status; }
 
   bool getStatusRefitInward() const { return mStatusRefitInward; }
@@ -63,6 +64,8 @@ class NA6PTrack
   const double* getCovariance() const { return mExtTrack.getCovariance(); }
   const ExtTrackPar& getOuterParam() const { return mOuter; }
   ExtTrackPar& getOuterParam() { return mOuter; }
+  const ExtTrackPar& getVertexConstrainedParam() const { return mConstrained; }
+  ExtTrackPar& getVertexConstrainedParam() { return mConstrained; }
   int getNVTHits() const { return mNClustersVT; }
   int getNMSHits() const { return mNClustersMS; }
   int getNTRHits() const { return mNClustersTR; }
@@ -80,6 +83,7 @@ class NA6PTrack
   double getYLab() const { return mExtTrack.getZ(); }
   double getZLab() const { return negDir() ? -mExtTrack.getX() : mExtTrack.getX(); }
   double getZLabOuter() const { return negDir() ? -mOuter.getX() : mOuter.getX(); }
+  double getZLabVertexConstrained() const { return negDir() ? -mConstrained.getX() : mConstrained.getX(); }
 
   double getR() const
   {
@@ -91,10 +95,14 @@ class NA6PTrack
   double getZTF() const { return mExtTrack.getZ(); }
   void getXYZ(double* xyz) const;
   void getPXYZ(double* pxyz) const;
+  double getP() const { return mExtTrack.getP(); }
   void getXYZOuter(double* xyz) const;
   void getPXYZOuter(double* pxyz) const;
-  double getP() const { return mExtTrack.getP(); }
   double getPOuter() const { return mOuter.getP(); }
+  void getXYZVertexConstrained(double* xyz) const;
+  void getPXYZVertexConstrained(double* pxyz) const;
+  double getPVertexConstrained() const { return mConstrained.getP(); }
+
   double getSigmaX2() const { return mExtTrack.getSigmaY2(); }
   double getSigmaY2() const { return mExtTrack.getSigmaZ2(); }
   double getSigmaXY() const { return mExtTrack.getSigmaZY(); }
@@ -154,13 +162,14 @@ class NA6PTrack
   int mCAIteration = -1;                     //! CA iteration (for debug)
   ExtTrackPar mExtTrack;                     // track params
   ExtTrackPar mOuter{};                      // parametrization for outward fit
+  ExtTrackPar mConstrained{};                // parametrization with vertex constrain
   bool mStatusRefitInward = false;           // boolean for status of inward refit
 
  private:
   bool propagateToZBxByBz(double z, const double* bxyz) { return mExtTrack.propagateToBxByBz(z, bxyz); }
   bool propagateToZBxByBzOuter(double z, const double* bxyz) { return mOuter.propagateToBxByBz(z, bxyz); }
 
-  ClassDefNV(NA6PTrack, 1)
+  ClassDefNV(NA6PTrack, 2)
 };
 
 //_______________________________________________________________________
@@ -214,6 +223,23 @@ inline void NA6PTrack::getPXYZOuter(double* pxyz) const
   // track position in Lab coordinates
   double pxyzTrk[3];
   mOuter.getPxPyPz(pxyzTrk);
+  trk2lab(pxyzTrk, pxyz);
+}
+//_______________________________________________________________________
+inline void NA6PTrack::getXYZVertexConstrained(double* xyz) const
+{
+  // track position in Lab coordinates
+  double xyzTrk[3];
+  mConstrained.getXYZ(xyzTrk);
+  trk2lab(xyzTrk, xyz);
+}
+
+//_______________________________________________________________________
+inline void NA6PTrack::getPXYZVertexConstrained(double* pxyz) const
+{
+  // track position in Lab coordinates
+  double pxyzTrk[3];
+  mConstrained.getPxPyPz(pxyzTrk);
   trk2lab(pxyzTrk, pxyz);
 }
 

@@ -9,7 +9,7 @@
 
 void runVTTracking(int firstEv = 0,
                    int lastEv = 99999,
-                   const char* dirSimu = "Angantyr")
+                   const char* dirSimu = ".")
 {
 
   // kine file needed to get the primary vertex position (temporary)
@@ -39,6 +39,7 @@ void runVTTracking(int firstEv = 0,
   timer.Start();
 
   for (int jEv = firstEv; jEv < lastEv; jEv++) {
+    vtrec->clearEvent();
     mcTree->GetEvent(jEv);
     int nPart = mcArr->size();
     double zvert = 0;
@@ -51,7 +52,9 @@ void runVTTracking(int firstEv = 0,
       }
     }
     tc->GetEvent(jEv);
-    vtrec->setPrimaryVertexPosition(0., 0., zvert);
+    NA6PVertex pvert;
+    pvert.setXYZ(0., 0., zvert);
+    vtrec->setPrimaryVertex(&pvert);
     vtrec->setClusters(vtClus);
     vtrec->runTracking();
   }

@@ -21,6 +21,7 @@
 #include <TLegend.h>
 #include "NA6PMuonSpecCluster.h"
 #include "NA6PTrack.h"
+#include "NA6PVertex.h"
 #include "NA6PTrackerCA.h"
 #include "MagneticField.h"
 #include "NA6PMuonSpecModularHit.h"
@@ -30,7 +31,7 @@ const int maxIterationsCA = NA6PTrackerCA::kMaxIterationsCA;
 
 void runMSTrackFinderCA(int firstEv = 0,
                         int lastEv = 9999,
-                        const char* dirSimu = "../tst",
+                        const char* dirSimu = ".",
                         int nLayers = 6)
 {
 
@@ -57,15 +58,15 @@ void runMSTrackFinderCA(int firstEv = 0,
   NA6PTrackerCA* tracker = new NA6PTrackerCA();
   tracker->setNLayers(6);
   tracker->setStartLayer(5);
-  //tracker->setVerbosity(true);
+  // tracker->setVerbosity(true);
   if (!tracker->loadGeometry(Form("%s/geometry.root", dirSimu)))
     return;
   // pass here the configuration of the tracker via an ini file
-  //tracker->configureFromRecoParam(/* filename.ini */);
+  // tracker->configureFromRecoParam(/* filename.ini */);
   // alternatively the configuration can be set calling setters for the iterations
   tracker->setNumberOfIterations(2);
-  tracker->setIterationParams(0,0.06,0.1,6.,0.6,0.05,0.05,5.,5.,5.,6);
-  tracker->setIterationParams(1,0.1,0.6,9.,0.8,0.08,0.08,10.,10.,10.,6);
+  tracker->setIterationParams(0, 0.06, 0.1, 6., 0.6, 0.05, 0.05, 5., 5., 5., 6);
+  tracker->setIterationParams(1, 0.1, 0.6, 9., 0.8, 0.08, 0.08, 10., 10., 10., 6);
   tracker->printConfiguration();
   TFile* fk = new TFile(Form("%s/MCKine.root", dirSimu));
   TTree* mcTree = (TTree*)fk->Get("mckine");
@@ -87,7 +88,7 @@ void runMSTrackFinderCA(int firstEv = 0,
     lastEv = nEv;
   if (firstEv < 0)
     firstEv = 0;
-  TVector3 primVert(0, 0, 0);
+  NA6PVertex primVert;
 
   int nIterationsCA = tracker->getNIterations();
 
@@ -104,7 +105,7 @@ void runMSTrackFinderCA(int firstEv = 0,
         break;
       }
     }
-    primVert.SetZ(zvert);
+    primVert.setXYZ(0., 0., zvert);
     uint nHits = msHits.size();
     for (int jp = 0; jp < nPart; jp++) {
       auto curPart = mcArr->at(jp);
@@ -130,7 +131,7 @@ void runMSTrackFinderCA(int firstEv = 0,
       }
     }
     tc->GetEvent(jEv);
-    tracker->findTracks(msClus, primVert);
+    tracker->findTracks(msClus, &primVert);
     std::vector<NA6PTrack> trks = tracker->getTracks();
     int nTrks = trks.size();
     for (int jT = 0; jT < nTrks; jT++) {
