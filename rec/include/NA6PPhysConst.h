@@ -241,6 +241,10 @@ constexpr float LightSpeedCm2PS = LightSpeedCm2S * 1e-12; // C in cm/ps
 // Light speed inverse
 constexpr float invLightSpeedCm2PS = 1. / LightSpeedCm2PS; // 1/C in ps/cm
 
+// Pi
+constexpr float PI = 3.14159265358979323846f;
+
+ 
 } // namespace phys_const
 
 #endif
