@@ -37,7 +37,7 @@ std::string NA6PTrackParCov::asString() const
 bool NA6PTrackParCov::propagateToZ(float znew, float b_y)
 {
   const auto dz = znew - mZ;
-  if (std::abs(dz) == 1e-6f) {
+  if (std::abs(dz) < 1e-6f) {
     return true;
   }
   const float K = kB2C * b_y;
