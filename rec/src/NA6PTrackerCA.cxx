@@ -809,8 +809,8 @@ void NA6PTrackerCA::fitAndSelectTracks(const std::vector<TrackCandidate>& trackC
       mTrackFitter->propagateToZ(&fitTrackFast, mPrimVertPos[2]);
     if (mDoTrackConstrainedToPrimVert && primVert) {
       NA6PTrack constrainedTr = fitTrackFast;
-      mTrackFitter->constrainTrackToVertex(&constrainedTr, *primVert);
-      fitTrackFast.setVertexConstrainedParam(constrainedTr.getTrackExtParam());
+      bool vcOk = mTrackFitter->constrainTrackToVertex(&constrainedTr, *primVert);
+      if (vcOk) fitTrackFast.setVertexConstrainedParam(constrainedTr.getTrackExtParam());
     }
     fittedTracks.emplace_back(cand.innerLayer, cand.outerLayer, nClus, cand.cluIDs, std::move(fitTrackFast), chi2ndf);
   }
