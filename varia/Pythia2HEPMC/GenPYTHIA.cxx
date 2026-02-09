@@ -70,6 +70,7 @@ int main(int argc, char* argv[])
   pythia.readFile(inpFile);
 
   char en[30];
+  sprintf(en,"Beams:eA = %3.0f",energy);
   pythia.readString(en);
 
   // General histograms
