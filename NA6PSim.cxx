@@ -10,7 +10,6 @@
 #include "MagneticField.h"
 #include "StringUtils.h"
 #include "NA6PMC.h"
-#include "NA6PDetector.h"
 #include "TG4RunConfiguration.h"
 #include "TGeant4.h"
 
@@ -39,8 +38,6 @@ int main(int argc, char** argv)
     add_option("user-vertex,V", bpo::value<std::string>()->default_value(""), "root macro C macro with user method for vertex generation");
     add_option("rnd-seed,r", bpo::value<int64_t>()->default_value(-1), "random number seed, 0 - do not set, <0: generate from time");
     add_option("save-bfield,b", bpo::value<bool>()->default_value(false)->implicit_value(true), "Save magnetic field to file");
-    add_option("use-gdml-magnets", bpo::value<bool>()->default_value(false)->implicit_value(true),
-               "Use magnet geometry from GDML (BothMagnets.gdml) instead of analytic C++ magnets");
     opt_all.add(opt_general).add(opt_hidden);
     bpo::store(bpo::command_line_parser(argc, argv).options(opt_all).positional(opt_pos).run(), vm);
 
@@ -66,11 +63,6 @@ int main(int argc, char** argv)
   }
   LOGP(info, "Printing all configs");
   na6p::conf::ConfigurableParam::printAllKeyValuePairs();
-
-  // Select geometry description for magnets BEFORE constructing the detector.
-  // By default (flag false) analytic C++ magnets (NA6PDipoleVT/MS) are used.
-  bool useGDMLMagnets = vm["use-gdml-magnets"].as<bool>();
-  NA6PDetector::setUseGDMLMagnets(useGDMLMagnets);
 
   auto mc = new NA6PMC("NA6PMCApp", "NA6P Virtual Monte Carlo Application");
   mc->setVerbosity(vm["verbosity"].as<int>());

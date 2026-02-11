@@ -21,11 +21,6 @@ class NA6PDetector
     return inst;
   }
 
-  // Switch between analytic (C++) and GDML-based magnet geometry.
-  // Must be called BEFORE the first call to instance(), i.e. before
-  // NA6PMC is constructed.
-  static void setUseGDMLMagnets(bool v);
-
   void createGeometry(const std::string& name = "NA6P");
   void createCommonMaterials();
 

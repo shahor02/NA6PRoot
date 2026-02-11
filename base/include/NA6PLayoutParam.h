@@ -30,6 +30,10 @@ struct NA6PLayoutParam : public na6p::conf::ConfigurableParamHelper<NA6PLayoutPa
   float posDipMS[3] = {0.f, 0.f, 430.f}; // MS dipole position
   std::string fieldMapDipMS = "$(NA6PROOT_ROOT)/share/data/mnp33_fieldmap_5cm.dat";
 
+  // GDML-based magnet geometry
+  std::string gdmlMagPath = "$(NA6PROOT_ROOT)/share/data/BothMagnets.gdml";
+  bool use_gdml_magnets = false; // set to true to use GDML geometry instead of analytic C++ magnets
+
   // Target
   int nTargets = 5;
   float shiftTargets[3] = {0.f, 0.f, 0.f}; // Target box global shift, added to posTargetX,Y,Z

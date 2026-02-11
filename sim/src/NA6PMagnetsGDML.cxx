@@ -12,15 +12,6 @@
 #include <TGeoMatrix.h>
 #include <TColor.h>
 #include <fairlogger/Logger.h>
-#include <cstdlib>
-
-std::string NA6PMagnetsGDML::getGDMLPath() const
-{
-  const char* gdmlPathEnv = std::getenv("NA6P_BOTHMAGNETS_GDML");
-  // Default to BothMagnets.gdml in user's Alice directory
-  // TODO: should be moved to NA6PRoot/data/ directory for production
-  return gdmlPathEnv ? gdmlPathEnv : "/home/access/Alice/NA6PRoot/data/BothMagnets.gdml";
-}
 
 void NA6PMagnetsGDML::createMaterials()
 {
@@ -66,30 +57,12 @@ void NA6PMagnetsGDML::assignMediaToGDMLVolumes()
     assignAirIfNeeded("MEP48");
   }
 
-  // Get GDML materials (fallback if analytic ones are not available)
-  auto getMedIfExists = [geom](const char* name) -> TGeoMedium* {
-    return geom->GetMedium(name);
-  };
-
-  TGeoMedium* feMed = getMedIfExists("G4_Fe");
-  if (!feMed) {
-    feMed = getMedIfExists("G4_Fe0x39eca690");
-  }
-  TGeoMedium* cuMed = getMedIfExists("G4_Cu");
-  if (!cuMed) {
-    cuMed = getMedIfExists("G4_Cu0x39e8a110");
-  }
-
-  // Prefer analytic magnet media for consistency
-  TGeoMedium* feVT = helper.getMedium("Iron_DipoleVT", /*fatalIfMissing=*/false);
-  TGeoMedium* cuVT = helper.getMedium("Copper_DipoleVT", /*fatalIfMissing=*/false);
-  TGeoMedium* feMS = helper.getMedium("Iron_DipoleMS", /*fatalIfMissing=*/false);
-  TGeoMedium* cuMS = helper.getMedium("Copper_DipoleMS", /*fatalIfMissing=*/false);
+  TGeoMedium* feVT = helper.getMedium("Iron_DipoleVT", /*fatalIfMissing=*/true);
+  TGeoMedium* cuVT = helper.getMedium("Copper_DipoleVT", /*fatalIfMissing=*/true);
+  TGeoMedium* feMS = helper.getMedium("Iron_DipoleMS", /*fatalIfMissing=*/true);
+  TGeoMedium* cuMS = helper.getMedium("Copper_DipoleMS", /*fatalIfMissing=*/true);
 
   auto assignMediumIfFound = [&](const char* volName, TGeoMedium* med) {
-    if (!med) {
-      return;
-    }
     if (auto* v = geom->FindVolumeFast(volName)) {
       LOGP(info, "Assigning medium {} to volume {}", med->GetName(), v->GetName());
       v->SetMedium(med);
@@ -97,18 +70,18 @@ void NA6PMagnetsGDML::assignMediaToGDMLVolumes()
   };
 
   // First magnet (DipoleVT / MEP48): gap, yokes, poles, coils
-  assignMediumIfFound("gap",      feVT ? feVT : feMed);
-  assignMediumIfFound("yokeUp",   feVT ? feVT : feMed);
-  assignMediumIfFound("yokeDown", feVT ? feVT : feMed);
-  assignMediumIfFound("poleUp",   feVT ? feVT : feMed);
-  assignMediumIfFound("poleDown", feVT ? feVT : feMed);
-  assignMediumIfFound("coilUp",   cuVT ? cuVT : cuMed);
-  assignMediumIfFound("coilDown", cuVT ? cuVT : cuMed);
+  assignMediumIfFound("gap",      feVT);
+  assignMediumIfFound("yokeUp",   feVT);
+  assignMediumIfFound("yokeDown", feVT);
+  assignMediumIfFound("poleUp",   feVT);
+  assignMediumIfFound("poleDown", feVT);
+  assignMediumIfFound("coilUp",   cuVT);
+  assignMediumIfFound("coilDown", cuVT);
 
   // Second magnet (DipoleMS / MNP33): yoke, coils
-  assignMediumIfFound("yoke",       feMS ? feMS : feMed);
-  assignMediumIfFound("coil_big",   cuMS ? cuMS : cuMed);
-  assignMediumIfFound("coil_small", cuMS ? cuMS : cuMed);
+  assignMediumIfFound("yoke",       feMS);
+  assignMediumIfFound("coil_big",   cuMS);
+  assignMediumIfFound("coil_small", cuMS);
 }
 
 void NA6PMagnetsGDML::alignMagnetsToLayout(TGeoVolume* world)

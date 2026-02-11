@@ -14,26 +14,16 @@
 #include "StringUtils.h"
 #include <TGeoManager.h>
 #include <TColor.h>
+#include <TSystem.h>
 #include <fairlogger/Logger.h>
-#include <cstdlib>
-
-namespace
-{
-// Global switch: false = analytic C++ magnets (NA6PDipoleVT/MS),
-// true = import magnets from GDML (BothMagnets.gdml).
-bool gUseGDMLMagnets = false;
-} // namespace
-
-void NA6PDetector::setUseGDMLMagnets(bool v)
-{
-  gUseGDMLMagnets = v;
-}
 
 NA6PDetector::NA6PDetector()
 {
+  const auto& param = NA6PLayoutParam::Instance();
+  
   // Declare modules
-  if (!gUseGDMLMagnets) {
-    // Analytic magnets from C++ (original behaviour)
+  if (!param.use_gdml_magnets) {
+    // Analytic magnets from C++ (default behaviour)
     addModule(new NA6PDipoleVT());
   } else {
     // GDML-based magnets: add the GDML magnet module
@@ -44,7 +34,7 @@ NA6PDetector::NA6PDetector()
   addModule(new NA6PVerTel());
   addModule(new NA6PAbsorber());
 
-  if (!gUseGDMLMagnets) {
+  if (!param.use_gdml_magnets) {
     addModule(new NA6PDipoleMS());
   }
   //addModule(new NA6PMuonSpec());
@@ -89,10 +79,11 @@ void NA6PDetector::addModule(NA6PModule* m)
 
 void NA6PDetector::createGeometry(const std::string& name)
 {
+  const auto& param = NA6PLayoutParam::Instance();
   TGeoManager* geom = nullptr;
   TGeoVolume* world = nullptr;
 
-  if (!gUseGDMLMagnets) {
+  if (!param.use_gdml_magnets) {
     // === Analytic geometry (original): build from C++ code ===
     geom = new TGeoManager(name.c_str(), (name + " TGeometry").c_str());
     createCommonMaterials();
@@ -100,6 +91,12 @@ void NA6PDetector::createGeometry(const std::string& name)
                           NA6PTGeoHelper::instance().getMedium("Air"),
                           1000., 1000., 1000.);
     geom->SetTopVolume(world);
+
+    // Build modules (analytic magnets and other detectors)
+    for (auto m : mModulesVec) {
+      m->createMaterials();
+      m->createGeometry(world);
+    }
   } else {
     // === GDML-based magnets: import BothMagnets.gdml ===
     // Get GDML module (it was added in constructor)
@@ -114,13 +111,16 @@ void NA6PDetector::createGeometry(const std::string& name)
       LOGP(fatal, "GDML magnet mode is enabled, but NA6PMagnetsGDML module not found");
     }
 
-    std::string gdmlPath = gdmlMagnetModule->getGDMLPath();
+    std::string gdmlPath = gSystem->ExpandPathName(param.gdmlMagPath.c_str());
     LOGP(info, "Importing geometry from GDML file: {}", gdmlPath);
     TGeoManager::Import(gdmlPath.c_str());
     geom = gGeoManager;
     if (!geom) {
       LOGP(fatal, "Failed to create TGeoManager from GDML file {}", gdmlPath);
     }
+    // Rename geometry to match the analytic case
+    geom->SetName(name.c_str());
+    geom->SetTitle((name + " TGeometry").c_str());
 
     createCommonMaterials();
     world = geom->GetTopVolume();
@@ -128,16 +128,20 @@ void NA6PDetector::createGeometry(const std::string& name)
       LOGP(fatal, "No top volume found after importing GDML file {}", gdmlPath);
     }
 
+    // Create materials for all modules BEFORE assigning them to GDML volumes
+    for (auto m : mModulesVec) {
+      m->createMaterials();
+    }
+
     // Let the GDML module do magnet-specific setup
     gdmlMagnetModule->assignMediaToGDMLVolumes();
     gdmlMagnetModule->alignMagnetsToLayout(world);
     gdmlMagnetModule->harmoniseVolumeNames();
-  }
 
-  // Build modules (analytic magnets or other detectors)
-  for (auto m : mModulesVec) {
-    m->createMaterials();
-    m->createGeometry(world);
+    // Build geometry for non-magnet modules
+    for (auto m : mModulesVec) {
+      m->createGeometry(world);
+    }
   }
 
   // Apply consistent coloring: Iron/Fe → blue, Copper/Cu → yellow

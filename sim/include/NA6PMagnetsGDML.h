@@ -19,7 +19,6 @@ class NA6PMagnetsGDML : public NA6PModule
   void createGeometry(TGeoVolume* world) override;
 
   // Public helper methods for GDML geometry processing
-  std::string getGDMLPath() const;
   void alignMagnetsToLayout(TGeoVolume* world);
   void assignMediaToGDMLVolumes();
   void harmoniseVolumeNames();
