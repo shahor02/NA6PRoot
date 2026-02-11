@@ -12,6 +12,7 @@
 #include <TParticle.h>
 #include <TStopwatch.h>
 #include "NA6PVerTelHit.h"
+#include "NA6PMuonSpecModularHit.h"
 #include "MagneticField.h"
 #include "StringUtils.h"
 #include "NA6PVerTelReconstruction.h"
@@ -139,6 +140,38 @@ int main(int argc, char** argv)
     vtrec->closeClustersOutput();
     fhVT->Close();
     delete fhVT;
+
+    // Muon Spectrometer hits -> clusters
+    TFile* fhMS = TFile::Open("HitsMuonSpecModular.root");
+    if (!fhMS || fhMS->IsZombie()) {
+      LOGP(error, "Cannot open HitsMuonSpecModular.root");
+      if (fhMS)
+        delete fhMS;
+      return -1;
+    }
+    TTree* thMS = (TTree*)fhMS->Get("hitsMuonSpecModular");
+    if (!thMS) {
+      LOGP(error, "Cannot find tree 'hitsMuonSpecModular' in HitsMuonSpecModular.root");
+      fhMS->Close();
+      delete fhMS;
+      return -1;
+    }
+    std::vector<NA6PMuonSpecModularHit> msHits, *msHitsPtr = &msHits;
+    thMS->SetBranchAddress("MuonSpecModular", &msHitsPtr);
+    int nEvMS = thMS->GetEntriesFast();
+
+    msrec->createClustersOutput();
+    for (int jEv = 0; jEv < nEvMS; jEv++) {
+      thMS->GetEvent(jEv);
+      int nHits = msHits.size();
+      LOGP(info, "MuonSpec Event {} nHits= {}", jEv, nHits);
+      msrec->clearClusters();
+      msrec->hitsToRecPoints(msHits);
+      msrec->writeClusters();
+    }
+    msrec->closeClustersOutput();
+    fhMS->Close();
+    delete fhMS;
   } else {
     LOGP(info, "Hits -> Recpoints disabled from input options");
   }
@@ -231,9 +264,9 @@ int main(int argc, char** argv)
       vtrec->initVertexer();
     if (doVTTracking)
       vtrec->initTracker();
-    if (doMSTracking) {
+    if (doMSTracking)
       msrec->initTracker();
-    }
+    
     TStopwatch timer;
     timer.Start();
 
