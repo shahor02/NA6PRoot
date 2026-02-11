@@ -50,9 +50,10 @@ void runMatching(
   std::vector<NA6PTrack> msTracks, *msTrackPtr = &msTracks;
   tmstracks->SetBranchAddress("MuonSpec", &msTrackPtr);
 
-  NA6PMatching* matching = new NA6PMatching();
   na6p::conf::ConfigurableParam::updateFromFile(Form("%s/na6pLayout.ini",dirSimu), "", true);
-  matching->init(Form("%s/geometry.root", dirSimu));
+  NA6PMatching* matching = new NA6PMatching();
+  matching->configureFromRecoParam();
+  matching->setGeometryFile(Form("%s/geometry.root", dirSimu));
   matching->setZMatching(zmatch);
   matching->setMCMatching(useMC);
   
@@ -82,8 +83,11 @@ void runMatching(
     tmuonspec->GetEvent(jEv);
     tvttracks->GetEvent(jEv);
     tmstracks->GetEvent(jEv);
-    matching->setPrimaryVertexPosition(0., 0., zvert);
 
+    NA6PVertex pvert;
+    pvert.setXYZ(0., 0., zvert);
+    matching->setPrimaryVertex(&pvert);
+    
     matching->setVerTelClusters(vtClus);
     matching->setMuonSpecClusters(msClus);
     matching->setVerTelTracks(vtTracks);

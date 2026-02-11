@@ -12,13 +12,26 @@
 
 ClassImp(NA6PMuonSpecReconstruction)
 
-  NA6PMuonSpecReconstruction::NA6PMuonSpecReconstruction() : NA6PReconstruction("MuonSpec")
+  NA6PMuonSpecReconstruction::NA6PMuonSpecReconstruction() : NA6PReconstruction("MuonSpec"),
+                                                             mGeoFilName{"geometry.root"},
+                                                             mGeoObjName{"NA6P"},
+                                                             mRecoParFilName{""}
 {
 }
 
-bool NA6PMuonSpecReconstruction::init(const char* filename, const char* geoname)
+NA6PMuonSpecReconstruction::NA6PMuonSpecReconstruction(const char* recparfile,
+                                                       const char* geofile,
+                                                       const char* geoname) : NA6PReconstruction("MuonSpec"),
+                                                                              mGeoFilName{geofile},
+                                                                              mGeoObjName{geoname},
+                                                                              mRecoParFilName{recparfile}
 {
-  NA6PReconstruction::init(filename, geoname);
+  initTracker();
+}
+
+bool NA6PMuonSpecReconstruction::initTracker()
+{
+  NA6PReconstruction::init(mGeoFilName.c_str(), mGeoObjName.c_str());
   mMSTracker = new NA6PTrackerCA();
   mMSTracker->configureFromRecoParamMS();
   mMSTracker->setParticleHypothesis(13); // muon mass hypothesis

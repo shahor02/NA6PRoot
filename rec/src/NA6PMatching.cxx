@@ -13,20 +13,34 @@
 
 ClassImp(NA6PMatching)
 
-  NA6PMatching::NA6PMatching() : NA6PReconstruction("Matching")
+  NA6PMatching::NA6PMatching() : NA6PReconstruction("Matching"),
+                                 mGeoFilName{"geometry.root"},
+                                 mGeoObjName{"NA6P"},
+                                 mRecoParFilName{""}
 {
 }
 
-bool NA6PMatching::init(const char* filename, const char* geoname)
+NA6PMatching::NA6PMatching(const char* recparfile,
+                           const char* geofile,
+                           const char* geoname) : NA6PReconstruction("Matching"),
+                                                  mGeoFilName{geofile},
+                                                  mGeoObjName{geoname},
+                                                  mRecoParFilName{recparfile}
 {
-  NA6PReconstruction::init(filename, geoname);
+  initMatching();
+}
+
+bool NA6PMatching::initMatching()
+{
+  NA6PReconstruction::init(mGeoFilName.c_str(), mGeoObjName.c_str());
   mTrackFitter = new NA6PFastTrackFitter();
-  mTrackFitter->loadGeometry(filename, geoname);
+  mTrackFitter->loadGeometry(mGeoFilName.c_str(), mGeoObjName.c_str());
   mTrackFitter->enableMaterialCorrections();
   mTrackFitter->setPropagateToPrimaryVertex(true);
   mTrackFitter->setNLayers(11);
   mTrackFitter->setParticleHypothesis(13); // muon mass hypothesis
   mTrackFitter->setMaxChi2Cl(mMaxChi2Refit);
+  createTracksOutput();
   return true;
 }
 
@@ -232,7 +246,6 @@ bool NA6PMatching::fitAndStoreMatchedTrack(const NA6PTrack& vtTrk, const NA6PTra
 void NA6PMatching::runMCMatching()
 {
   auto vtByPid = buildMCMatchingIndex();
-
   for (const auto& msTrack : mMuonSpecTracks) {
     if (msTrack.getNHits() < mMinMSHits)
       continue;
@@ -283,6 +296,7 @@ void NA6PMatching::runMatching()
   }
   clearTracks();
   mMatchedTracks.reserve(mMuonSpecTracks.size());
+  LOGP(info, "Process event with nVTTracks {} nMSTracks {}, primary vertex in z = {} cm", mVerTelTracks.size(), mMuonSpecTracks.size(), mPrimaryVertex->getZ());
 
   if (mMCMatching) {
     runMCMatching();
