@@ -17,11 +17,11 @@
 
 #include <string>
 #include <Rtypes.h>
+#include "NA6PFastTrackFitter.h"
 #include "NA6PTrack.h"
 
 // Cellular Automaton track finder
 
-class NA6PFastTrackFitter;
 class NA6PVertex;
 
 // structures for temporary objects used in track finding
@@ -95,6 +95,16 @@ class NA6PTrackerCA
                           float maxChi2ndfTracks,
                           int minNClusTracks);
   void setParticleHypothesis(int pdg);
+  void setUseIntegralBForSeed()
+  {
+    if (mTrackFitter)
+      mTrackFitter->setUseIntegralBForSeed();
+  }
+  void setUseBatMidPointForSeed()
+  {
+    if (mTrackFitter)
+      mTrackFitter->setUseBatMidPointForSeed();
+  }
   void configureFromRecoParamVT(const std::string& filename = "");
   void configureFromRecoParamMS(const std::string& filename = "");
   void setVerbosity(bool opt = true) { mVerbose = opt; }

@@ -34,6 +34,10 @@ class NA6PFastTrackFitter
   enum { kOutermostAsSeed = 0,
          kInnermostAsSeed = 1,
          kInMidOutAsSeed = 2 };
+  enum { kBatMidPoint = 0,
+         kMaximumB = 1,
+         kIntegralB = 2 };
+
   static constexpr int kMaxLayers = 20;
 
   NA6PFastTrackFitter();
@@ -68,6 +72,9 @@ class NA6PFastTrackFitter
   void setSeedFromOutermostHits() { mSeedOption = kOutermostAsSeed; }
   void setSeedFromInnermostHits() { mSeedOption = kInnermostAsSeed; }
   void setSeedFromInMidOutHits() { mSeedOption = kInMidOutAsSeed; }
+  void setUseBatMidPointForSeed() { mOptionForSeedB = kBatMidPoint; }
+  void setUseMaximumBForSeed() { mOptionForSeedB = kMaximumB; }
+  void setUseIntegralBForSeed() { mOptionForSeedB = kIntegralB; }
   int getLayersForSeed(std::array<int, 3>& layForSeed) const;
   int sortLayersForSeed(std::array<int, 3>& layForSeed, int dir) const;
   void computeSeed(int dir, std::array<int, 3>& layForSeed);
@@ -120,6 +127,7 @@ class NA6PFastTrackFitter
   int mSeedPoints = kThreePointSeed;  // number of hits used for seed
   double mSeedPos[3];                 // seed for track position
   double mSeedMom[3];                 // seed for track momentum
+  int mOptionForSeedB = kBatMidPoint; // option for B field usage in seed
   int mCharge = 1;                    // track charge for seed
   double mMass = kMassPi;             // mass hypothesis for particle
   bool mPropagateToPrimVert = false;  // flag for propagation to primary vertex

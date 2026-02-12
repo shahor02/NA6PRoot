@@ -27,6 +27,7 @@ NA6PFastTrackFitter::NA6PFastTrackFitter() : mNLayers{5},
                                              mIsSeedSet{false},
                                              mSeedOption{kOutermostAsSeed},
                                              mSeedPoints{kThreePointSeed},
+                                             mOptionForSeedB{kBatMidPoint},
                                              mCharge{1},
                                              mMass{kMassPi},
                                              mPropagateToPrimVert{false},
@@ -491,9 +492,54 @@ void NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed)
   double z2 = clK->getZLab();
   double x3 = clL->getXLab();
   double z3 = clL->getZLab();
-  // get magnetic field in the middle point
-  double midPoint[3] = {clK->getXLab(), clK->getYLab(), clK->getZLab()};
-  TGeoGlobalMagField::Instance()->Field(midPoint, bxyz);
+  if (mOptionForSeedB == kBatMidPoint) {
+    // get magnetic field in the middle point
+    double midPoint[3] = {clK->getXLab(), clK->getYLab(), clK->getZLab()};
+    TGeoGlobalMagField::Instance()->Field(midPoint, bxyz);
+  } else if (mOptionForSeedB == kMaximumB) {
+    // use maximum magnetic field among the 3 hits
+    double firstPoint[3] = {clJ->getXLab(), clJ->getYLab(), clJ->getZLab()};
+    double midPoint[3] = {clK->getXLab(), clK->getYLab(), clK->getZLab()};
+    double lastPoint[3] = {clL->getXLab(), clL->getYLab(), clL->getZLab()};
+    TGeoGlobalMagField::Instance()->Field(firstPoint, bxyz);
+    float b1 = bxyz[1];
+    TGeoGlobalMagField::Instance()->Field(midPoint, bxyz);
+    float b2 = bxyz[1];
+    TGeoGlobalMagField::Instance()->Field(lastPoint, bxyz);
+    float b3 = bxyz[1];
+    bxyz[1] = std::max({b1, b2, b3});
+  } else {
+    // integral of field
+    double firstPoint[3] = {clJ->getXLab(), clJ->getYLab(), clJ->getZLab()};
+    double midPoint[3] = {clK->getXLab(), clK->getYLab(), clK->getZLab()};
+    double lastPoint[3] = {clL->getXLab(), clL->getYLab(), clL->getZLab()};
+    double step[3];
+    double nextPoint[3];
+    int nSteps = 10;
+    for (int jc = 0; jc < 3; jc++)
+      step[jc] = (midPoint[jc] - firstPoint[jc]) / (float)nSteps;
+    double stepL = std::sqrt(step[0] * step[0] + step[1] * step[1] + step[2] * step[2]);
+    float aveField = 0.f;
+    float totLength = 0.f;
+    for (int js = 0; js <= nSteps; js++) {
+      for (int jc = 0; jc < 3; jc++)
+        nextPoint[jc] = firstPoint[jc] + js * step[jc];
+      TGeoGlobalMagField::Instance()->Field(nextPoint, bxyz);
+      aveField += bxyz[1] * stepL;
+      totLength += stepL;
+    }
+    for (int jc = 0; jc < 3; jc++)
+      step[jc] = (lastPoint[jc] - midPoint[jc]) / (float)nSteps;
+    stepL = std::sqrt(step[0] * step[0] + step[1] * step[1] + step[2] * step[2]);
+    for (int js = 0; js <= nSteps; js++) {
+      for (int jc = 0; jc < 3; jc++)
+        nextPoint[jc] = midPoint[jc] + js * step[jc];
+      TGeoGlobalMagField::Instance()->Field(nextPoint, bxyz);
+      aveField += bxyz[1] * stepL;
+      totLength += stepL;
+    }
+    bxyz[1] = aveField / totLength;
+  }
 
   // circle fit: compute center (cx, cz) and radius
   double determ = 2.0 * (x1 * (z2 - z3) + x2 * (z3 - z1) + x3 * (z1 - z2));
