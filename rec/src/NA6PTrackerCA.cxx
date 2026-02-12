@@ -6,7 +6,6 @@
 #include <TGeoManager.h>
 #include <TSystem.h>
 #include "MagneticField.h"
-#include "NA6PFastTrackFitter.h"
 #include "NA6PRecoParam.h"
 #include "NA6PVertex.h"
 #include "NA6PTrackerCA.h"
@@ -810,7 +809,8 @@ void NA6PTrackerCA::fitAndSelectTracks(const std::vector<TrackCandidate>& trackC
     if (mDoTrackConstrainedToPrimVert && primVert) {
       NA6PTrack constrainedTr = fitTrackFast;
       bool vcOk = mTrackFitter->constrainTrackToVertex(&constrainedTr, *primVert);
-      if (vcOk) fitTrackFast.setVertexConstrainedParam(constrainedTr.getTrackExtParam());
+      if (vcOk)
+        fitTrackFast.setVertexConstrainedParam(constrainedTr.getTrackExtParam());
     }
     fittedTracks.emplace_back(cand.innerLayer, cand.outerLayer, nClus, cand.cluIDs, std::move(fitTrackFast), chi2ndf);
   }
