@@ -17,6 +17,7 @@
 #include <TVectorD.h>
 #include <TRandom3.h>
 #include <TStopwatch.h>
+#include "NA6PBaseCluster.h"
 #include "NA6PVerTelCluster.h"
 #include "NA6PVertex.h"
 #include "NA6PVertexerTracklets.h"
@@ -24,7 +25,8 @@
 
 void inspectVertexerTracklets(int firstEv = 0,
                               int lastEv = 999999,
-                              const char* dirSimu = "../testN6Proot/pions/latesttag")
+                              const char* dirSimu = ".")
+// ../testN6Proot/pions/latesttag")
 //			const char *dirSimu = "Angantyr")
 {
   TFile* fk = new TFile(Form("%s/MCKine.root", dirSimu));
@@ -33,9 +35,9 @@ void inspectVertexerTracklets(int firstEv = 0,
   std::vector<TParticle>* mcArr = nullptr;
   mcTree->SetBranchAddress("tracks", &mcArr);
 
-  TFile* fc=new TFile(Form("%s/ClustersVerTel.root",dirSimu));
-  printf("Open cluster file: %s\n",fc->GetName());
-  TTree* tc=(TTree*)fc->Get("clustersVerTel");
+  TFile* fc = new TFile(Form("%s/ClustersVerTel.root", dirSimu));
+  printf("Open cluster file: %s\n", fc->GetName());
+  TTree* tc = (TTree*)fc->Get("clustersVerTel");
   std::vector<NA6PVerTelCluster> vtClus, *vtClusPtr = &vtClus;
   tc->SetBranchAddress("VerTel", &vtClusPtr);
 
@@ -48,7 +50,7 @@ void inspectVertexerTracklets(int firstEv = 0,
   TH1F* hncontr = new TH1F("hncontr", "", 100, -0.5, 999.5);
   TH1F* hnvert = new TH1F("hnvert", "", 11, -0.5, 10.5);
   TH1D* histocheck = new TH1D("histocheck", "; z_{intersection} (cm); counts", 250, -20., 5.);
-  int kMaxPileupVertices = NA6PVertexerTracklets::kMaxPileupVertices;
+  const int kMaxPileupVertices = NA6PVertexerTracklets::kMaxPileupVertices;
   TH1D* histocheck2[kMaxPileupVertices];
   for (int jPil = 0; jPil < kMaxPileupVertices; jPil++) {
     histocheck2[jPil] = new TH1D(Form("histocheckPil%d", jPil + 1), "", 250, -20., 5.);
@@ -57,7 +59,8 @@ void inspectVertexerTracklets(int firstEv = 0,
 
   NA6PVertexerTracklets* vertxr = new NA6PVertexerTracklets();
   // configurations for the vertexer
-  // vertxr->setVerbosity(true);
+  vertxr->setVerbosity(true);
+  vertxr->configureFromRecoParam(/*"testpp.ini"*/);
   // vertxr->setUseKDEForPeakFinding();
   // vertxr->setMultiVertexInOneGo();
   // vertxr->setMaxDeltaPhiTracklet(0.05);

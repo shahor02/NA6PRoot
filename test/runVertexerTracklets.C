@@ -24,7 +24,7 @@
 
 void runVertexerTracklets(int firstEv = 0,
                           int lastEv = 999999,
-                          const char* dirSimu = "../testN6Proot/bkgNA49")
+                          const char* dirSimu = ".")
 //			const char *dirSimu = "Angantyr")
 {
   TFile* fk = new TFile(Form("%s/MCKine.root", dirSimu));
