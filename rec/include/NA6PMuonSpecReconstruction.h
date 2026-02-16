@@ -37,9 +37,16 @@ class NA6PMuonSpecReconstruction : public NA6PReconstruction
 {
  public:
   NA6PMuonSpecReconstruction();
+  NA6PMuonSpecReconstruction(const char* recparfile, const char* geofile = "geometry.root", const char* geoname = "NA6P");
   ~NA6PMuonSpecReconstruction() override = default;
 
-  bool init(const char* filename, const char* geoname = "NA6P") override;
+  void setRecoParamFile(const char* recparfile) { mRecoParFilName = recparfile; }
+  void setGeometryFile(const char* geofile, const char* geoname = "NA6P")
+  {
+    mGeoFilName = geofile;
+    mGeoObjName = geoname;
+  }
+  bool initTracker();
   // methods to steer cluster reconstruction
   void createClustersOutput() override;
   void clearClusters() override { mClusters.clear(); }
@@ -62,6 +69,9 @@ class NA6PMuonSpecReconstruction : public NA6PReconstruction
 
  private:
   std::vector<NA6PMuonSpecCluster> mClusters, *hClusPtr = &mClusters; // vector of clusters
+  std::string mGeoFilName{};                                          // name of geometry file
+  std::string mGeoObjName{};                                          // name of geometry object
+  std::string mRecoParFilName{};                                      // name of reco param file
   TFile* mClusFile = nullptr;                                         // file with clusters
   TTree* mClusTree = nullptr;                                         // tree of clusters
   double mCluResX = 100.e-4;                                          // cluster resolution, cm (for fast simu)

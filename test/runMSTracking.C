@@ -24,7 +24,7 @@ void runMSTracking(int firstEv = 0,
   std::vector<NA6PMuonSpecCluster> msClus, *msClusPtr = &msClus;
   tc->SetBranchAddress("MuonSpec", &msClusPtr);
   NA6PMuonSpecReconstruction* msrec = new NA6PMuonSpecReconstruction();
-  msrec->init(Form("%s/geometry.root", dirSimu));
+  msrec->initTracker();
   auto msTracker = msrec->getTracker();
   // Example of configuring the tracker for Muon Spectrometer
   // msTracker->setNLayers(6);

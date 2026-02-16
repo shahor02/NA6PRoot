@@ -45,4 +45,9 @@ na6psim -n 5 -g $NA6PROOT_ROOT/share/test/genbox.C+
 * \subpage refSIM
 /doxy -->
 
+## Reconstruction: [rec module](rec)
+<!-- doxy
+* \subpage refREC
+/doxy -->
+
 
