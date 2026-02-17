@@ -24,6 +24,7 @@ int main(int argc, char* argv[])
   float energy = 150.;                // projectile energy per nucleon
   float ymin = -0.5, ymax = 0.5;      // rapidity range for output
   int specparticle = 213;             // Additional histos for a specific particle outside the "common" ones
+  std::string outDir = "";
   std::string inpFile = "pp_MB.cmnd"; // external command file
 
   // Reading external parameters
@@ -44,6 +45,8 @@ int main(int argc, char* argv[])
       sscanf(argv[++ig], "%d", &specparticle);
     } else if (str.Contains("--cmnd")) {
       inpFile = argv[++ig];
+    } else if (str.Contains("--out")) {
+      outDir = argv[++ig];
     }
   }
   if (help) {
@@ -55,8 +58,9 @@ int main(int argc, char* argv[])
     "--ymin   [%.2f]\n"
     "--ymax   [%.2f]\n"
     "--particle [%d]\n"
-    "--cmnd [%s]\n",
-    nEvent, energy, ymin, ymax, specparticle, inpFile.c_str());
+    "--cmnd [%s]\n"
+    "--out [%s]\n",
+    nEvent, energy, ymin, ymax, specparticle, inpFile.c_str(), outDir.c_str());
   if (help) {
     return 0;
   }
@@ -70,6 +74,7 @@ int main(int argc, char* argv[])
   pythia.readFile(inpFile);
 
   char en[30];
+  sprintf(en, "Beams:eA = %3.0f", energy);
   pythia.readString(en);
 
   // General histograms
@@ -108,7 +113,7 @@ int main(int argc, char* argv[])
   float ycm = 0.5 * 0.5 * TMath::Log((energy + TMath::Sqrt(energy * energy - 0.938 * 0.938)) / (energy - TMath::Sqrt(energy * energy - 0.938 * 0.938)));
 
   // Initialize HepMC3 ROOT output
-  HepMC3::WriterRootTree writer("GenPYTHIA_HepMC3.root");
+  HepMC3::WriterRootTree writer(Form("%s/GenPYTHIA_HepMC3.root", outDir.c_str()));
   HepMC3::Pythia8ToHepMC3 toHepMC3; // converter object
 
   for (int iEvent = 0; iEvent < nEvent; ++iEvent) {
@@ -124,6 +129,23 @@ int main(int argc, char* argv[])
 
     // Write event to HepMC3 tree
     HepMC3::GenEvent hepmcevt;
+    if (pythia.info.hiInfo) {
+        int idbeam1 = pythia.settings.mode("Beams:idA");
+        int idbeam2 = pythia.settings.mode("Beams:idB");
+        double eBeam1 = pythia.settings.parm("Beams:eA");
+        double eBeam2 = pythia.settings.parm("Beams:eB");
+
+        hepmcevt.add_attribute("idbeam1", std::make_shared<HepMC3::LongAttribute>(idbeam1));
+        hepmcevt.add_attribute("idbeam2", std::make_shared<HepMC3::LongAttribute>(idbeam2));
+        hepmcevt.add_attribute("ebeam1", std::make_shared<HepMC3::DoubleAttribute>(eBeam1));
+        hepmcevt.add_attribute("ebeam2", std::make_shared<HepMC3::DoubleAttribute>(eBeam2));
+        hepmcevt.add_attribute("b", std::make_shared<HepMC3::DoubleAttribute>(pythia.info.hiInfo->b()));
+        hepmcevt.add_attribute("nColl", std::make_shared<HepMC3::IntAttribute>(pythia.info.hiInfo->nCollTot()));
+        hepmcevt.add_attribute("nPartTot", std::make_shared<HepMC3::IntAttribute>(pythia.info.hiInfo->nPartProj() + pythia.info.hiInfo->nPartTarg()));
+        hepmcevt.add_attribute("nPartProj", std::make_shared<HepMC3::IntAttribute>(pythia.info.hiInfo->nPartProj()));
+        hepmcevt.add_attribute("nPartTarg", std::make_shared<HepMC3::IntAttribute>(pythia.info.hiInfo->nPartTarg()));
+    }
+
     toHepMC3.fill_next_event(pythia, &hepmcevt); // convert Pythia to HepMC3
     writer.write_event(hepmcevt);                // write directly to ROOT
 
@@ -206,9 +228,7 @@ int main(int argc, char* argv[])
     errTslope.push_back(fmt->GetParError(1));
   }
 
-  char fname[40];
-  sprintf(fname, "PYTHIA8_controlhistos.root");
-  TFile* fcc = new TFile(fname, "RECREATE");
+  TFile* fcc = new TFile(Form("%s/PYTHIA8_controlhistos.root", outDir.c_str()), "RECREATE");
   hidall->Write();
   hmall->Write();
   hyall->Write();
