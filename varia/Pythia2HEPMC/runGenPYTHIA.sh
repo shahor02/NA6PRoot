@@ -1,3 +1,8 @@
+if [[ -z $(which parallel) ]] ; then 
+  echo "parallel is not available, install it first"
+  exit 1
+fi
+
 NJOBS=20
 NCORES=20
 NEVENTSPERJOB=100
