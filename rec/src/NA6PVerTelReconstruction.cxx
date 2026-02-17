@@ -59,7 +59,7 @@ bool NA6PVerTelReconstruction::initTracker()
     LOGP(info, "Initializing tracker with default parameters");
   else
     LOGP(info, "Initializing tracker from file {}", mRecoParFilName.c_str());
-  mVTTracker->configureFromRecoParam(mRecoParFilName.c_str());
+  mVTTracker->configureFromRecoParamVT(mRecoParFilName.c_str());
   createTracksOutput();
   return true;
 }
@@ -91,6 +91,16 @@ void NA6PVerTelReconstruction::closeClustersOutput()
     mClusFile->Close();
     delete mClusFile;
     mClusFile = nullptr;
+  }
+}
+
+void NA6PVerTelReconstruction::setClusters(const std::vector<NA6PVerTelCluster>& clusters)
+{
+  mClusters = clusters;
+  // Assign a transient index based on position in the vector
+  // to be used for storing the cluster indices in the track
+  for (size_t i = 0; i < mClusters.size(); ++i) {
+    mClusters[i].setClusterIndex(static_cast<int>(i));
   }
 }
 
@@ -205,13 +215,11 @@ void NA6PVerTelReconstruction::closeTracksOutput()
 
 void NA6PVerTelReconstruction::runTracking()
 {
-  if (!mIsInitialized)
-  {
+  if (!mIsInitialized) {
     LOGP(error, "Magnetic field and geometry not initialized");
     return;
   }
-  if (!mVTTracker)
-  {
+  if (!mVTTracker) {
     LOGP(info, "Tracker not initialized, will call default initialization");
     initTracker();
   }

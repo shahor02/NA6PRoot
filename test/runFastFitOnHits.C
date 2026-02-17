@@ -82,22 +82,25 @@ void FillMeanAndRms(TH2F* hImpParVsP, TH1F* hImpParMean, TH1F* hImpParRms, TH1F*
   hImpParSig->SetStats(0);
   for (int jp = 1; jp <= nMomBins; jp++) {
     TH1D* htmp1 = hImpParVsP->ProjectionY("htmp1", jp, jp);
-    double mean = htmp1->GetMean();
-    double emean = htmp1->GetMeanError();
-    double rms = htmp1->GetRMS();
-    double erms = htmp1->GetRMSError();
+    float mean = htmp1->GetMean();
+    float emean = htmp1->GetMeanError();
+    float rms = htmp1->GetRMS();
+    float erms = htmp1->GetRMSError();
     hImpParMean->SetBinContent(jp, mean);
     hImpParMean->SetBinError(jp, emean);
     hImpParRms->SetBinContent(jp, rms);
     hImpParRms->SetBinError(jp, erms);
-    double gw = rms;
-    double egw = erms;
-    if (htmp1->GetEntries() > 20. && htmp1->Fit("gaus", "Q", "", -3. * rms, 3. * rms)) {
-      TF1* fg = (TF1*)htmp1->GetListOfFunctions()->FindObject("gaus");
-      if (!fg)
-        continue;
-      gw = fg->GetParameter(2);
-      egw = fg->GetParError(2);
+    float gw = rms;
+    float egw = erms;
+    if (htmp1->GetEntries() > 20.) {
+      int fitStatus = htmp1->Fit("gaus", "Q", "", -3. * rms, 3. * rms);
+      if (fitStatus == 0){
+        TF1* fg = (TF1*)htmp1->GetListOfFunctions()->FindObject("gaus");
+        if (fg) {
+          gw = fg->GetParameter(2);
+          egw = fg->GetParError(2);
+        }
+      }
     }
     hImpParSig->SetBinContent(jp, gw);
     hImpParSig->SetBinError(jp, egw);
@@ -109,8 +112,8 @@ void FillMeanAndRms(TH2F* hImpParVsP, TH1F* hImpParMean, TH1F* hImpParRms, TH1F*
 template <typename HitType>
 void runFastFitOnHitsTemplate(int firstEv = 0,
                               int lastEv = 99999999,
-                              double cluresx = 5.e-4,
-                              double cluresy = 5.e-4,
+                              float cluresx = 5.e-4,
+                              float cluresy = 5.e-4,
                               const char* dirSimu = "../testN6PRoot/pions/latesttag",
                               const char* hitFileName = "HitsVerTel.root",
                               const char* hitTreeName = "hitsVerTel",
@@ -135,7 +138,7 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
   th->SetBranchAddress(hitBranchName, &hitsPtr);
 
   int nMomBins = 20;
-  double maxP = 10.;
+  float maxP = 10.;
   TH1F* hEtaGen = new TH1F("hEtaGen", ";#eta;counts", 20, 0., 5.);
   TH1F* hEtaReco = new TH1F("hEtaReco", ";#eta;counts", 20, 0., 5.);
   TH1F* hDeltaPx = new TH1F("hDeltaPx", ";p_{x}^{rec}-p_{x}^{gen} (GeV/c);counts", 100, -0.2, 0.2);
@@ -143,8 +146,8 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
   TH1F* hDeltaPz = new TH1F("hDeltaPz", ";p_{z}^{rec}-p_{z}^{gen} (GeV/c);counts", 100, -0.5, 0.5);
   TH1F* hDeltaP = new TH1F("hDeltaP", ";p^{rec}-p^{gen} (GeV/c);counts", 100, -0.5, 0.5);
   TH1F* hDeltaPhi = new TH1F("hDeltaPhi", ";#varphi^{rec}-#varphi^{gen};counts", 100, -M_PI / 4., M_PI / 4.);
-  double impMax = 60000.; // in microns
-  double deltaMax = 1;    // in GeV/c
+  float impMax = 60000.; // in microns
+  float deltaMax = 1;    // in GeV/c
   if (useVT) {
     impMax = 500.;  // in microns
     deltaMax = 0.5; // in GeV/c
@@ -191,9 +194,9 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
     th->GetEvent(jEv);
     int nPart = mcArr->size();
     int nHits = hits.size();
-    double xvert = 0;
-    double yvert = 0;
-    double zvert = 0;
+    float xvert = 0;
+    float yvert = 0;
+    float zvert = 0;
     // get primary vertex position from the Kine Tree
     for (int jp = 0; jp < nPart; jp++) {
       auto curPart = mcArr->at(jp);
@@ -207,15 +210,15 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
     fitter->setPrimaryVertexZ(zvert);
     for (int jp = 0; jp < nPart; jp++) {
       const auto& curPart = mcArr->at(jp);
-      double pxPart = curPart.Px();
-      double pyPart = curPart.Py();
-      double pzPart = curPart.Pz();
-      double momPart = curPart.P();
-      double phiPart = curPart.Phi();
-      double thetaPart = std::acos(pzPart / momPart);
-      double etaPart = -std::log(std::tan(thetaPart / 2.));
+      float pxPart = curPart.Px();
+      float pyPart = curPart.Py();
+      float pzPart = curPart.Pz();
+      float momPart = curPart.P();
+      float phiPart = curPart.Phi();
+      float thetaPart = std::acos(pzPart / momPart);
+      float etaPart = -std::log(std::tan(thetaPart / 2.));
       std::array<std::unique_ptr<NA6PBaseCluster>, 5> clusters{nullptr, nullptr, nullptr, nullptr, nullptr};
-      double xclu[5], yclu[5], zclu[5];
+      float xclu[5], yclu[5], zclu[5];
       if (curPart.IsPrimary()) {
         hEtaGen->Fill(etaPart);
         int maskHits = 0;
@@ -275,8 +278,8 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
         }
 
         // Uncomment the next lines to use the MC truth as seed for the track
-        //	double xyz0[3]={xclu[nLayers-1],yclu[nLayers-1],zclu[nLayers-1]};
-        //	double pxyz0[3]={curPart.Px(),curPart.Py(),curPart.Pz()};
+        //	float xyz0[3]={xclu[nLayers-1],yclu[nLayers-1],zclu[nLayers-1]};
+        //	float pxyz0[3]={curPart.Px(),curPart.Py(),curPart.Pz()};
         //	printf("Initialize seed at %f %f %f p = %f %f %f\n",xyz0[0],xyz0[1],xyz0[2],pxyz0[0],pxyz0[1],pxyz0[2]);
         //	int sign = curPart.GetPdgCode() > 0 ? 1 : -1;
         //	fitter->setSeed(xyz0,pxyz0,sign);
@@ -284,7 +287,7 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
         NA6PTrack* currTr = fitter->fitTrackPoints();
         std::cout << "Track fit done.\n";
         //	fitter->propagateToZ(currTr,zvert);
-        double chiFit = -1.;
+        float chiFit = -1.;
         if (currTr) {
           hIsGood->Fill(1);
           int nClusters = currTr->getNHits();
@@ -296,17 +299,17 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
             std::cout << "Fitted track with " << nClusters << " hits\n";
           chiFit = currTr->getChi2();
           //	  printf("chi2 = %f  chi2/ndf = %f\n",chiFit,currTr->GetNormChi2());
-          double pxyz[3];
+          float pxyz[3];
           currTr->getPXYZ(pxyz);
-          double pxtr = pxyz[0];
-          double pytr = pxyz[1];
-          double pztr = pxyz[2];
-          double momtr = currTr->getP();
-          double phitr = std::atan2(pytr, pxtr);
-          double thetatr = std::acos(pztr / momtr);
-          double etatr = -std::log(std::tan(thetatr / 2.));
-          double impparX = currTr->getXLab() - xvert;
-          double impparY = currTr->getYLab() - yvert;
+          float pxtr = pxyz[0];
+          float pytr = pxyz[1];
+          float pztr = pxyz[2];
+          float momtr = currTr->getP();
+          float phitr = std::atan2(pytr, pxtr);
+          float thetatr = std::acos(pztr / momtr);
+          float etatr = -std::log(std::tan(thetatr / 2.));
+          float impparX = currTr->getXLab() - xvert;
+          float impparY = currTr->getYLab() - yvert;
           hEtaReco->Fill(etatr);
           hDeltaPx->Fill(pxtr - pxPart);
           hDeltaPy->Fill(pytr - pyPart);
@@ -332,7 +335,7 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
         }
         TParticle trFit;
         if (currTr) {
-          double pos[3], mom[3];
+          float pos[3], mom[3];
           currTr->getPXYZ(mom);
           TLorentzVector v;
           v.SetXYZM(mom[0], mom[1], mom[2], 0.14);
@@ -472,7 +475,7 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
   hRelDeltaPxSig->SetMarkerColor(1);
   hRelDeltaPxSig->SetLineColor(1);
   hRelDeltaPxSig->SetMinimum(0);
-  hRelDeltaPxSig->SetMaximum(maxDelP);
+  hRelDeltaPxSig->SetMaximum(maxDelP * 2.);
   hRelDeltaPxSig->Draw("P");
   cmom->cd(4);
   gPad->SetTickx();
@@ -499,7 +502,7 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
   hRelDeltaPySig->SetMarkerColor(1);
   hRelDeltaPySig->SetLineColor(1);
   hRelDeltaPySig->SetMinimum(0);
-  hRelDeltaPySig->SetMaximum(maxDelP);
+  hRelDeltaPySig->SetMaximum(maxDelP * 2.);
   hRelDeltaPySig->Draw("P");
   cmom->cd(7);
   gPad->SetTickx();
@@ -517,7 +520,7 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
   hDeltaPzSig->SetMarkerColor(1);
   hDeltaPzSig->SetLineColor(1);
   hDeltaPzSig->SetMinimum(0);
-  hDeltaPzSig->SetMaximum(maxDelP);
+  hDeltaPzSig->SetMaximum(maxDelP * 4.);
   hDeltaPzSig->Draw("P");
   cmom->cd(9);
   hRelDeltaPzSig->SetMarkerStyle(25);
@@ -563,7 +566,7 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
 // Original function signature for Vertex Telescope hits
 void runFastFitOnVerTelHits(int firstEv = 0,
                             int lastEv = 99999999,
-                            double clures = 5.e-4,
+                            float clures = 5.e-4,
                             const char* dirSimu = "../testN6Proot/pions/latesttag",
                             int minHits = 5)
 {
@@ -575,8 +578,8 @@ void runFastFitOnVerTelHits(int firstEv = 0,
 // New function for Muon Spectrometer Modular hits
 void runFastFitOnMuonSpecHits(int firstEv = 0,
                               int lastEv = 99999999,
-                              double cluresx = 500.e-4,
-                              double cluresy = 1000.e-4,
+                              float cluresx = 500.e-4,
+                              float cluresy = 1000.e-4,
                               const char* dirSimu = "../tst",
                               int minHits = 6)
 {

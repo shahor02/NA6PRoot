@@ -12,17 +12,30 @@
 
 ClassImp(NA6PMuonSpecReconstruction)
 
-  NA6PMuonSpecReconstruction::NA6PMuonSpecReconstruction() : NA6PReconstruction("MuonSpec")
+  NA6PMuonSpecReconstruction::NA6PMuonSpecReconstruction() : NA6PReconstruction("MuonSpec"),
+                                                             mGeoFilName{"geometry.root"},
+                                                             mGeoObjName{"NA6P"},
+                                                             mRecoParFilName{""}
 {
 }
 
-bool NA6PMuonSpecReconstruction::init(const char* filename, const char* geoname)
+NA6PMuonSpecReconstruction::NA6PMuonSpecReconstruction(const char* recparfile,
+                                                       const char* geofile,
+                                                       const char* geoname) : NA6PReconstruction("MuonSpec"),
+                                                                              mGeoFilName{geofile},
+                                                                              mGeoObjName{geoname},
+                                                                              mRecoParFilName{recparfile}
 {
-  NA6PReconstruction::init(filename, geoname);
+  initTracker();
+}
+
+bool NA6PMuonSpecReconstruction::initTracker()
+{
+  NA6PReconstruction::init(mGeoFilName.c_str(), mGeoObjName.c_str());
   mMSTracker = new NA6PTrackerCA();
-  mMSTracker->configureFromRecoParam();
-  mMSTracker->setNLayers(6); 
-  mMSTracker->setStartLayer(5);
+  mMSTracker->configureFromRecoParamMS();
+  mMSTracker->setParticleHypothesis(13); // muon mass hypothesis
+  mMSTracker->setUseIntegralBForSeed();
   createTracksOutput();
   return true;
 }
@@ -57,6 +70,16 @@ void NA6PMuonSpecReconstruction::closeClustersOutput()
   }
 }
 
+void NA6PMuonSpecReconstruction::setClusters(const std::vector<NA6PMuonSpecCluster>& clusters)
+{
+  mClusters = clusters;
+  // Assign a transient index based on position in the vector
+  // to be used for storing the cluster indices in the track
+  for (size_t i = 0; i < mClusters.size(); ++i) {
+    mClusters[i].setClusterIndex(static_cast<int>(i));
+  }
+}
+
 void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecModularHit>& hits)
 {
   int nHits = hits.size();
@@ -82,10 +105,10 @@ void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecM
     int nDet = hit.getDetectorID();
     int idPart = hit.getTrackID();
     // Set layer based on Z position - find closest plane
-        
+
     float minDist = std::abs(z - layout.posMSPlaneZ[0]);
     int layer = layout.nVerTelPlanes;
-    
+
     for (int i = 1; i < layout.nMSPlanes; ++i) {
       float dist = std::abs(z - layout.posMSPlaneZ[i]);
       if (dist < minDist) {

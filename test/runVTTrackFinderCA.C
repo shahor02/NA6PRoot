@@ -1,12 +1,12 @@
 /*
   CA Track Finder Macro
-  
+
   Usage:
     root -l
     root [0] .L setup_macros.C     // Load NA6PRoot libraries and setup paths
     root [1] .L runTrackFinderCA.C+  // Compile the macro with ACLiC
     root [2] runTrackFinderCA()      // Run with default parameters
-    
+
   Or with custom parameters:
     root [2] runTrackFinderCA(0, 100, "../fullgeo", 5)
 */
@@ -21,6 +21,7 @@
 #include <TLegend.h>
 #include "NA6PVerTelCluster.h"
 #include "NA6PTrack.h"
+#include "NA6PVertex.h"
 #include "NA6PTrackerCA.h"
 #include "MagneticField.h"
 #include "NA6PVerTelHit.h"
@@ -29,9 +30,10 @@
 const int maxIterationsCA = NA6PTrackerCA::kMaxIterationsCA;
 
 void runVTTrackFinderCA(int firstEv = 0,
-		      int lastEv = 9999,
-		      const char *dirSimu = "../testN6Proot/pions/latesttag",
-		      int nLayers = 5){
+                        int lastEv = 9999,
+                        const char* dirSimu = ".",
+                        int nLayers = 5)
+{
 
   auto magField = new MagneticField();
   magField->loadField();
@@ -56,7 +58,7 @@ void runVTTrackFinderCA(int firstEv = 0,
   if (!tracker->loadGeometry(Form("%s/geometry.root", dirSimu)))
     return;
   // pass here the configuration of the tracker via an ini file
-  tracker->configureFromRecoParam(/* filename.ini */);
+  tracker->configureFromRecoParamVT(/* "myRecoParam.ini" */);
   // alternatively the configuration can be set calling setters for the iterations
   // tracker->setNumberOfIterations(3);
   // tracker->setIterationParams(0,0.04,0.1,4.,0.4,0.02,2e-3,5.,5.,5.,5);
@@ -71,9 +73,9 @@ void runVTTrackFinderCA(int firstEv = 0,
   std::vector<NA6PVerTelHit> vtHits, *vtHitsPtr = &vtHits;
   th->SetBranchAddress("VerTel", &vtHitsPtr);
 
-  TFile* fc=new TFile(Form("%s/ClustersVerTel.root",dirSimu));
-  printf("Open cluster file: %s\n",fc->GetName());
-  TTree* tc=(TTree*)fc->Get("clustersVerTel");
+  TFile* fc = new TFile(Form("%s/ClustersVerTel.root", dirSimu));
+  printf("Open cluster file: %s\n", fc->GetName());
+  TTree* tc = (TTree*)fc->Get("clustersVerTel");
   std::vector<NA6PVerTelCluster> vtClus, *vtClusPtr = &vtClus;
   tc->SetBranchAddress("VerTel", &vtClusPtr);
   int nEv = tc->GetEntries();
@@ -81,7 +83,7 @@ void runVTTrackFinderCA(int firstEv = 0,
     lastEv = nEv;
   if (firstEv < 0)
     firstEv = 0;
-  TVector3 primVert(0, 0, 0);
+  NA6PVertex primVert;
 
   int nIterationsCA = tracker->getNIterations();
 
@@ -98,7 +100,7 @@ void runVTTrackFinderCA(int firstEv = 0,
         break;
       }
     }
-    primVert.SetZ(zvert);
+    primVert.setXYZ(0., 0., zvert);
     uint nHits = vtHits.size();
     for (int jp = 0; jp < nPart; jp++) {
       auto curPart = mcArr->at(jp);
@@ -124,7 +126,7 @@ void runVTTrackFinderCA(int firstEv = 0,
       }
     }
     tc->GetEvent(jEv);
-    tracker->findTracks(vtClus, primVert);
+    tracker->findTracks(vtClus, &primVert);
     std::vector<NA6PTrack> trks = tracker->getTracks();
     int nTrks = trks.size();
     for (int jT = 0; jT < nTrks; jT++) {
@@ -229,6 +231,7 @@ void runVTTrackFinderCA(int firstEv = 0,
   hEffEta->GetYaxis()->SetTitle("Efficiency");
   hEffEta->SetStats(0);
   hEffEta->Draw();
+  cef->SaveAs("TrackingEffic-VT.png");
 
   TCanvas* cpu = new TCanvas("cpu", "", 1400, 800);
   cpu->Divide(2, 2);
@@ -254,4 +257,5 @@ void runVTTrackFinderCA(int firstEv = 0,
   hPurityEta->SetStats(0);
   hPurityEta->SetLineWidth(2);
   hPurityEta->Draw();
+  cpu->SaveAs("TrackingPurity-VT.png");
 }
