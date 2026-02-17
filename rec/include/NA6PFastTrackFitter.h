@@ -23,6 +23,7 @@
 
 class TGeoManager;
 class NA6PTrack;
+class NA6PVertex;
 
 class NA6PFastTrackFitter
 {
@@ -30,6 +31,14 @@ class NA6PFastTrackFitter
  public:
   enum { kTwoPointSeed = 0,
          kThreePointSeed = 1 };
+  enum { kOutermostAsSeed = 0,
+         kInnermostAsSeed = 1,
+         kInMidOutAsSeed = 2 };
+  enum { kBatMidPoint = 0,
+         kMaximumB = 1,
+         kIntegralB = 2 };
+
+  static constexpr int kMaxLayers = 20;
 
   NA6PFastTrackFitter();
   ~NA6PFastTrackFitter(){};
@@ -58,11 +67,24 @@ class NA6PFastTrackFitter
       mCharge = ch;
   };
   void unsetSeed() { mIsSeedSet = false; }
-  void setSeedFromTwoOutermostHits() { mSeedOption = kTwoPointSeed; }
-  void setSeedFromThreeOutermostHits() { mSeedOption = kThreePointSeed; }
-  void computeSeed();
+  void setSeedFromTwoHits() { mSeedPoints = kTwoPointSeed; }
+  void setSeedFromThreeHits() { mSeedPoints = kThreePointSeed; }
+  void setSeedFromOutermostHits() { mSeedOption = kOutermostAsSeed; }
+  void setSeedFromInnermostHits() { mSeedOption = kInnermostAsSeed; }
+  void setSeedFromInMidOutHits() { mSeedOption = kInMidOutAsSeed; }
+  void setUseBatMidPointForSeed() { mOptionForSeedB = kBatMidPoint; }
+  void setUseMaximumBForSeed() { mOptionForSeedB = kMaximumB; }
+  void setUseIntegralBForSeed() { mOptionForSeedB = kIntegralB; }
+  int getLayersForSeed(std::array<int, 3>& layForSeed) const;
+  int sortLayersForSeed(std::array<int, 3>& layForSeed, int dir) const;
+  void computeSeed(int dir, std::array<int, 3>& layForSeed);
+  void computeSeed(int dir = -1);
+  void computeSeedOuter() { computeSeed(-1); }
+  void computeSeedInner() { computeSeed(1); }
   void printSeed() const;
-
+  const double* getSeedMomentum() const { return mSeedMom; }
+  const double* getSeedPosition() const { return mSeedPos; }
+  int getCharge() const { return mCharge; }
   void addCluster(int jLay, const NA6PBaseCluster& cl);
   void resetClusters()
   {
@@ -76,10 +98,18 @@ class NA6PFastTrackFitter
 
   bool loadGeometry(const char* filename = "geometry.root", const char* geoname = "NA6P");
 
-  NA6PTrack* fitTrackPoints();
+  NA6PTrack* fitTrackPoints(int dir = -1, NA6PTrack* seed = nullptr);
+  NA6PTrack* fitTrackPointsInward(NA6PTrack* seed = nullptr) { return fitTrackPoints(-1, seed); }
+  NA6PTrack* fitTrackPointsOutward(NA6PTrack* seed = nullptr) { return fitTrackPoints(1, seed); }
   bool updateTrack(NA6PTrack* trc, const NA6PBaseCluster* cl) const;
-  int propagateToZ(NA6PTrack* trc, double zFrom, double zTo, int dir) const;
+  bool constrainTrackToVertex(NA6PTrack* trc, const NA6PVertex& pv) const;
+
   int propagateToZ(NA6PTrack* trc, double zTo) const;
+  int propagateToZ(NA6PTrack* trc, double zFrom, double zTo, int dir) const;
+  int propagateToZOuter(NA6PTrack* trc, double zTo) const;
+  int propagateToZOuter(NA6PTrack* trc, double zFrom, double zTo, int dir) const;
+  int propagateToZImpl(NA6PTrack* trc, double zFrom, double zTo, int dir, bool outer) const;
+
   void getMeanMaterialBudgetFromGeom(double* start, double* end, double* mparam) const;
 
   static const Double_t kMassP;
@@ -90,18 +120,20 @@ class NA6PFastTrackFitter
   static const Double_t kAlmostZero;
 
  protected:
-  int mNLayers = 5;                  // number of active
-  double mMaxChi2Cl = 10.;           // max cluster-track chi2
-  bool mIsSeedSet = false;           // flag for set seed
-  int mSeedOption = kThreePointSeed; // seed option (see enum)
-  double mSeedPos[3];                // seed for track position
-  double mSeedMom[3];                // seed for track momentum
-  int mCharge = 1;                   // track charge for seed
-  double mMass = kMassPi;            // mass hypothesis for particle
-  bool mPropagateToPrimVert = false; // flag for propagation to primary vertex
-  double mPrimVertZ = 0.0;           // primary vertex z
-  bool mIsPrimVertSet = false;       // flag for presence of prim vert z
-  bool mCorrectForMaterial = true;   // flag for material corrections
+  int mNLayers = 5;                   // number of active
+  double mMaxChi2Cl = 10.;            // max cluster-track chi2
+  bool mIsSeedSet = false;            // flag for set seed
+  int mSeedOption = kOutermostAsSeed; // seed option (see enum)
+  int mSeedPoints = kThreePointSeed;  // number of hits used for seed
+  double mSeedPos[3];                 // seed for track position
+  double mSeedMom[3];                 // seed for track momentum
+  int mOptionForSeedB = kBatMidPoint; // option for B field usage in seed
+  int mCharge = 1;                    // track charge for seed
+  double mMass = kMassPi;             // mass hypothesis for particle
+  bool mPropagateToPrimVert = false;  // flag for propagation to primary vertex
+  double mPrimVertZ = 0.0;            // primary vertex z
+  bool mIsPrimVertSet = false;        // flag for presence of prim vert z
+  bool mCorrectForMaterial = true;    // flag for material corrections
 
   std::vector<const NA6PBaseCluster*> mClusters; // array with clusters
 

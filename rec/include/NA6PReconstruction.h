@@ -19,6 +19,7 @@
 #include <Rtypes.h>
 
 // Class to steer the reconstruction
+class NA6PVertex;
 
 class NA6PReconstruction
 {
@@ -46,9 +47,14 @@ class NA6PReconstruction
   virtual void writeTracks();
   virtual void closeTracksOutput();
 
+  void setPrimaryVertex(const NA6PVertex* v) { mPrimaryVertex = v; }
+  virtual void clearEvent() { mPrimaryVertex = nullptr; }
+
  protected:
-  std::string mName{"MothClass"}; // detector name
-  bool mIsInitialized = false;    // flag for initialization
+  std::string mName{"MothClass"};             // detector name
+  bool mIsInitialized = false;                // flag for initialization
+  const NA6PVertex* mPrimaryVertex = nullptr; // primary vertex
+
   ClassDefNV(NA6PReconstruction, 1);
 };
 

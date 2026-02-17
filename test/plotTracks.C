@@ -464,4 +464,36 @@ void plotTracks(const char* dirSimu = ".")
   hRelDeltaPzSig->SetMinimum(0);
   hRelDeltaPzSig->SetMaximum(0.05);
   hRelDeltaPzSig->Draw("P");
+
+  TCanvas* c2d = new TCanvas("c2d","",1500,500);
+  c2d->Divide(3,1);
+  c2d->cd(1);
+  hDeltaPxVsP->Draw("colz");
+  c2d->cd(2);
+  hDeltaPyVsP->Draw("colz");
+  c2d->cd(3);
+  hDeltaPzVsP->Draw("colz");
+
+  TFile* outRoot = new TFile("TrackingPerformance.root", "recreate");
+  hImpParXVsP->Write();
+  hImpParYVsP->Write();
+  hDeltaPxVsP->Write();
+  hDeltaPyVsP->Write();
+  hDeltaPzVsP->Write();
+  hRelDeltaPxVsP->Write();
+  hRelDeltaPyVsP->Write();
+  hRelDeltaPzVsP->Write();
+  hMomGen->Write();
+  hEtaGen->Write();
+  hMomTrackable->Write();
+  hEtaTrackable->Write();
+  hMomTracked->Write();
+  hEtaTracked->Write();
+  hMomAllReco->Write();
+  hMomGoodReco->Write();
+  hMomFakeReco->Write();
+  hEtaAllReco->Write();
+  hEtaGoodReco->Write();
+  hEtaFakeReco->Write();
+  outRoot->Close();
 }

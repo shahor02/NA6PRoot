@@ -26,15 +26,10 @@
 
 void runVertexerTracklets(int firstEv = 0,
                           int lastEv = 999999,
-                          //const char* dirSimu = "/home/lmichele/NA6PRoot/datasets/BgEvent20000",
-                          //const char* dirSimu = "/home/lmichele/NA6PRoot/datasets/real_config/BgEvent20000_high_mult",
-                          //const char* dirSimu = "/data/lmichele/datasets/real_config/BgEvent20000_high_mult",
                           const char* dirSimu = "/data/lmichele/datasets/real_config/PYTHIA_PbPb_MB",
-                          //const char* na6pLayoutFile = "/home/lmichele/NA6PRoot/datasets/na6pLayout_real.ini",
                           const char* na6pLayoutFile = "/data/lmichele/datasets/na6pLayout_real.ini",
-                          //const char* na6pLayoutFile = "/data/lmichele/datasets/na6pLayout_default.ini",
-                          //const char* fOutName = "outputs/real_config/BgEvent20000_high_mult/vtx.root"
                           const char* fOutName = "outputs/real_config/PYTHIA_PbPb_MB/vtx_fixed.root")
+                          const char* dirSimu = ".")
 //			const char *dirSimu = "Angantyr")
 {
   TFile* fk = new TFile(Form("%s/MCKine.root", dirSimu));

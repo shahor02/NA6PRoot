@@ -18,6 +18,7 @@
 #include <Rtypes.h>
 #include <vector>
 #include <array>
+#include "NA6PLayoutParam.h"
 #include "NA6PLine.h"
 
 class NA6PVertex;
@@ -112,7 +113,7 @@ class NA6PVertexerTracklets
     mMinCandidateDistance3D = canddist3d;
     mAllowSingleConstribClusters = singlecontrib;
   }
-  // Settters
+  // Setters
   void setNLayersVT(int n) { mNLayersVT = n; }
   void setLayerToStart(int lay) { mLayerToStart = lay; }
   void setBeamX(float x) { mBeamX = x; }
@@ -156,6 +157,10 @@ class NA6PVertexerTracklets
   void setVerbosity(bool opt = true) { mVerbose = opt; }
   void configureFromRecoParam(const std::string& filename = "");
   void printConfiguration() const;
+
+  // methods for vertex selection
+  void initTargets();
+  bool isVertexInTarget(float zRecoVert, float tolerance = 0.1);
 
   // methods for vertex calculation
   void findVertices(std::vector<NA6PVerTelCluster>& cluArr,
@@ -239,6 +244,9 @@ class NA6PVertexerTracklets
   bool mAllowSingleConstribClusters = false;    // flag to enable single tracklet vertices
   short mMultiVertexMode = kMultiVertIterative; // method for multiple vertices
   bool mVerbose = false;
+  int mNTargets = 0;                                   // number of targets
+  float mZPosTarg[NA6PLayoutParam::MaxTargets] = {};   // target positions
+  float mZThickTarg[NA6PLayoutParam::MaxTargets] = {}; // target thickesses
 
   ClassDefNV(NA6PVertexerTracklets, 1);
 };
