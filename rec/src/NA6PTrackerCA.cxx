@@ -203,30 +203,35 @@ void NA6PTrackerCA::sortClustersByLayerAndEta(std::vector<ClusterType>& cluArr,
                                               std::vector<int>& lastIndex)
 {
 
-  // count clus per layer
-  std::vector<int> count(mNLayers, 0);
+  // Count clusters per layer for all layers
+  int maxLayers = 25;
+  std::vector<int> count(maxLayers, 0);
   for (const auto& clu : cluArr) {
-    int jDet = clu.getDetectorID();
-    int jLay = clu.getLayer() - mLayerStart;
-    if (jLay >= 0 && jLay < mNLayers) {
-      count[jLay]++;
-    }
+    int jLay = clu.getLayer();
+    count[jLay]++;
   }
-  // starting offset for each layer
+  // Compute starting offset for each layer
+  std::vector<int> firstAll(maxLayers);
+  firstAll[0] = 0;
+  for (int i = 1; i < maxLayers; ++i) {
+    firstAll[i] = firstAll[i - 1] + count[i - 1];
+  }
+
+  // Fill firstIndex and lastIndex only for selected layers
   firstIndex.resize(mNLayers);
   lastIndex.resize(mNLayers);
-  firstIndex[0] = 0;
-  lastIndex[0] = count[0];
-  for (int jLay = 1; jLay < mNLayers; jLay++) {
-    firstIndex[jLay] = firstIndex[jLay - 1] + count[jLay - 1];
-    lastIndex[jLay] = firstIndex[jLay] + count[jLay];
+  for (int j = 0; j < mNLayers; ++j) {
+    int jLay = mLayerStart + j;
+    firstIndex[j] = firstAll[jLay];
+    lastIndex[j] = firstAll[jLay] + count[jLay];
   }
+
   // Create a reordered vector based on layer grouping
-  std::vector<int> countReord = firstIndex;
+  std::vector<int> countReord = firstAll;
   std::vector<ClusterType> reordered(cluArr.size());
   for (const auto& clu : cluArr) {
-    int jLay = clu.getLayer() - mLayerStart;
-    if (jLay >= 0 && jLay < mNLayers)
+    int jLay = clu.getLayer();
+    if (jLay >= 0 && jLay < maxLayers)
       reordered[countReord[jLay]++] = clu;
   }
   cluArr = std::move(reordered);
@@ -234,9 +239,11 @@ void NA6PTrackerCA::sortClustersByLayerAndEta(std::vector<ClusterType>& cluArr,
   const float pvx = mPrimVertPos[0];
   const float pvy = mPrimVertPos[1];
   const float pvz = mPrimVertPos[2];
-  for (int jLay = 0; jLay < mNLayers; jLay++) {
-    auto first = cluArr.begin() + firstIndex[jLay];
-    auto last = cluArr.begin() + lastIndex[jLay];
+  for (int jLay = 0; jLay < maxLayers; jLay++) {
+    if (count[jLay] == 0)
+      continue;
+    auto first = cluArr.begin() + firstAll[jLay];
+    auto last = cluArr.begin() + firstAll[jLay] + count[jLay];
     std::sort(first, last, [pvx, pvy, pvz](const ClusterType& a, const ClusterType& b) {
       float xa = a.getX() - pvx;
       float ya = a.getY() - pvy;
@@ -970,6 +977,48 @@ std::vector<NA6PTrack> NA6PTrackerCA::getTracks()
 }
 
 //______________________________________________________________________
+template <typename ClusterType>
+std::vector<std::pair<ClusterType, ClusterType>> NA6PTrackerCA::findTracklets(int jFirstLay, int jLastLay, std::vector<ClusterType>& cluArr, const NA6PVertex* primVert)
+{
+  uint nClus = cluArr.size();
+  if (primVert) {
+    mPrimVertPos[0] = primVert->getX();
+    mPrimVertPos[1] = primVert->getY();
+    mPrimVertPos[2] = primVert->getZ();
+  } else {
+    mPrimVertPos[0] = mPrimVertPos[1] = mPrimVertPos[2] = 0.0f;
+  }
+  int backupStart = mLayerStart;
+  int backupLay = mNLayers;
+  mLayerStart = jFirstLay;
+  mNLayers = jLastLay - jFirstLay + 1;
+  std::vector<int> firstCluPerLay;
+  std::vector<int> lastCluPerLay;
+  sortClustersByLayerAndEta(cluArr, firstCluPerLay, lastCluPerLay);
+  std::vector<TrackletCandidate> foundTracklets;
+  float cutDeltaTheta = mMaxDeltaThetaTrackletsCA[0];
+  float cutDeltaPhi = mMaxDeltaPhiTrackletsCA[0];
+  for (int jIteration = 0; jIteration < mNIterationsCA; ++jIteration) {
+    if (mMaxDeltaThetaTrackletsCA[jIteration] > cutDeltaTheta)
+      cutDeltaTheta = mMaxDeltaThetaTrackletsCA[jIteration];
+    if (mMaxDeltaPhiTrackletsCA[jIteration] > cutDeltaPhi)
+      cutDeltaPhi = mMaxDeltaPhiTrackletsCA[jIteration];
+  }
+  computeLayerTracklets(cluArr, firstCluPerLay, lastCluPerLay, foundTracklets, cutDeltaTheta, cutDeltaPhi);
+  const int nTracklets = foundTracklets.size();
+  std::vector<std::pair<ClusterType, ClusterType>> trackletLines;
+  trackletLines.reserve(nTracklets);
+  for (auto& trkl : foundTracklets) {
+    auto clu0 = cluArr[trkl.firstClusterIndex];
+    auto clu1 = cluArr[trkl.secondClusterIndex];
+    trackletLines.emplace_back(std::make_pair(clu0, clu1));
+  }
+  mLayerStart = backupStart;
+  mNLayers = backupLay;
+  return trackletLines;
+}
+
+//______________________________________________________________________
 template <typename T, typename ClusterType>
 void NA6PTrackerCA::printStats(const std::vector<T>& candidates,
                                const std::vector<ClusterType>& cluArr,
@@ -1062,3 +1111,5 @@ void NA6PTrackerCA::printStats(const std::vector<T>& candidates,
 
 template void NA6PTrackerCA::findTracks<NA6PMuonSpecCluster>(std::vector<NA6PMuonSpecCluster>&, const NA6PVertex*);
 template void NA6PTrackerCA::findTracks<NA6PVerTelCluster>(std::vector<NA6PVerTelCluster>&, const NA6PVertex*);
+template std::vector<std::pair<NA6PMuonSpecCluster, NA6PMuonSpecCluster>> NA6PTrackerCA::findTracklets<NA6PMuonSpecCluster>(int, int, std::vector<NA6PMuonSpecCluster>&, const NA6PVertex*);
+template std::vector<std::pair<NA6PVerTelCluster, NA6PVerTelCluster>> NA6PTrackerCA::findTracklets<NA6PVerTelCluster>(int, int, std::vector<NA6PVerTelCluster>&, const NA6PVertex*);

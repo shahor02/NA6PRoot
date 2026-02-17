@@ -1,0 +1,296 @@
+#if !defined(__CINT__) || defined(__MAKECINT__)
+#include <TTree.h>
+#include <TFile.h>
+#include <TH1F.h>
+#include <TVector3.h>
+#include <TParticle.h>
+#include <TCanvas.h>
+#include <TLegend.h>
+#include "NA6PMuonSpecCluster.h"
+#include "NA6PTrack.h"
+#include "NA6PLine.h"
+#include "NA6PVertex.h"
+#include "NA6PTrackerCA.h"
+#include "MagneticField.h"
+#include "NA6PMuonSpecModularHit.h"
+#endif
+
+void runMSTrackMIDTrackletMatching(int firstEv = 0,
+                                   int lastEv = 9999,
+                                   const char* dirSimu = ".")
+{
+
+  auto magField = new MagneticField();
+  magField->loadField();
+  magField->setAsGlobalField();
+
+  int nMomBins = 40;
+  float pMax = 30.0;
+
+  NA6PTrackerCA* tracker = new NA6PTrackerCA();
+  tracker->setNLayers(4);
+  tracker->setStartLayer(5);
+  tracker->setUseIntegralBForSeed();
+  tracker->setDoOutwardPropagation(true);
+  tracker->setZForOutwardPropagation(810.);
+  // tracker->setVerbosity(true);
+  if (!tracker->loadGeometry(Form("%s/geometry.root", dirSimu)))
+    return;
+  // pass here the configuration of the tracker via an ini file
+  // tracker->configureFromRecoParam(/* filename.ini */);
+  // alternatively the configuration can be set calling setters for the iterations
+  tracker->setNumberOfIterations(2);
+  tracker->setIterationParams(0, 0.06, 0.1, 6., 0.6, 0.05, 0.05, 5., 5., 5., 4);
+  tracker->setIterationParams(1, 0.1, 0.6, 9., 0.8, 0.08, 0.08, 10., 10., 10., 4);
+  tracker->printConfiguration();
+  TFile* fk = new TFile(Form("%s/MCKine.root", dirSimu));
+  TTree* mcTree = (TTree*)fk->Get("mckine");
+  std::vector<TParticle>* mcArr = nullptr;
+  mcTree->SetBranchAddress("tracks", &mcArr);
+
+  TFile* fh = new TFile(Form("%s/HitsMuonSpecModular.root", dirSimu));
+  TTree* th = (TTree*)fh->Get("hitsMuonSpecModular");
+  std::vector<NA6PMuonSpecModularHit> msHits, *msHitsPtr = &msHits;
+  th->SetBranchAddress("MuonSpecModular", &msHitsPtr);
+
+  TFile* fc = new TFile(Form("%s/ClustersMuonSpec.root", dirSimu));
+  printf("Open cluster file: %s\n", fc->GetName());
+  TTree* tc = (TTree*)fc->Get("clustersMuonSpec");
+  std::vector<NA6PMuonSpecCluster> msClus, *msClusPtr = &msClus;
+  tc->SetBranchAddress("MuonSpec", &msClusPtr);
+  int nEv = tc->GetEntries();
+  if (lastEv > nEv || lastEv < 0)
+    lastEv = nEv;
+  if (firstEv < 0)
+    firstEv = 0;
+  NA6PVertex primVert;
+
+  int nIterationsCA = tracker->getNIterations();
+  TH1F* hDistXYGood = new TH1F("hDistXYGood", "", 100, 0., 100.);
+  TH1F* hCosThGood = new TH1F("hCosThXYGood", "", 100, 0., 1.);
+  TH1F* h1mCosThGood = new TH1F("h1mCosThXYGood", "", 100, 0., 0.01);
+  TH1F* hDistXYComb = new TH1F("hDistXYComb", "", 100, 0., 100.);
+  TH1F* hCosThComb = new TH1F("hCosThXYComb", "", 100, 0., 1.);
+  TH1F* hNGoodFound = new TH1F("hNGoodFound", "", 10, -0.5, 9.5);
+  TH1F* hNMatches = new TH1F("hNMatches", "", 10, -0.5, 9.5);
+  TH1F* hNGoodMatches = new TH1F("hNGoodMatches", "", 10, -0.5, 9.5);
+  TH1F* hMatchType = new TH1F("hMatchType", "", 5, -0.5, 4.5);
+  hMatchType->GetXaxis()->SetBinLabel(1, "Correct match");
+  hMatchType->GetXaxis()->SetBinLabel(2, "Fake track, correct match");
+  hMatchType->GetXaxis()->SetBinLabel(3, "Good track, fake match");
+  hMatchType->GetXaxis()->SetBinLabel(4, "Fake track, fake match");
+  hMatchType->GetXaxis()->SetBinLabel(5, "No match");
+  for (int jEv = firstEv; jEv < lastEv; jEv++) {
+    mcTree->GetEvent(jEv);
+    th->GetEvent(jEv);
+    int nPart = mcArr->size();
+    double zvert = 0;
+    // get primary vertex position from the Kine Tree
+    for (int jp = 0; jp < nPart; jp++) {
+      auto curPart = mcArr->at(jp);
+      if (curPart.IsPrimary()) {
+        zvert = curPart.Vz();
+        break;
+      }
+    }
+    primVert.setXYZ(0., 0., zvert);
+    uint nHits = msHits.size();
+    tc->GetEvent(jEv);
+    tracker->findTracks(msClus, &primVert);
+    std::vector<NA6PTrack> trks = tracker->getTracks();
+    int nTrks = trks.size();
+    std::vector<std::pair<NA6PMuonSpecCluster, NA6PMuonSpecCluster>> trkltsMID = tracker->findTracklets(9, 10, msClus, &primVert);
+    int nTrklets = trkltsMID.size();
+    printf("Number of tracks = %d tracklets = %d\n", nTrks, nTrklets);
+    NA6PFastTrackFitter* fitter = tracker->getTrackFitter();
+
+    // first loop for counting and histos
+    for (int jT = 0; jT < nTrks; jT++) {
+      NA6PTrack tr = trks[jT];
+      int nMatches = 0;
+      int nGoodFound = 0;
+      int nGoodMatches = 0;
+      for (int jS = 0; jS < nTrklets; jS++) {
+        const auto& tracklet = trkltsMID[jS];
+        NA6PMuonSpecCluster clu1 = tracklet.first;
+        NA6PMuonSpecCluster clu2 = tracklet.second;
+        float xyzClu1[3] = {clu1.getX(), clu1.getY(), clu1.getZ()};
+        float xyzClu2[3] = {clu2.getX(), clu2.getY(), clu2.getZ()};
+        if (xyzClu1[2] > xyzClu2[2]) {
+          float tmp[3] = {xyzClu1[0], xyzClu1[1], xyzClu1[2]};
+          for (int j = 0; j < 3; ++j) {
+            xyzClu1[j] = xyzClu2[j];
+            xyzClu2[j] = tmp[j];
+          }
+        }
+        float zToProp = xyzClu1[2];
+        float dirSegm[3];
+        float norm = 0.f;
+        for (int j = 0; j < 3; ++j) {
+          dirSegm[j] = xyzClu2[j] - xyzClu1[j];
+          norm += dirSegm[j] * dirSegm[j];
+        }
+        norm = std::sqrt(norm);
+        for (int j = 0; j < 3; ++j)
+          dirSegm[j] /= norm;
+
+        fitter->propagateToZOuter(&tr, zToProp);
+        double xyzTr[3], pxyzTr[3];
+        tr.getXYZOuter(xyzTr);
+        tr.getPXYZOuter(pxyzTr);
+        norm = 0.f;
+        for (int j = 0; j < 3; ++j)
+          norm += pxyzTr[j] * pxyzTr[j];
+        norm = std::sqrt(norm);
+        for (int j = 0; j < 3; ++j)
+          pxyzTr[j] /= norm;
+        float distXY = std::sqrt((xyzClu1[0] - xyzTr[0]) * (xyzClu1[0] - xyzTr[0]) + (xyzClu1[1] - xyzTr[1]) * (xyzClu1[1] - xyzTr[1]));
+        float costh = dirSegm[0] * pxyzTr[0] + dirSegm[1] * pxyzTr[1] + dirSegm[2] * pxyzTr[2];
+        int idTrack = tr.getParticleID();
+        int idClu1 = clu1.getParticleID();
+        int idClu2 = clu2.getParticleID();
+        if (idTrack == idClu1 && idClu1 == idClu2) {
+          nGoodFound++;
+          hDistXYGood->Fill(distXY);
+          hCosThGood->Fill(costh);
+          h1mCosThGood->Fill(1 - costh);
+        } else {
+          hDistXYComb->Fill(distXY);
+          hCosThComb->Fill(costh);
+        }
+        if (distXY < 7.5 && costh > 0.999) {
+          nMatches++;
+          if (idTrack == idClu1 && idClu1 == idClu2) {
+            nGoodMatches++;
+          }
+        }
+      }
+      hNMatches->Fill(nMatches);
+      hNGoodMatches->Fill(nGoodMatches);
+      hNGoodFound->Fill(nGoodFound);
+    }
+
+    // matching loop
+    struct MatchCandidate {
+      int track;
+      int segment;
+      float score;
+    };
+    std::vector<MatchCandidate> candidates;
+    for (int jT = 0; jT < nTrks; jT++) {
+      NA6PTrack tr = trks[jT];
+      for (int jS = 0; jS < nTrklets; jS++) {
+        const auto& tracklet = trkltsMID[jS];
+        NA6PMuonSpecCluster clu1 = tracklet.first;
+        NA6PMuonSpecCluster clu2 = tracklet.second;
+        float xyzClu1[3] = {clu1.getX(), clu1.getY(), clu1.getZ()};
+        float xyzClu2[3] = {clu2.getX(), clu2.getY(), clu2.getZ()};
+        if (xyzClu1[2] > xyzClu2[2]) {
+          float tmp[3] = {xyzClu1[0], xyzClu1[1], xyzClu1[2]};
+          for (int j = 0; j < 3; ++j) {
+            xyzClu1[j] = xyzClu2[j];
+            xyzClu2[j] = tmp[j];
+          }
+        }
+        float zToProp = xyzClu1[2];
+        float dirSegm[3];
+        float norm = 0.f;
+        for (int j = 0; j < 3; ++j) {
+          dirSegm[j] = xyzClu2[j] - xyzClu1[j];
+          norm += dirSegm[j] * dirSegm[j];
+        }
+        norm = std::sqrt(norm);
+        for (int j = 0; j < 3; ++j)
+          dirSegm[j] /= norm;
+
+        fitter->propagateToZOuter(&tr, zToProp);
+        double xyzTr[3], pxyzTr[3];
+        tr.getXYZOuter(xyzTr);
+        tr.getPXYZOuter(pxyzTr);
+        norm = 0.f;
+        for (int j = 0; j < 3; ++j)
+          norm += pxyzTr[j] * pxyzTr[j];
+        norm = std::sqrt(norm);
+        for (int j = 0; j < 3; ++j)
+          pxyzTr[j] /= norm;
+        float distXY = std::sqrt((xyzClu1[0] - xyzTr[0]) * (xyzClu1[0] - xyzTr[0]) + (xyzClu1[1] - xyzTr[1]) * (xyzClu1[1] - xyzTr[1]));
+        float costh = dirSegm[0] * pxyzTr[0] + dirSegm[1] * pxyzTr[1] + dirSegm[2] * pxyzTr[2];
+        if (distXY < 7.5 && costh > 0.999) {
+          costh = std::clamp(costh, -1.f, 1.f);
+          float score = distXY / 2. + (1 - costh) / 1.e-4;
+          candidates.push_back({jT, jS, score});
+        }
+      }
+    }
+    std::sort(candidates.begin(), candidates.end(),
+              [](auto& a, auto& b) { return a.score < b.score; });
+
+    std::vector<bool> trackUsed(nTrks, false);
+    std::vector<bool> segmentUsed(nTrklets, false);
+    std::vector<int> trackMatch(nTrks, -1);
+
+    for (auto& c : candidates) {
+      if (trackUsed[c.track])
+        continue;
+      if (segmentUsed[c.segment])
+        continue;
+      trackMatch[c.track] = c.segment;
+      trackUsed[c.track] = true;
+      segmentUsed[c.segment] = true;
+    }
+
+    for (int jT = 0; jT < nTrks; jT++) {
+      NA6PTrack tr = trks[jT];
+      int jS = trackMatch[jT];
+      if (jS >= 0) {
+        const auto& tracklet = trkltsMID[jS];
+        NA6PMuonSpecCluster clu1 = tracklet.first;
+        NA6PMuonSpecCluster clu2 = tracklet.second;
+        int idTrack = tr.getParticleID();
+        int idClu1 = clu1.getParticleID();
+        int idClu2 = clu2.getParticleID();
+        if (idTrack >= 0) {
+          if (idTrack == idClu1 && idClu1 == idClu2)
+            hMatchType->Fill(0);
+          else
+            hMatchType->Fill(2);
+        } else {
+          if (std::abs(idTrack) == idClu1 && idClu1 == idClu2)
+            hMatchType->Fill(1);
+          else
+            hMatchType->Fill(3);
+        }
+      } else {
+        hMatchType->Fill(4);
+      }
+    }
+  }
+
+  hDistXYComb->Scale(1. / hDistXYComb->GetEntries());
+  hDistXYGood->Scale(1. / hDistXYGood->GetEntries());
+  hCosThComb->Scale(1. / hCosThComb->GetEntries());
+  hCosThGood->Scale(1. / hCosThGood->GetEntries());
+
+  TCanvas* cmatch = new TCanvas("cmatch", "", 1400, 800);
+  cmatch->Divide(3, 2);
+  cmatch->cd(1);
+  hDistXYComb->SetLineColor(2);
+  hDistXYComb->Draw("histo");
+  hDistXYGood->Draw("histo,sames");
+  cmatch->cd(2);
+  hCosThComb->SetLineColor(2);
+  hCosThComb->Draw("histo");
+  hCosThGood->Draw("histo,sames");
+  cmatch->cd(3);
+  hMatchType->Draw("histo");
+  hMatchType->Draw("text,same");
+  cmatch->cd(4);
+  hNMatches->Draw();
+  hNMatches->Draw("text,same");
+  cmatch->cd(5);
+  hNGoodFound->Draw();
+  hNGoodFound->Draw("text,same");
+  cmatch->cd(6);
+  hNGoodMatches->Draw();
+  hNGoodMatches->Draw("text,same");
+}
