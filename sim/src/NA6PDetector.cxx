@@ -25,6 +25,7 @@ NA6PDetector::NA6PDetector()
   if (!param.use_gdml_magnets) {
     // Analytic magnets from C++ (default behaviour)
     addModule(new NA6PDipoleVT());
+    addModule(new NA6PDipoleMS());
   } else {
     // GDML-based magnets: add the GDML magnet module
     addModule(new NA6PMagnetsGDML());
@@ -33,10 +34,6 @@ NA6PDetector::NA6PDetector()
   addModule(new NA6PTarget());
   addModule(new NA6PVerTel());
   addModule(new NA6PAbsorber());
-
-  if (!param.use_gdml_magnets) {
-    addModule(new NA6PDipoleMS());
-  }
   //addModule(new NA6PMuonSpec());
   addModule(new NA6PMuonSpecModular());
 }
@@ -142,6 +139,7 @@ void NA6PDetector::createGeometry(const std::string& name)
     for (auto m : mModulesVec) {
       m->createGeometry(world);
     }
+    world->SetName("World");
   }
 
   // Apply consistent coloring: Iron/Fe → blue, Copper/Cu → yellow
@@ -176,8 +174,8 @@ void NA6PDetector::createGeometry(const std::string& name)
       }
     }
   }
-
   // Finalize
+  geom->GetTopVolume()->Voxelize(""); 
   geom->CloseGeometry();
   for (auto m : mModulesVec) {
     m->setAlignableEntries();
