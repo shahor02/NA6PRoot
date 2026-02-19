@@ -13,20 +13,17 @@
 
 ClassImp(NA6PMatching)
 
-  NA6PMatching::NA6PMatching() : NA6PReconstruction("Matching"),
-                                 mGeoFilName{"geometry.root"},
-                                 mGeoObjName{"NA6P"},
-                                 mRecoParFilName{""}
+  NA6PMatching::NA6PMatching() : NA6PReconstruction("Matching")
 {
 }
 
 NA6PMatching::NA6PMatching(const char* recparfile,
                            const char* geofile,
-                           const char* geoname) : NA6PReconstruction("Matching"),
-                                                  mGeoFilName{geofile},
-                                                  mGeoObjName{geoname},
-                                                  mRecoParFilName{recparfile}
+                           const char* geoname) : NA6PReconstruction("Matching")
 {
+  mGeoFilName = geofile;
+  mGeoObjName = geoname;
+  mRecoParFilName = recparfile;
   initMatching();
 }
 

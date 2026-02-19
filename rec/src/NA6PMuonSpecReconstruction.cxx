@@ -12,20 +12,17 @@
 
 ClassImp(NA6PMuonSpecReconstruction)
 
-  NA6PMuonSpecReconstruction::NA6PMuonSpecReconstruction() : NA6PReconstruction("MuonSpec"),
-                                                             mGeoFilName{"geometry.root"},
-                                                             mGeoObjName{"NA6P"},
-                                                             mRecoParFilName{""}
+  NA6PMuonSpecReconstruction::NA6PMuonSpecReconstruction() : NA6PReconstruction("MuonSpec")
 {
 }
 
 NA6PMuonSpecReconstruction::NA6PMuonSpecReconstruction(const char* recparfile,
                                                        const char* geofile,
-                                                       const char* geoname) : NA6PReconstruction("MuonSpec"),
-                                                                              mGeoFilName{geofile},
-                                                                              mGeoObjName{geoname},
-                                                                              mRecoParFilName{recparfile}
+                                                       const char* geoname) : NA6PReconstruction("MuonSpec")
 {
+  mGeoFilName = geofile;
+  mGeoObjName = geoname;
+  mRecoParFilName = recparfile;
   initTracker();
 }
 
