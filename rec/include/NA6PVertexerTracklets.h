@@ -179,7 +179,6 @@ class NA6PVertexerTracklets
   void selectTracklets(const std::vector<TrackletForVertex>& tracklets,
                        const std::vector<int>& firstIndex,
                        const std::vector<int>& lastIndex,
-                       const std::vector<NA6PVerTelCluster>& cluArr,
                        std::vector<TrackletForVertex>& selTracklets);
   void filterOutUsedTracklets(const std::vector<TrackletForVertex>& tracklets,
                               std::vector<TrackletForVertex>& usableTracklets);
@@ -225,7 +224,7 @@ class NA6PVertexerTracklets
   short mRecoType = kYZ;                        // method to compute tracklet intersections with beam axis
   float mMaxDCAxy = 0.25;                       // selection for tracklet intersection, cm
   short mMethod = kKDE;                         // method for peak finding (KDE vs histo)
-  int mWeightedMeanOption = kNoWeight;          // option for weigthed mean
+  int mWeightedMeanOption = kNoWeight;          // option for weighted mean
   float mZMin = -20.0;                          // z range, min, cm
   float mZMax = 5.;                             // z range, max, cm
   float mZWindowWidth = 1.25;                   // window around peak, cm
