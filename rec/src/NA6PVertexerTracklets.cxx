@@ -331,7 +331,7 @@ void NA6PVertexerTracklets::computeLayerTracklets(const std::vector<NA6PVerTelCl
                                           return tan2 < tanth2Min * tanth2Min;
                                         });
 
-      auto upper = std::partition_point(layerBegin, layerEnd,
+      auto upper = std::partition_point(lower, layerEnd,
                                         [pvx, pvy, pvz, tanth2Max](const NA6PVerTelCluster& clu) {
                                           double x = clu.getX() - pvx;
                                           double y = clu.getY() - pvy;
@@ -375,7 +375,6 @@ void NA6PVertexerTracklets::computeLayerTracklets(const std::vector<NA6PVerTelCl
 void NA6PVertexerTracklets::selectTracklets(const std::vector<TrackletForVertex>& tracklets,
                                             const std::vector<int>& firstIndex,
                                             const std::vector<int>& lastIndex,
-                                            const std::vector<NA6PVerTelCluster>& cluArr,
                                             std::vector<TrackletForVertex>& selTracklets)
 {
 
@@ -383,24 +382,19 @@ void NA6PVertexerTracklets::selectTracklets(const std::vector<TrackletForVertex>
   int iLayer = mLayerToStart;
   auto layer1Begin = tracklets.begin() + firstIndex[iLayer + 1];
   auto layer1End = tracklets.begin() + lastIndex[iLayer + 1];
-  std::vector<bool> isTrackletSelected;
-  isTrackletSelected.reserve(lastIndex[iLayer] - firstIndex[iLayer]);
   for (int jTrkl0 = firstIndex[iLayer]; jTrkl0 < lastIndex[iLayer]; ++jTrkl0) {
-    isTrackletSelected[jTrkl0] = false;
     const TrackletForVertex& trkl01 = tracklets[jTrkl0];
     const int nextLayerClusterIndex = trkl01.secondClusterIndex;
     auto lower = std::partition_point(layer1Begin, layer1End,
                                       [&](const TrackletForVertex& trkl) {
                                         return trkl.firstClusterIndex < nextLayerClusterIndex;
                                       });
-    auto upper = std::partition_point(layer1Begin, layer1End,
+    auto upper = std::partition_point(lower, layer1End,
                                       [&](const TrackletForVertex& trkl) {
                                         return trkl.firstClusterIndex <= nextLayerClusterIndex;
                                       });
     for (auto it = lower; it != upper; ++it) {
       const TrackletForVertex& trkl12 = *it;
-      if (trkl12.firstClusterIndex != nextLayerClusterIndex)
-        continue;
       const float deltaTanLambda = std::abs(trkl12.tanL - trkl01.tanL);
       float dphi = trkl12.phi - trkl01.phi;
       if (dphi > M_PI)
@@ -410,12 +404,10 @@ void NA6PVertexerTracklets::selectTracklets(const std::vector<TrackletForVertex>
       float deltapxpz = std::abs(trkl12.pxpz - trkl01.pxpz);
       float deltapypz = std::abs(trkl12.pypz - trkl01.pypz);
       if (deltapypz < mMaxDeltaPyPzInOut && deltapxpz < mMaxDeltaPxPzInOut && deltaTanLambda < mMaxDeltaTanLamInOut && std::abs(dphi) < mMaxDeltaPhiInOut) {
-        // if(trkl01.isSignal) isTrackletSelected[jTrkl0] = true;
-        isTrackletSelected[jTrkl0] = true;
+        selTracklets.push_back(trkl01);
+        break;
       }
     }
-    if (isTrackletSelected[jTrkl0])
-      selTracklets.push_back(std::move(trkl01));
   }
 }
 
@@ -642,7 +634,7 @@ bool NA6PVertexerTracklets::findVertexHistoPeak(std::vector<TracklIntersection>&
                                   return a.zeta < value;
                                 });
 
-  auto upper = std::upper_bound(zIntersec.begin(), zIntersec.end(), zWinMax,
+  auto upper = std::upper_bound(lower, zIntersec.end(), zWinMax,
                                 [](float value, const TracklIntersection& a) {
                                   return value < a.zeta;
                                 });
@@ -674,7 +666,7 @@ bool NA6PVertexerTracklets::findVertexHistoPeak(std::vector<TracklIntersection>&
                              return a.zeta < value;
                            });
 
-  upper = std::upper_bound(zIntersec.begin(), zIntersec.end(), zWinMax,
+  upper = std::upper_bound(lower, zIntersec.end(), zWinMax,
                            [](float value, const TracklIntersection& a) {
                              return value < a.zeta;
                            });
@@ -998,7 +990,7 @@ void NA6PVertexerTracklets::findVertices(std::vector<NA6PVerTelCluster>& cluArr,
   sortTrackletsByLayerAndIndex(allTracklets, firstTrklPerLay, lastTrklPerLay);
   if (mVerbose)
     printStats(allTracklets, cluArr, "tracklets");
-  selectTracklets(allTracklets, firstTrklPerLay, lastTrklPerLay, cluArr, selTracklets);
+  selectTracklets(allTracklets, firstTrklPerLay, lastTrklPerLay, selTracklets);
   if (mVerbose)
     printStats(selTracklets, cluArr, "selected tracklets");
   bool retCode;
