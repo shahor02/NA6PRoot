@@ -11,20 +11,17 @@
 
 ClassImp(NA6PVerTelReconstruction)
 
-  NA6PVerTelReconstruction::NA6PVerTelReconstruction() : NA6PReconstruction("VerTel"),
-                                                         mGeoFilName{"geometry.root"},
-                                                         mGeoObjName{"NA6P"},
-                                                         mRecoParFilName{""}
+  NA6PVerTelReconstruction::NA6PVerTelReconstruction() : NA6PReconstruction("VerTel")
 {
 }
 
 NA6PVerTelReconstruction::NA6PVerTelReconstruction(const char* recparfile,
                                                    const char* geofile,
-                                                   const char* geoname) : NA6PReconstruction("VerTel"),
-                                                                          mGeoFilName{geofile},
-                                                                          mGeoObjName{geoname},
-                                                                          mRecoParFilName{recparfile}
+                                                   const char* geoname) : NA6PReconstruction("VerTel")
 {
+  mGeoFilName = geofile;
+  mGeoObjName = geoname;
+  mRecoParFilName = recparfile;
   initAll();
 }
 

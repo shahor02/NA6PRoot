@@ -29,11 +29,6 @@ class NA6PMatching : public NA6PReconstruction
   NA6PMatching(const char* recparfile, const char* geofile = "geometry.root", const char* geoname = "NA6P");
   ~NA6PMatching() override = default;
 
-  void setGeometryFile(const char* geofile, const char* geoname = "NA6P")
-  {
-    mGeoFilName = geofile;
-    mGeoObjName = geoname;
-  }
   void configureFromRecoParam(const std::string& filename = "");
   void setMCMatching(bool mc) { mMCMatching = mc; }
   void setMaxChi2Match(double v) { mMaxChi2Match = v; }
@@ -98,9 +93,6 @@ class NA6PMatching : public NA6PReconstruction
 
   std::vector<NA6PVerTelCluster> mVerTelClusters, *hVerTelClusPtr = &mVerTelClusters;         // vector of clusters
   std::vector<NA6PMuonSpecCluster> mMuonSpecClusters, *hMuonSpecClusPtr = &mMuonSpecClusters; // vector of clusters
-  std::string mGeoFilName{};                                          // name of geometry file
-  std::string mGeoObjName{};                                          // name of geometry object
-  std::string mRecoParFilName{};                                      // name of reco param file
   double mZMatching = 38.1175;
   bool mIsZMatchingSet = false;
   bool mMCMatching = false;

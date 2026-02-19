@@ -31,6 +31,12 @@ class NA6PReconstruction
 
   virtual bool init(const char* filename, const char* geoname = "NA6P");
 
+  void setRecoParamFile(const char* recparfile) { mRecoParFilName = recparfile; }
+  void setGeometryFile(const char* geofile, const char* geoname = "NA6P")
+  {
+    mGeoFilName = geofile;
+    mGeoObjName = geoname;
+  }
   // methods to steer cluster reconstruction
   virtual void createClustersOutput();
   virtual void clearClusters();
@@ -52,6 +58,9 @@ class NA6PReconstruction
 
  protected:
   std::string mName{"MothClass"};             // detector name
+  std::string mGeoFilName{"geometry.root"};   // name of geometry file
+  std::string mGeoObjName{"NA6P"};            // name of geometry object
+  std::string mRecoParFilName{""};            // name of reco param file
   bool mIsInitialized = false;                // flag for initialization
   const NA6PVertex* mPrimaryVertex = nullptr; // primary vertex
 
