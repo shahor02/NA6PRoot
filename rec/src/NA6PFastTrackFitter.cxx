@@ -56,6 +56,17 @@ void NA6PFastTrackFitter::addCluster(int jLay, const NA6PBaseCluster& cl)
   mClusters[jLay] = &cl;
 }
 
+void NA6PFastTrackFitter::printClusters() const
+{
+  LOGP(info, "N layers = {}", mNLayers);
+  for (int jLay = 0; jLay < mNLayers; ++jLay) {
+    if (mClusters[jLay])
+      LOGP(info, "Layer {} Cluster position = {} {} {}", jLay, mClusters[jLay]->getXLab(), mClusters[jLay]->getYLab(), mClusters[jLay]->getZLab());
+    else
+      LOGP(info, "Layer {} No cluster", jLay);
+  }
+}
+
 void NA6PFastTrackFitter::setSeed(const double* pos, const double* mom, int charge)
 {
   if (!pos || !mom) {
@@ -540,7 +551,6 @@ void NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed)
     }
     bxyz[1] = aveField / totLength;
   }
-
   // circle fit: compute center (cx, cz) and radius
   double determ = 2.0 * (x1 * (z2 - z3) + x2 * (z3 - z1) + x3 * (z1 - z2));
   double cx = 0.0, cz = 0.0, radius = 1e6;
@@ -620,10 +630,12 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints(int dir, NA6PTrack* seed)
     LOGP(error, "Cannot fit track with only {} clusters\n", nClus);
     return nullptr;
   }
-  NA6PTrack* currTr = nullptr;
+  NA6PTrack* currTr = new NA6PTrack();
   if (seed) {
     // Seed provided as a track from previous pass
-    currTr = new NA6PTrack(*seed);
+    currTr->setParam(seed->getTrackExtParam());
+    seed->getXYZ(mSeedPos);
+    seed->getPXYZ(mSeedMom);
     mIsSeedSet = true;
   } else {
     if (!mIsSeedSet) {
@@ -633,11 +645,10 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints(int dir, NA6PTrack* seed)
       else
         computeSeedOuter();
     }
-    if (!mIsSeedSet)
-      LOGP(warn, "Track seed not computed properly, will run the fit w/o seed");
-    currTr = new NA6PTrack();
     if (mIsSeedSet)
       currTr->init(mSeedPos, mSeedMom, mCharge);
+    else
+      LOGP(warn, "Track seed not computed properly, will run the fit w/o seed");
   }
   currTr->setMass(mMass);
   currTr->resetCovariance(-1);
@@ -697,7 +708,9 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints(int dir, NA6PTrack* seed)
     zCurr = zNext;
   }
 
-  if (!isGoodFit)
+  if (!isGoodFit) {
+    delete currTr;
     return nullptr;
+  }
   return currTr;
 }
