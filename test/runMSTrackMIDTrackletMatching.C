@@ -12,7 +12,7 @@
 #include "NA6PVertex.h"
 #include "NA6PTrackerCA.h"
 #include "MagneticField.h"
-#include "NA6PMuonSpecModularHit.h"
+#include "NA6PMuonSpecReconstruction.h"
 #endif
 
 void runMSTrackMIDTrackletMatching(int firstEv = 0,
@@ -43,21 +43,18 @@ void runMSTrackMIDTrackletMatching(int firstEv = 0,
   tracker->setIterationParams(0, 0.06, 0.1, 6., 0.6, 0.05, 0.05, 5., 5., 5., 4);
   tracker->setIterationParams(1, 0.1, 0.6, 9., 0.8, 0.08, 0.08, 10., 10., 10., 4);
   tracker->printConfiguration();
+
   TFile* fk = new TFile(Form("%s/MCKine.root", dirSimu));
   TTree* mcTree = (TTree*)fk->Get("mckine");
   std::vector<TParticle>* mcArr = nullptr;
   mcTree->SetBranchAddress("tracks", &mcArr);
-
-  TFile* fh = new TFile(Form("%s/HitsMuonSpecModular.root", dirSimu));
-  TTree* th = (TTree*)fh->Get("hitsMuonSpecModular");
-  std::vector<NA6PMuonSpecModularHit> msHits, *msHitsPtr = &msHits;
-  th->SetBranchAddress("MuonSpecModular", &msHitsPtr);
 
   TFile* fc = new TFile(Form("%s/ClustersMuonSpec.root", dirSimu));
   printf("Open cluster file: %s\n", fc->GetName());
   TTree* tc = (TTree*)fc->Get("clustersMuonSpec");
   std::vector<NA6PMuonSpecCluster> msClus, *msClusPtr = &msClus;
   tc->SetBranchAddress("MuonSpec", &msClusPtr);
+
   int nEv = tc->GetEntries();
   if (lastEv > nEv || lastEv < 0)
     lastEv = nEv;
@@ -80,9 +77,20 @@ void runMSTrackMIDTrackletMatching(int firstEv = 0,
   hMatchType->GetXaxis()->SetBinLabel(3, "Good track, fake match");
   hMatchType->GetXaxis()->SetBinLabel(4, "Fake track, fake match");
   hMatchType->GetXaxis()->SetBinLabel(5, "No match");
+
+  TH1F* hEtaOrigTracks = new TH1F("hEtaOrigTracks", ";#eta;counts", 20, 1., 5.);
+  TH1F* hEtaRefitTracks = new TH1F("hEtaRefitTracks", ";#eta;counts", 20, 1., 5.);
+  TH1F* hNClusOrigTracks = new TH1F("hNClusOrigTracks", ";n_{clusters};counts", 7, -0.5, 6.5);
+  TH1F* hNClusRefitTracks = new TH1F("hNClusRefitTracks", ";n_{clusters};counts", 7, -0.5, 6.5);
+
+  std::vector<NA6PTrack> ms42Tracks, *hTrackPtr = &ms42Tracks;
+  TFile* fouttr = TFile::Open("TracksFourPlusTwo.root", "recreate");
+  TTree* trackTree = new TTree("TracksMuonSpec", "MuonSpec Tracks");
+  trackTree->Branch("MuonsSpec", &hTrackPtr);
+
   for (int jEv = firstEv; jEv < lastEv; jEv++) {
+    ms42Tracks.clear();
     mcTree->GetEvent(jEv);
-    th->GetEvent(jEv);
     int nPart = mcArr->size();
     double zvert = 0;
     // get primary vertex position from the Kine Tree
@@ -94,14 +102,16 @@ void runMSTrackMIDTrackletMatching(int firstEv = 0,
       }
     }
     primVert.setXYZ(0., 0., zvert);
-    uint nHits = msHits.size();
     tc->GetEvent(jEv);
+    for (size_t i = 0; i < msClus.size(); ++i) {
+      msClus[i].setClusterIndex(static_cast<int>(i));
+    }
     tracker->findTracks(msClus, &primVert);
+
     std::vector<NA6PTrack> trks = tracker->getTracks();
     int nTrks = trks.size();
     std::vector<std::pair<NA6PMuonSpecCluster, NA6PMuonSpecCluster>> trkltsMID = tracker->findTracklets(9, 10, msClus, &primVert);
     int nTrklets = trkltsMID.size();
-    printf("Number of tracks = %d tracklets = %d\n", nTrks, nTrklets);
     NA6PFastTrackFitter* fitter = tracker->getTrackFitter();
 
     // first loop for counting and histos
@@ -241,30 +251,107 @@ void runMSTrackMIDTrackletMatching(int firstEv = 0,
 
     for (int jT = 0; jT < nTrks; jT++) {
       NA6PTrack tr = trks[jT];
+      hNClusOrigTracks->Fill(tr.getNHits());
+      double pxyz[3];
+      tr.getPXYZ(pxyz);
+      float momtr = tr.getP();
+      float thetatr = std::acos(pxyz[2] / momtr);
+      float etatr = -std::log(std::tan(thetatr / 2.));
+      hEtaOrigTracks->Fill(etatr);
+
       int jS = trackMatch[jT];
-      if (jS >= 0) {
-        const auto& tracklet = trkltsMID[jS];
-        NA6PMuonSpecCluster clu1 = tracklet.first;
-        NA6PMuonSpecCluster clu2 = tracklet.second;
-        int idTrack = tr.getParticleID();
-        int idClu1 = clu1.getParticleID();
-        int idClu2 = clu2.getParticleID();
-        if (idTrack >= 0) {
-          if (idTrack == idClu1 && idClu1 == idClu2)
-            hMatchType->Fill(0);
-          else
-            hMatchType->Fill(2);
-        } else {
-          if (std::abs(idTrack) == idClu1 && idClu1 == idClu2)
-            hMatchType->Fill(1);
-          else
-            hMatchType->Fill(3);
-        }
-      } else {
+      if (jS < 0) {
         hMatchType->Fill(4);
+        continue;
       }
+      const auto& tracklet = trkltsMID[jS];
+      NA6PMuonSpecCluster clu1 = tracklet.first;
+      NA6PMuonSpecCluster clu2 = tracklet.second;
+      int idTrack = tr.getParticleID();
+      int idClu1 = clu1.getParticleID();
+      int idClu2 = clu2.getParticleID();
+      if (idTrack >= 0) {
+        if (idTrack == idClu1 && idClu1 == idClu2)
+          hMatchType->Fill(0);
+        else
+          hMatchType->Fill(2);
+      } else {
+        if (std::abs(idTrack) == idClu1 && idClu1 == idClu2)
+          hMatchType->Fill(1);
+        else
+          hMatchType->Fill(3);
+      }
+
+      fitter->cleanupAndStartFit();
+      fitter->setNLayers(6);
+      std::vector<int> clusterLookup(msClus.size(), -1);
+      for (size_t i = 0; i < msClus.size(); ++i) {
+        int originalID = msClus[i].getClusterIndex();
+        if (originalID >= 0 && (size_t)originalID < msClus.size())
+          clusterLookup[originalID] = static_cast<int>(i);
+      }
+
+      for (int jl = 0; jl < 4; ++jl) {
+        int originalID = tr.getClusterIndex(jl + 5);
+        if (originalID >= 0 && (size_t)originalID < clusterLookup.size()) {
+          int jNewPos = clusterLookup[originalID];
+          const auto& cl = msClus[jNewPos];
+          fitter->addCluster(jl, cl);
+        }
+      }
+
+      NA6PTrack outTr = tr;
+      outTr.setParam(tr.getOuterParam());
+      outTr.setChi2VT(tr.getChi2VTOuter());
+      outTr.setChi2MS(tr.getChi2MSOuter());
+      float zToProp = 810.;
+      fitter->propagateToZ(&outTr, zToProp);
+
+      float zFirst = -999.;
+      float zSecond = -999.;
+      if (clu1.getZ() < clu2.getZ()) {
+        fitter->addCluster(4, clu1);
+        fitter->addCluster(5, clu2);
+        zFirst = clu1.getZ();
+        zSecond = clu2.getZ();
+      } else {
+        fitter->addCluster(4, clu2);
+        fitter->addCluster(5, clu1);
+        zFirst = clu2.getZ();
+        zSecond = clu1.getZ();
+      }
+      //      fitter->printClusters();
+      fitter->propagateToZ(&outTr, zFirst);
+      bool success = false;
+      if (fitter->updateTrack(&outTr, &clu1)) {
+        fitter->propagateToZ(&outTr, zSecond);
+        if (fitter->updateTrack(&outTr, &clu2))
+          success = true;
+      }
+      if (!success)
+        continue;
+
+      NA6PTrack* refitInw = fitter->fitTrackPointsInward(&outTr);
+      if (!refitInw)
+        continue;
+      refitInw->setOuterParam(outTr.getTrackExtParam());
+      refitInw->setChi2VTOuter(outTr.getChi2VT());
+      refitInw->setChi2MSOuter(outTr.getChi2MS());
+
+      hNClusRefitTracks->Fill(refitInw->getNHits());
+      refitInw->getPXYZ(pxyz);
+      momtr = refitInw->getP();
+      thetatr = std::acos(pxyz[2] / momtr);
+      etatr = -std::log(std::tan(thetatr / 2.));
+      hEtaRefitTracks->Fill(etatr);
+
+      ms42Tracks.push_back(*refitInw);
     }
+    trackTree->Fill();
   }
+  fouttr->cd();
+  trackTree->Write();
+  fouttr->Close();
 
   hDistXYComb->Scale(1. / hDistXYComb->GetEntries());
   hDistXYGood->Scale(1. / hDistXYGood->GetEntries());
@@ -293,4 +380,19 @@ void runMSTrackMIDTrackletMatching(int firstEv = 0,
   cmatch->cd(6);
   hNGoodMatches->Draw();
   hNGoodMatches->Draw("text,same");
+
+  TCanvas* ctr = new TCanvas("ctr", "", 1400, 800);
+  ctr->Divide(3, 2);
+  ctr->cd(1);
+  hNClusOrigTracks->Draw();
+  ctr->cd(2);
+  hEtaOrigTracks->Draw();
+  ctr->cd(4);
+  hNClusRefitTracks->Draw();
+  ctr->cd(5);
+  hEtaRefitTracks->Draw();
+  ctr->cd(6);
+  TH1F* hRatioEta = (TH1F*)hEtaRefitTracks->Clone("hRatioEta");
+  hRatioEta->Divide(hEtaRefitTracks, hEtaOrigTracks, 1., 1., "B");
+  hRatioEta->Draw();
 }

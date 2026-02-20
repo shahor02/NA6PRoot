@@ -110,6 +110,10 @@ class NA6PTrack
   double getSigmaPX2() const;
   double getSigmaPY2() const;
   double getSigmaPZ2() const;
+  double getChi2VTOuter() const { return mChi2VTOuter; }
+  double getChi2MSOuter() const { return mChi2MSOuter; }
+  double getChi2VTRefit() const { return mChi2VTRefit; }
+  double getChi2MSRefit() const { return mChi2MSRefit; }
   double getNormChi2() const { return mNClusters < 3 ? 0 : (mChi2VT + mChi2MS) / ((mNClusters << 1) - kNDOF); }
   double getPredictedChi2(double* p, double* cov) const { return mExtTrack.getPredictedChi2(p, cov); }
 
@@ -117,6 +121,10 @@ class NA6PTrack
   void setMatchChi2(double chi2) { mMatchChi2 = chi2; }
   void setChi2VT(double chi2) { mChi2VT = chi2; }
   void setChi2MS(double chi2) { mChi2MS = chi2; }
+  void setChi2VTOuter(double chi2) { mChi2VTOuter = chi2; }
+  void setChi2MSOuter(double chi2) { mChi2MSOuter = chi2; }
+  void setChi2VTRefit(double chi2) { mChi2VTRefit = chi2; }
+  void setChi2MSRefit(double chi2) { mChi2MSRefit = chi2; }
   void setParticleLabel(int idx, int lr)
   {
     if (lr < kMaxLr)
@@ -151,6 +159,10 @@ class NA6PTrack
   double mMatchChi2 = 0.f;                   // total chi2
   double mChi2VT = 0.f;                      // total chi2 VT
   double mChi2MS = 0.f;                      // total chi2 MS
+  double mChi2VTOuter = 0.f;                 // total chi2 VT outward fit
+  double mChi2MSOuter = 0.f;                 // total chi2 MS outward fit
+  double mChi2VTRefit = 0.f;                 // total chi2 VT inward refit
+  double mChi2MSRefit = 0.f;                 // total chi2 MS inward refit
   uint32_t mClusterMap = 0;                  // pattern of clusters per layer
   int mNClusters = 0;                        // total hits
   int mNClustersVT = 0;                      // total VT hits
@@ -169,7 +181,7 @@ class NA6PTrack
   bool propagateToZBxByBz(double z, const double* bxyz) { return mExtTrack.propagateToBxByBz(z, bxyz); }
   bool propagateToZBxByBzOuter(double z, const double* bxyz) { return mOuter.propagateToBxByBz(z, bxyz); }
 
-  ClassDefNV(NA6PTrack, 2)
+  ClassDefNV(NA6PTrack, 3)
 };
 
 //_______________________________________________________________________

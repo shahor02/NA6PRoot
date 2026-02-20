@@ -804,11 +804,15 @@ void NA6PTrackerCA::fitAndSelectTracks(const std::vector<TrackCandidate>& trackC
           if (inwRefitPtr) {
             fitTrackFast.setParam(inwRefitPtr->getTrackExtParam());
             fitTrackFast.setStatusRefitInward(true);
+            fitTrackFast.setChi2VTRefit(inwRefitPtr->getChi2VT());
+            fitTrackFast.setChi2MSRefit(inwRefitPtr->getChi2MS());
           } else
             fitTrackFast.setStatusRefitInward(false);
         }
         mTrackFitter->propagateToZ(outwRefitPtr.get(), mZOutProp);
         fitTrackFast.setOuterParam(outwRefitPtr->getTrackExtParam());
+        fitTrackFast.setChi2VTOuter(outwRefitPtr->getChi2VT());
+        fitTrackFast.setChi2MSOuter(outwRefitPtr->getChi2MS());
       }
     }
     if (mPropagateTracksToPrimaryVertex)

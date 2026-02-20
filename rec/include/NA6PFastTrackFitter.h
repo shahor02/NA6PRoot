@@ -81,6 +81,7 @@ class NA6PFastTrackFitter
   void computeSeed(int dir = -1);
   void computeSeedOuter() { computeSeed(-1); }
   void computeSeedInner() { computeSeed(1); }
+  void printClusters() const;
   void printSeed() const;
   const double* getSeedMomentum() const { return mSeedMom; }
   const double* getSeedPosition() const { return mSeedPos; }
