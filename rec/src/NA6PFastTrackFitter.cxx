@@ -708,7 +708,9 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints(int dir, NA6PTrack* seed)
     zCurr = zNext;
   }
 
-  if (!isGoodFit)
+  if (!isGoodFit) {
+    delete currTr;
     return nullptr;
+  }
   return currTr;
 }
