@@ -99,9 +99,9 @@ class NA6PFastTrackFitter
 
   bool loadGeometry(const char* filename = "geometry.root", const char* geoname = "NA6P");
 
-  NA6PTrack* fitTrackPoints(int dir = -1, NA6PTrack* seed = nullptr);
-  NA6PTrack* fitTrackPointsInward(NA6PTrack* seed = nullptr) { return fitTrackPoints(-1, seed); }
-  NA6PTrack* fitTrackPointsOutward(NA6PTrack* seed = nullptr) { return fitTrackPoints(1, seed); }
+  bool fitTrackPoints(NA6PTrack& trackToFit, int dir = -1, const NA6PTrack* seed = nullptr);
+  bool fitTrackPointsInward(NA6PTrack& trackToFit, const NA6PTrack* seed = nullptr) { return fitTrackPoints(trackToFit, -1, seed); }
+  bool fitTrackPointsOutward(NA6PTrack& trackToFit, const NA6PTrack* seed = nullptr) { return fitTrackPoints(trackToFit, 1, seed); }
   bool updateTrack(NA6PTrack* trc, const NA6PBaseCluster* cl) const;
   bool constrainTrackToVertex(NA6PTrack* trc, const NA6PVertex& pv) const;
 

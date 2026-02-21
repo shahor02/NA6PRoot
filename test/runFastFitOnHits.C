@@ -94,7 +94,7 @@ void FillMeanAndRms(TH2F* hImpParVsP, TH1F* hImpParMean, TH1F* hImpParRms, TH1F*
     float egw = erms;
     if (htmp1->GetEntries() > 20.) {
       int fitStatus = htmp1->Fit("gaus", "Q", "", -3. * rms, 3. * rms);
-      if (fitStatus == 0){
+      if (fitStatus == 0) {
         TF1* fg = (TF1*)htmp1->GetListOfFunctions()->FindObject("gaus");
         if (fg) {
           gw = fg->GetParameter(2);
@@ -114,7 +114,7 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
                               int lastEv = 99999999,
                               float cluresx = 5.e-4,
                               float cluresy = 5.e-4,
-                              const char* dirSimu = "../testN6PRoot/pions/latesttag",
+                              const char* dirSimu = ".",
                               const char* hitFileName = "HitsVerTel.root",
                               const char* hitTreeName = "hitsVerTel",
                               const char* hitBranchName = "VerTel",
@@ -284,32 +284,33 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
         //	int sign = curPart.GetPdgCode() > 0 ? 1 : -1;
         //	fitter->setSeed(xyz0,pxyz0,sign);
 
-        NA6PTrack* currTr = fitter->fitTrackPoints();
-        std::cout << "Track fit done.\n";
-        //	fitter->propagateToZ(currTr,zvert);
+        NA6PTrack currTr;
+        TParticle trFit;
         float chiFit = -1.;
-        if (currTr) {
+        if (fitter->fitTrackPoints(currTr)) {
+          std::cout << "Track fit done.\n";
+          //	fitter->propagateToZ(&currTr,zvert);
           hIsGood->Fill(1);
-          int nClusters = currTr->getNHits();
+          int nClusters = currTr.getNHits();
           hNclu->Fill(nClusters);
           if (nClusters != minHits) {
             std::cout << "Skipping track with only " << nClusters << " hits (minHits=" << minHits << ")\n";
             continue;
           } else
             std::cout << "Fitted track with " << nClusters << " hits\n";
-          chiFit = currTr->getChi2();
-          //	  printf("chi2 = %f  chi2/ndf = %f\n",chiFit,currTr->GetNormChi2());
-          float pxyz[3];
-          currTr->getPXYZ(pxyz);
+          chiFit = currTr.getChi2();
+          //	  printf("chi2 = %f  chi2/ndf = %f\n",chiFit,currTr.GetNormChi2());
+          double pxyz[3];
+          currTr.getPXYZ(pxyz);
           float pxtr = pxyz[0];
           float pytr = pxyz[1];
           float pztr = pxyz[2];
-          float momtr = currTr->getP();
+          float momtr = currTr.getP();
           float phitr = std::atan2(pytr, pxtr);
           float thetatr = std::acos(pztr / momtr);
           float etatr = -std::log(std::tan(thetatr / 2.));
-          float impparX = currTr->getXLab() - xvert;
-          float impparY = currTr->getYLab() - yvert;
+          float impparX = currTr.getXLab() - xvert;
+          float impparY = currTr.getYLab() - yvert;
           hEtaReco->Fill(etatr);
           hDeltaPx->Fill(pxtr - pxPart);
           hDeltaPy->Fill(pytr - pyPart);
@@ -330,17 +331,14 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
           hImpParXVsP->Fill(momtr, impparX * 1e4);
           hImpParYVsP->Fill(momtr, impparY * 1e4);
           hChi2NDF->Fill(chiFit);
-        } else {
-          hIsGood->Fill(0);
-        }
-        TParticle trFit;
-        if (currTr) {
-          float pos[3], mom[3];
-          currTr->getPXYZ(mom);
+          double pos[3], mom[3];
+          currTr.getPXYZ(mom);
           TLorentzVector v;
           v.SetXYZM(mom[0], mom[1], mom[2], 0.14);
           trFit.SetMomentum(v);
-          trFit.SetProductionVertex(currTr->getXLab(), currTr->getYLab(), currTr->getZLab(), 0);
+          trFit.SetProductionVertex(currTr.getXLab(), currTr.getYLab(), currTr.getZLab(), 0);
+        } else {
+          hIsGood->Fill(0);
         }
         outTr << "out"
               << "mcTr=" << curPart << "fitTr=" << trFit << "fitChi2=" << chiFit << "\n";
@@ -567,7 +565,7 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
 void runFastFitOnVerTelHits(int firstEv = 0,
                             int lastEv = 99999999,
                             float clures = 5.e-4,
-                            const char* dirSimu = "../testN6Proot/pions/latesttag",
+                            const char* dirSimu = ".",
                             int minHits = 5)
 {
   runFastFitOnHitsTemplate<NA6PVerTelHit>(firstEv, lastEv, clures, clures, dirSimu,
@@ -580,7 +578,7 @@ void runFastFitOnMuonSpecHits(int firstEv = 0,
                               int lastEv = 99999999,
                               float cluresx = 500.e-4,
                               float cluresy = 1000.e-4,
-                              const char* dirSimu = "../tst",
+                              const char* dirSimu = ".",
                               int minHits = 6)
 {
   runFastFitOnHitsTemplate<NA6PMuonSpecModularHit>(firstEv, lastEv, cluresx, cluresy, dirSimu,
