@@ -331,21 +331,21 @@ void runMSTrackMIDTrackletMatching(int firstEv = 0,
       if (!success)
         continue;
 
-      NA6PTrack* refitInw = fitter->fitTrackPointsInward(&outTr);
-      if (!refitInw)
+      NA6PTrack refitInw;
+      if (!fitter->fitTrackPointsInward(refitInw, &outTr))
         continue;
-      refitInw->setOuterParam(outTr.getTrackExtParam());
-      refitInw->setChi2VTOuter(outTr.getChi2VT());
-      refitInw->setChi2MSOuter(outTr.getChi2MS());
+      refitInw.setOuterParam(outTr.getTrackExtParam());
+      refitInw.setChi2VTOuter(outTr.getChi2VT());
+      refitInw.setChi2MSOuter(outTr.getChi2MS());
 
-      hNClusRefitTracks->Fill(refitInw->getNHits());
-      refitInw->getPXYZ(pxyz);
-      momtr = refitInw->getP();
+      hNClusRefitTracks->Fill(refitInw.getNHits());
+      refitInw.getPXYZ(pxyz);
+      momtr = refitInw.getP();
       thetatr = std::acos(pxyz[2] / momtr);
       etatr = -std::log(std::tan(thetatr / 2.));
       hEtaRefitTracks->Fill(etatr);
 
-      ms42Tracks.push_back(*refitInw);
+      ms42Tracks.push_back(refitInw);
     }
     trackTree->Fill();
   }

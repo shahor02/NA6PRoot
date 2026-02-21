@@ -622,18 +622,18 @@ void NA6PFastTrackFitter::printSeed() const
     LOGP(info, "Seed not set");
 }
 
-NA6PTrack* NA6PFastTrackFitter::fitTrackPoints(int dir, NA6PTrack* seed)
+bool NA6PFastTrackFitter::fitTrackPoints(NA6PTrack& trackToFit, int dir, const NA6PTrack* seed)
 {
 
   int nClus = getNumberOfClusters();
   if (nClus < 2) {
     LOGP(error, "Cannot fit track with only {} clusters\n", nClus);
-    return nullptr;
+    return false;
   }
-  NA6PTrack* currTr = new NA6PTrack();
+  trackToFit.reset();
   if (seed) {
     // Seed provided as a track from previous pass
-    currTr->setParam(seed->getTrackExtParam());
+    trackToFit.setParam(seed->getTrackExtParam());
     seed->getXYZ(mSeedPos);
     seed->getPXYZ(mSeedMom);
     mIsSeedSet = true;
@@ -646,12 +646,12 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints(int dir, NA6PTrack* seed)
         computeSeedOuter();
     }
     if (mIsSeedSet)
-      currTr->init(mSeedPos, mSeedMom, mCharge);
+      trackToFit.init(mSeedPos, mSeedMom, mCharge);
     else
       LOGP(warn, "Track seed not computed properly, will run the fit w/o seed");
   }
-  currTr->setMass(mMass);
-  currTr->resetCovariance(-1);
+  trackToFit.setMass(mMass);
+  trackToFit.resetCovariance(-1);
   // construct bit mask
   uint clusterMask = 0;
   for (int jLay = 0; jLay < mNLayers; ++jLay) {
@@ -672,7 +672,7 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints(int dir, NA6PTrack* seed)
   for (int jLay = startLay; jLay != endLay; jLay += stepLay) {
     // update track with point in current layer
     if (mClusters[jLay]) {
-      if (!updateTrack(currTr, mClusters[jLay])) {
+      if (!updateTrack(&trackToFit, mClusters[jLay])) {
         isGoodFit = false;
         break;
       } else {
@@ -700,7 +700,7 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints(int dir, NA6PTrack* seed)
     }
     // propagate to next layer
     if (zCurr > 0 && propToNext) {
-      if (propagateToZ(currTr, zCurr, zNext, dir) != 1) {
+      if (propagateToZ(&trackToFit, zCurr, zNext, dir) != 1) {
         isGoodFit = false;
         break;
       }
@@ -708,9 +708,5 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints(int dir, NA6PTrack* seed)
     zCurr = zNext;
   }
 
-  if (!isGoodFit) {
-    delete currTr;
-    return nullptr;
-  }
-  return currTr;
+  return isGoodFit;
 }

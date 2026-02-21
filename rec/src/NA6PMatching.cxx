@@ -226,16 +226,16 @@ bool NA6PMatching::fitAndStoreMatchedTrack(const NA6PTrack& vtTrk, const NA6PTra
   addClustersToFitter(vtTrk, &mVerTelClusters);
   addClustersToFitter(msTrk, hMuonSpecClusPtr);
 
-  std::unique_ptr<NA6PTrack> matchedTrack(mTrackFitter->fitTrackPoints());
-  if (!matchedTrack) {
+  NA6PTrack matchedTrack;
+  if (!mTrackFitter->fitTrackPoints(matchedTrack)) {
     LOGP(warn, "Refit of matched track failed, skipping");
     return false;
   }
 
-  matchedTrack->setParticleID(particleId);
-  matchedTrack->setMatchChi2(matchChi2);
-  mTrackFitter->propagateToZ(matchedTrack.get(), mPrimaryVertex->getZ());
-  mMatchedTracks.push_back(*matchedTrack);
+  matchedTrack.setParticleID(particleId);
+  matchedTrack.setMatchChi2(matchChi2);
+  mTrackFitter->propagateToZ(&matchedTrack, mPrimaryVertex->getZ());
+  mMatchedTracks.push_back(std::move(matchedTrack));
 
   return true;
 }
