@@ -56,6 +56,17 @@ void NA6PFastTrackFitter::addCluster(int jLay, const NA6PBaseCluster& cl)
   mClusters[jLay] = &cl;
 }
 
+void NA6PFastTrackFitter::printClusters() const
+{
+  LOGP(info, "N layers = {}", mNLayers);
+  for (int jLay = 0; jLay < mNLayers; ++jLay) {
+    if (mClusters[jLay])
+      LOGP(info, "Layer {} Cluster position = {} {} {}", jLay, mClusters[jLay]->getXLab(), mClusters[jLay]->getYLab(), mClusters[jLay]->getZLab());
+    else
+      LOGP(info, "Layer {} No cluster", jLay);
+  }
+}
+
 void NA6PFastTrackFitter::setSeed(const double* pos, const double* mom, int charge)
 {
   if (!pos || !mom) {
@@ -540,7 +551,6 @@ void NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed)
     }
     bxyz[1] = aveField / totLength;
   }
-
   // circle fit: compute center (cx, cz) and radius
   double determ = 2.0 * (x1 * (z2 - z3) + x2 * (z3 - z1) + x3 * (z1 - z2));
   double cx = 0.0, cz = 0.0, radius = 1e6;
@@ -612,18 +622,20 @@ void NA6PFastTrackFitter::printSeed() const
     LOGP(info, "Seed not set");
 }
 
-NA6PTrack* NA6PFastTrackFitter::fitTrackPoints(int dir, NA6PTrack* seed)
+bool NA6PFastTrackFitter::fitTrackPoints(NA6PTrack& trackToFit, int dir, const NA6PTrack* seed)
 {
 
   int nClus = getNumberOfClusters();
   if (nClus < 2) {
     LOGP(error, "Cannot fit track with only {} clusters\n", nClus);
-    return nullptr;
+    return false;
   }
-  NA6PTrack* currTr = nullptr;
+  trackToFit.reset();
   if (seed) {
     // Seed provided as a track from previous pass
-    currTr = new NA6PTrack(*seed);
+    trackToFit.setParam(seed->getTrackExtParam());
+    seed->getXYZ(mSeedPos);
+    seed->getPXYZ(mSeedMom);
     mIsSeedSet = true;
   } else {
     if (!mIsSeedSet) {
@@ -633,14 +645,13 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints(int dir, NA6PTrack* seed)
       else
         computeSeedOuter();
     }
-    if (!mIsSeedSet)
-      LOGP(warn, "Track seed not computed properly, will run the fit w/o seed");
-    currTr = new NA6PTrack();
     if (mIsSeedSet)
-      currTr->init(mSeedPos, mSeedMom, mCharge);
+      trackToFit.init(mSeedPos, mSeedMom, mCharge);
+    else
+      LOGP(warn, "Track seed not computed properly, will run the fit w/o seed");
   }
-  currTr->setMass(mMass);
-  currTr->resetCovariance(-1);
+  trackToFit.setMass(mMass);
+  trackToFit.resetCovariance(-1);
   // construct bit mask
   uint clusterMask = 0;
   for (int jLay = 0; jLay < mNLayers; ++jLay) {
@@ -661,7 +672,7 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints(int dir, NA6PTrack* seed)
   for (int jLay = startLay; jLay != endLay; jLay += stepLay) {
     // update track with point in current layer
     if (mClusters[jLay]) {
-      if (!updateTrack(currTr, mClusters[jLay])) {
+      if (!updateTrack(&trackToFit, mClusters[jLay])) {
         isGoodFit = false;
         break;
       } else {
@@ -689,7 +700,7 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints(int dir, NA6PTrack* seed)
     }
     // propagate to next layer
     if (zCurr > 0 && propToNext) {
-      if (propagateToZ(currTr, zCurr, zNext, dir) != 1) {
+      if (propagateToZ(&trackToFit, zCurr, zNext, dir) != 1) {
         isGoodFit = false;
         break;
       }
@@ -697,7 +708,5 @@ NA6PTrack* NA6PFastTrackFitter::fitTrackPoints(int dir, NA6PTrack* seed)
     zCurr = zNext;
   }
 
-  if (!isGoodFit)
-    return nullptr;
-  return currTr;
+  return isGoodFit;
 }

@@ -71,15 +71,17 @@ struct NA6PRecoParam : public na6p::conf::ConfigurableParamHelper<NA6PRecoParam>
   int msMinNClusTracksCA[MaxIterationsTrackerCA] = {6, 6, 0, 0, 0, 0, 0, 0, 0};
   bool msDoConstrainedTrack = false;
   // Matching parameters
-  float zMatching = 40;
-  bool isZMatchingSet = false;
-  bool mcMatching = true;
-  int minVTHits = 5;
-  int minMSHits = 6;
-  float minTrackP = 2.0; // GeV/c
-  float maxChi2Match = std::numeric_limits<float>::max();
-  float maxChi2Refit = std::numeric_limits<float>::max();
-  float pMatchWindow = 3; // GeV/c
+  bool mtDoOutwardInwardFit = true;
+  bool mtPropagateMatchedTracksToPV = true;
+  float mtZMatching = 40;
+  bool mtIsZMatchingSet = false;
+  bool mtMCMatching = true;
+  int mtMinVTHits = 5;
+  int mtMinMSHits = 6;
+  float mtMinTrackP = 2.0; // GeV/c
+  float mtMaxChi2Match = std::numeric_limits<float>::max();
+  float mtMaxChi2Refit = std::numeric_limits<float>::max();
+  float mtPMatchWindow = 3; // GeV/c
 
   NA6PParamDef(NA6PRecoParam, "reco");
 };

@@ -525,15 +525,14 @@ bool NA6PTrackerCA::fitTrackPointsFast(const std::vector<int>& cluIDs,
   if (nClus == 3)
     mTrackFitter->computeSeed(-1, layForSeed); // -1 = fit is done inwards
 
-  std::unique_ptr<NA6PTrack> fitTrackPtr(mTrackFitter->fitTrackPoints());
-  if (!fitTrackPtr)
+  if (!mTrackFitter->fitTrackPoints(fitTrack)) {
     return false;
+  }
 
-  float chi2ndf = fitTrackPtr->getNormChi2();
+  float chi2ndf = fitTrack.getNormChi2();
   if (chi2ndf > maxChi2NDF)
     return false;
 
-  fitTrack = *fitTrackPtr;
   return true;
 }
 
@@ -797,18 +796,24 @@ void NA6PTrackerCA::fitAndSelectTracks(const std::vector<TrackCandidate>& trackC
     float chi2ndf = fitTrackFast.getNormChi2();
     if (mDoOutwardPropagation) {
       // outward fit (needed in VT for matching to Muon Spectrometer)
-      std::unique_ptr<NA6PTrack> outwRefitPtr(mTrackFitter->fitTrackPointsOutward(&fitTrackFast));
-      if (outwRefitPtr) {
+      NA6PTrack outwRefit;
+      if (mTrackFitter->fitTrackPointsOutward(outwRefit, &fitTrackFast)) {
         if (mDoInwardRefit) {
-          std::unique_ptr<NA6PTrack> inwRefitPtr(mTrackFitter->fitTrackPointsInward(outwRefitPtr.get()));
-          if (inwRefitPtr) {
-            fitTrackFast.setParam(inwRefitPtr->getTrackExtParam());
+          NA6PTrack inwRefit;
+          // Use outwRefit as the seed for the inward pass
+          if (mTrackFitter->fitTrackPointsInward(inwRefit, &outwRefit)) {
+            fitTrackFast.setParam(inwRefit.getTrackExtParam());
             fitTrackFast.setStatusRefitInward(true);
-          } else
+            fitTrackFast.setChi2VTRefit(inwRefit.getChi2VT());
+            fitTrackFast.setChi2MSRefit(inwRefit.getChi2MS());
+          } else {
             fitTrackFast.setStatusRefitInward(false);
+          }
         }
-        mTrackFitter->propagateToZ(outwRefitPtr.get(), mZOutProp);
-        fitTrackFast.setOuterParam(outwRefitPtr->getTrackExtParam());
+        mTrackFitter->propagateToZ(&outwRefit, mZOutProp);
+        fitTrackFast.setOuterParam(outwRefit.getTrackExtParam());
+        fitTrackFast.setChi2VTOuter(outwRefit.getChi2VT());
+        fitTrackFast.setChi2MSOuter(outwRefit.getChi2MS());
       }
     }
     if (mPropagateTracksToPrimaryVertex)
@@ -886,6 +891,7 @@ void NA6PTrackerCA::findTracks(std::vector<ClusterType>& cluArr, const NA6PVerte
 
   mFinalTracks.clear();
   uint nClus = cluArr.size();
+  NA6PVertex vertWithDefaultCov;
   if (primVert) {
     mPrimVertPos[0] = primVert->getX();
     mPrimVertPos[1] = primVert->getY();
@@ -898,7 +904,7 @@ void NA6PTrackerCA::findTracks(std::vector<ClusterType>& cluArr, const NA6PVerte
       // Assign default values to covariance matrix (based on beam width and target thickness)
       float defaultSigmaXY = 0.02f;
       float defaultSigmaZ = 0.15f;
-      NA6PVertex vertWithDefaultCov = *primVert;
+      vertWithDefaultCov = *primVert;
       vertWithDefaultCov.setSigmaX(defaultSigmaXY);
       vertWithDefaultCov.setSigmaY(defaultSigmaXY);
       vertWithDefaultCov.setSigmaZ(defaultSigmaZ);
