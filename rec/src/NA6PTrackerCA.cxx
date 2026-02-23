@@ -891,6 +891,7 @@ void NA6PTrackerCA::findTracks(std::vector<ClusterType>& cluArr, const NA6PVerte
 
   mFinalTracks.clear();
   uint nClus = cluArr.size();
+  NA6PVertex vertWithDefaultCov;
   if (primVert) {
     mPrimVertPos[0] = primVert->getX();
     mPrimVertPos[1] = primVert->getY();
@@ -903,7 +904,7 @@ void NA6PTrackerCA::findTracks(std::vector<ClusterType>& cluArr, const NA6PVerte
       // Assign default values to covariance matrix (based on beam width and target thickness)
       float defaultSigmaXY = 0.02f;
       float defaultSigmaZ = 0.15f;
-      NA6PVertex vertWithDefaultCov = *primVert;
+      vertWithDefaultCov = *primVert;
       vertWithDefaultCov.setSigmaX(defaultSigmaXY);
       vertWithDefaultCov.setSigmaY(defaultSigmaXY);
       vertWithDefaultCov.setSigmaZ(defaultSigmaZ);
