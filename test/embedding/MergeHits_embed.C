@@ -235,18 +235,14 @@ void MergeHits_embed(int bckEvent,
     int nbckhitM=0;
     int nbckhitV=0;
     
-    for (const auto& h : *bkgHitsM) {
-      NA6PMuonSpecModularHit hit = h;
-      hit.setTrackID(hit.getTrackID() + offset); // Adjust reference to track number
-      mixHitsM->push_back(hit);
-//      cout << " Background event " << bckEvent << " Bck Hit Muon " << nbckhitM << "  x = " << hit.getX() << "  y = " << h.getY() <<"  z = " << h.getZ() << " ref. mixed track n. " << hit.getTrackID() << endl;
+    for (const auto& hit : *bkgHitsM) {
+      mixHitsM->emplace_back(hit).setTrackID(hit.getTrackID() + offset); // adjust reference to track number
+   //      cout << " Background event " << bckEvent << " Bck Hit Muon " << nbckhitM << "  x = " << hit.getX() << "  y = " << h.getY() <<"  z = " << h.getZ() << " ref. mixed track n. " << hit.getTrackID() << endl;
       nbckhitM++;
     }
 
-    for (const auto& h : *bkgHitsV) {
-      NA6PVerTelHit hit = h;
-      hit.setTrackID(hit.getTrackID() + offset); // Adjust reference to track number
-      mixHitsV->push_back(hit);
+    for (const auto& hit : *bkgHitsV) {
+      mixHitsV->emplace_back(hit).setTrackID(hit.getTrackID() + offset); // adjust reference to track number
 //      cout << " Background event " << bckEvent << " Bck Hit VT " << nbckhitV << "  x = " << hit.getX() << "  y = " << h.getY() <<"  z = " << h.getZ() << " ref. mixed track n. " << hit.getTrackID() << endl;
       nbckhitV++;
     }

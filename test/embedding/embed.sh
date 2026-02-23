@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# The variables below contain the number NEVENTS_BCK of background events in the sample and the number of signal events NEVENTS_SIG that one wants to merge with each background event. N.B.: the background simulation must be run in advance and its outputs (kinematics, VT hits, MS hits) renamed to XXX_bck.root
+
 NEVENTS_BCK=10
 NEVENTS_SIG=30
 
