@@ -33,10 +33,11 @@ bool NA6PMatching::initMatching()
   mTrackFitter = new NA6PFastTrackFitter();
   mTrackFitter->loadGeometry(mGeoFilName.c_str(), mGeoObjName.c_str());
   mTrackFitter->enableMaterialCorrections();
-  mTrackFitter->setPropagateToPrimaryVertex(true);
+  mTrackFitter->setPropagateToPrimaryVertex(false);
   mTrackFitter->setNLayers(11);
   mTrackFitter->setParticleHypothesis(13); // muon mass hypothesis
-  mTrackFitter->setMaxChi2Cl(mMaxChi2Refit);
+  mTrackFitter->setUseIntegralBForSeed();
+  configureFromRecoParam(mRecoParFilName);
   createTracksOutput();
   return true;
 }
@@ -48,15 +49,17 @@ void NA6PMatching::configureFromRecoParam(const std::string& filename)
   }
   const auto& param = NA6PRecoParam::Instance();
 
-  if (param.isZMatchingSet)
-    setZMatching(param.zMatching);
-  setMCMatching(param.mcMatching);
-  setMinVTHits(param.minVTHits);
-  setMinMSHits(param.minMSHits);
-  setMinTrackP(param.minTrackP);
-  setMaxChi2Match(param.maxChi2Match);
-  setMaxChi2Refit(param.maxChi2Refit);
-  setPMatchWindow(param.pMatchWindow);
+  if (param.mtIsZMatchingSet)
+    setZMatching(param.mtZMatching);
+  setMCMatching(param.mtMCMatching);
+  setMinVTHits(param.mtMinVTHits);
+  setMinMSHits(param.mtMinMSHits);
+  setMinTrackP(param.mtMinTrackP);
+  setMaxChi2Match(param.mtMaxChi2Match);
+  setMaxChi2Refit(param.mtMaxChi2Refit);
+  setPMatchWindow(param.mtPMatchWindow);
+  setPropagateTracksToPrimaryVertex(param.mtPropagateMatchedTracksToPV);
+  setDoOutwardInwardFit(param.mtDoOutwardInwardFit);
 }
 
 void NA6PMatching::createTracksOutput()
@@ -192,7 +195,7 @@ std::unordered_map<int, int> NA6PMatching::buildMCMatchingIndex()
   for (size_t i = 0; i < mVerTelTracks.size(); ++i) {
     const auto& vt = mVerTelTracks[i];
     int pid = vt.getParticleID();
-    if (pid <= 0)
+    if (pid <= 0 || vt.getNHits() < mMinVTHits)
       continue;
 
     // Prefer track with more hits if there are duplicates with same particle ID
@@ -219,7 +222,10 @@ std::vector<size_t> NA6PMatching::prefilterVerTelTracks()
   return validIndices;
 }
 
-bool NA6PMatching::fitAndStoreMatchedTrack(const NA6PTrack& vtTrk, const NA6PTrack& msTrk, int particleId, double matchChi2)
+bool NA6PMatching::fitAndStoreMatchedTrack(const NA6PTrack& vtTrk,
+                                           const NA6PTrack& msTrk,
+                                           int particleId,
+                                           double matchChi2)
 {
   mTrackFitter->cleanupAndStartFit();
 
@@ -227,16 +233,41 @@ bool NA6PMatching::fitAndStoreMatchedTrack(const NA6PTrack& vtTrk, const NA6PTra
   addClustersToFitter(msTrk, hMuonSpecClusPtr);
 
   NA6PTrack matchedTrack;
-  if (!mTrackFitter->fitTrackPoints(matchedTrack)) {
+  NA6PTrack seed;
+  NA6PTrack* seedPtr = nullptr;
+
+  if (mDoOutwardInwardFit) {
+
+    NA6PTrack vtSeed = vtTrk;
+
+    const float zFirstVTCluster =
+        mVerTelClusters[vtTrk.getClusterIndex(0)].getZLab();
+
+    if (vtSeed.getZLab() != zFirstVTCluster) {
+      mTrackFitter->propagateToZ(&vtSeed, zFirstVTCluster);
+    }
+
+    if (!mTrackFitter->fitTrackPointsOutward(seed, &vtSeed)) {
+      LOGP(warn, "Fit of matched track failed, skipping");
+      return false;
+    }
+
+    seedPtr = &seed;
+  }
+
+  if (!mTrackFitter->fitTrackPointsInward(matchedTrack, seedPtr)) {
     LOGP(warn, "Refit of matched track failed, skipping");
     return false;
   }
 
   matchedTrack.setParticleID(particleId);
   matchedTrack.setMatchChi2(matchChi2);
-  mTrackFitter->propagateToZ(&matchedTrack, mPrimaryVertex->getZ());
-  mMatchedTracks.push_back(std::move(matchedTrack));
 
+  if (mPropagateTracksToPrimaryVertex) {
+    mTrackFitter->propagateToZ(&matchedTrack, mPrimaryVertex->getZ());
+  }
+
+  mMatchedTracks.push_back(std::move(matchedTrack));
   return true;
 }
 
@@ -280,7 +311,6 @@ void NA6PMatching::runDataMatching()
 
     const auto& vtTrack = mVerTelTracks[vtIdx];
     int matchedPartID = isTrueMatch ? msTrack.getParticleID() : -std::abs(msTrack.getParticleID());
-
     fitAndStoreMatchedTrack(vtTrack, msTrack, matchedPartID, bestChi2);
   }
 }

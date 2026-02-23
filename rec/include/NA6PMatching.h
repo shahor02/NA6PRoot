@@ -32,7 +32,12 @@ class NA6PMatching : public NA6PReconstruction
   void configureFromRecoParam(const std::string& filename = "");
   void setMCMatching(bool mc) { mMCMatching = mc; }
   void setMaxChi2Match(double v) { mMaxChi2Match = v; }
-  void setMaxChi2Refit(double v) { mMaxChi2Refit = v; }
+  void setMaxChi2Refit(double v)
+  {
+    mMaxChi2Refit = v;
+    if (mTrackFitter)
+      mTrackFitter->setMaxChi2Cl(v);
+  }
   void setMinTrackP(double p) { mMinTrackP = p; }
   void setMinVTHits(int n) { mMinVTHits = n; }
   void setMinMSHits(int n) { mMinMSHits = n; }
@@ -42,7 +47,8 @@ class NA6PMatching : public NA6PReconstruction
     mZMatching = z;
     mIsZMatchingSet = true;
   }
-
+  void setPropagateTracksToPrimaryVertex(bool propagate) { mPropagateTracksToPrimaryVertex = propagate; }
+  void setDoOutwardInwardFit(bool opt = true) { mDoOutwardInwardFit = opt; }
   void setVerTelTracks(const std::vector<NA6PTrack>& tracks)
   {
     mVerTelTracks = tracks;
@@ -93,6 +99,9 @@ class NA6PMatching : public NA6PReconstruction
 
   std::vector<NA6PVerTelCluster> mVerTelClusters, *hVerTelClusPtr = &mVerTelClusters;         // vector of clusters
   std::vector<NA6PMuonSpecCluster> mMuonSpecClusters, *hMuonSpecClusPtr = &mMuonSpecClusters; // vector of clusters
+
+  bool mDoOutwardInwardFit = false;
+  bool mPropagateTracksToPrimaryVertex = false;
   double mZMatching = 38.1175;
   bool mIsZMatchingSet = false;
   bool mMCMatching = false;
