@@ -17,5 +17,5 @@ SEEDEND=$(($SEEDSTART + $NJOBS))
 
 parallel -j $NCORES \
   'mkdir -p '"$OUTDIR"'/{1} && \
-   ./GenPYTHIA --events '"$NEVENTSPERJOB"' --energy '"$ENERGY"' --ymin '"$MINRAP"' --ymax '"$MAXRAP"' --cmnd '"$CONFIG"' --out '"$OUTDIR"'/{1} > '"$OUTDIR"'/{1}/log_sim_seed{1}.txt' \
+   ./GenPYTHIA --events '"$NEVENTSPERJOB"' --energy '"$ENERGY"' --ymin '"$MINRAP"' --ymax '"$MAXRAP"' --cmnd '"$CONFIG"' --out '"$OUTDIR"'/{1} --random {1} > '"$OUTDIR"'/{1}/log_sim_seed{1}.txt' \
   ::: $(seq $SEEDSTART $SEEDEND)
