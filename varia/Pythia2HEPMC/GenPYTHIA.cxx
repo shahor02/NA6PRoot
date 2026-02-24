@@ -26,6 +26,7 @@ int main(int argc, char* argv[])
   int specparticle = 213;             // Additional histos for a specific particle outside the "common" ones
   std::string outDir = "";
   std::string inpFile = "pp_MB.cmnd"; // external command file
+  int rseed = 0;
 
   // Reading external parameters
   bool help = false;
@@ -47,6 +48,8 @@ int main(int argc, char* argv[])
       inpFile = argv[++ig];
     } else if (str.Contains("--out")) {
       outDir = argv[++ig];
+    } else if (str.Contains("--random")) {
+      sscanf(argv[++ig], "%d", &rseed);
     }
   }
   if (help) {
@@ -59,8 +62,9 @@ int main(int argc, char* argv[])
     "--ymax   [%.2f]\n"
     "--particle [%d]\n"
     "--cmnd [%s]\n"
-    "--out [%s]\n",
-    nEvent, energy, ymin, ymax, specparticle, inpFile.c_str(), outDir.c_str());
+    "--out [%s]\n"
+    "--random [%d]\n",
+    nEvent, energy, ymin, ymax, specparticle, inpFile.c_str(), outDir.c_str(), rseed);
   if (help) {
     return 0;
   }
@@ -107,6 +111,14 @@ int main(int argc, char* argv[])
   }
 
   std::vector<int> partons = {1, 2, 3, 4, 5, 6, 21}; // to remove quarks and gluons
+
+  // Enable manual seed setting
+  pythia.readString("Random:setSeed = on");
+  
+  // Set the random seed value   
+  char rstr[30];
+  sprintf(rstr, "Random:seed = %d", rseed);
+  pythia.readString(rstr);
 
   pythia.init();
 
