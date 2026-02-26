@@ -53,8 +53,10 @@ class NA6PTrack
   void setOuterParam(const ExtTrackPar& p) { mOuter = p; }
   void setVertexConstrainedParam(const ExtTrackPar& p) { mConstrained = p; }
   void setStatusRefitInward(bool status) { mStatusRefitInward = status; }
+  void setStatusConstrained(bool status) { mStatusConstrained = status; }
 
   bool getStatusRefitInward() const { return mStatusRefitInward; }
+  bool getStatusConstrained() const { return mStatusConstrained; }
   double getMass() const { return mMass; }
   double getChi2() const { return mChi2VT + mChi2MS; }
   double getChi2VT() const { return mChi2VT; }
@@ -176,12 +178,13 @@ class NA6PTrack
   ExtTrackPar mOuter{};                      // parametrization for outward fit
   ExtTrackPar mConstrained{};                // parametrization with vertex constrain
   bool mStatusRefitInward = false;           // boolean for status of inward refit
+  bool mStatusConstrained = false;           // boolean for status of contrained track
 
  private:
   bool propagateToZBxByBz(double z, const double* bxyz) { return mExtTrack.propagateToBxByBz(z, bxyz); }
   bool propagateToZBxByBzOuter(double z, const double* bxyz) { return mOuter.propagateToBxByBz(z, bxyz); }
 
-  ClassDefNV(NA6PTrack, 3)
+  ClassDefNV(NA6PTrack, 4)
 };
 
 //_______________________________________________________________________
