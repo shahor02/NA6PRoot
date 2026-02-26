@@ -67,6 +67,7 @@ void NA6PTrack::reset()
   mOuter.Reset();
   mConstrained.Reset();
   mStatusRefitInward = false;
+  mStatusConstrained = false;
   resetCovariance();
   mParticleID = -2;
   mClusterIndices.fill(-1);

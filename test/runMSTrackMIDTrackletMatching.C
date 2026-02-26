@@ -88,20 +88,26 @@ void runMSTrackMIDTrackletMatching(int firstEv = 0,
   TTree* trackTree = new TTree("TracksMuonSpec", "MuonSpec Tracks");
   trackTree->Branch("MuonsSpec", &hTrackPtr);
 
+  int nFailed = 0;
+
   for (int jEv = firstEv; jEv < lastEv; jEv++) {
     ms42Tracks.clear();
     mcTree->GetEvent(jEv);
     int nPart = mcArr->size();
+    double xvert = 0.;
+    double yvert = 0.;
     double zvert = 0;
     // get primary vertex position from the Kine Tree
     for (int jp = 0; jp < nPart; jp++) {
       auto curPart = mcArr->at(jp);
       if (curPart.IsPrimary()) {
+        xvert = curPart.Vx();
+        yvert = curPart.Vy();
         zvert = curPart.Vz();
         break;
       }
     }
-    primVert.setXYZ(0., 0., zvert);
+    primVert.setXYZ(xvert, yvert, zvert);
     tc->GetEvent(jEv);
     for (size_t i = 0; i < msClus.size(); ++i) {
       msClus[i].setClusterIndex(static_cast<int>(i));
@@ -344,6 +350,15 @@ void runMSTrackMIDTrackletMatching(int firstEv = 0,
       thetatr = std::acos(pxyz[2] / momtr);
       etatr = -std::log(std::tan(thetatr / 2.));
       hEtaRefitTracks->Fill(etatr);
+      NA6PTrack constrainedTr = refitInw;
+      fitter->propagateToZ(&constrainedTr, zvert);
+      bool vcOk = fitter->constrainTrackToVertex(&constrainedTr, primVert);
+      if (vcOk) {
+        refitInw.setVertexConstrainedParam(constrainedTr.getTrackExtParam());
+        refitInw.setStatusConstrained(true);
+      } else {
+        refitInw.setStatusConstrained(false);
+      }
 
       ms42Tracks.push_back(refitInw);
     }
