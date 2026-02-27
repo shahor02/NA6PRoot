@@ -55,6 +55,8 @@ void NA6PMagnetsGDML::assignMediaToGDMLVolumes()
     assignAirIfNeeded("World");
     assignAirIfNeeded("MNP33");
     assignAirIfNeeded("MEP48");
+    assignAirIfNeeded("EnvYokeUp");
+    assignAirIfNeeded("EnvYokeDown");
   }
 
   TGeoMedium* feVT = helper.getMedium("Iron_DipoleVT", /*fatalIfMissing=*/true);
