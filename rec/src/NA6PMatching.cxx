@@ -92,6 +92,27 @@ void NA6PMatching::closeTracksOutput()
   }
 }
 
+
+void NA6PMatching::setVerTelClusters(const std::vector<NA6PVerTelCluster>& clusters)
+{
+  mVerTelClusters = clusters;
+  // Assign a transient index based on position in the vector
+  // to be used for storing the cluster indices in the track
+  for (size_t i = 0; i < mVerTelClusters.size(); ++i) {
+    mVerTelClusters[i].setClusterIndex(static_cast<int>(i));
+  }
+}
+
+void NA6PMatching::setMuonSpecClusters(const std::vector<NA6PMuonSpecCluster>& clusters)
+{
+  mMuonSpecClusters = clusters;
+  // Assign a transient index based on position in the vector
+  // to be used for storing the cluster indices in the track
+  for (size_t i = 0; i < mMuonSpecClusters.size(); ++i) {
+    mMuonSpecClusters[i].setClusterIndex(static_cast<int>(i));
+  }
+}
+
 void NA6PMatching::sortVTTracksByP(std::vector<NA6PTrack>& tracks)
 {
   std::sort(tracks.begin(), tracks.end(),
