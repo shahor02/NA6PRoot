@@ -59,15 +59,8 @@ class NA6PMatching : public NA6PReconstruction
     mMuonSpecTracks = tracks;
   }
 
-  void setVerTelClusters(const std::vector<NA6PVerTelCluster>& clusters)
-  {
-    mVerTelClusters = clusters;
-  }
-
-  void setMuonSpecClusters(const std::vector<NA6PMuonSpecCluster>& clusters)
-  {
-    mMuonSpecClusters = clusters;
-  }
+  void setVerTelClusters(const std::vector<NA6PVerTelCluster>& clusters);
+  void setMuonSpecClusters(const std::vector<NA6PMuonSpecCluster>& clusters);
 
   bool initMatching();
   void createTracksOutput() override;
