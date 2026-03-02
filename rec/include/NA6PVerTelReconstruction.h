@@ -53,7 +53,7 @@ class NA6PVerTelReconstruction : public NA6PReconstruction
   NA6PTrackerCA* getTracker() const { return mVTTracker; }
 
   // methods to steer tracking
-  void setClusters(const std::vector<NA6PVerTelCluster>& clusters);
+  void setClusters(std::vector<NA6PVerTelCluster>& clusters);
   void createVerticesOutput() override;
   void clearVertices() override { mVertices.clear(); }
   void writeVertices() override;

@@ -92,24 +92,29 @@ void NA6PMatching::closeTracksOutput()
   }
 }
 
-
-void NA6PMatching::setVerTelClusters(const std::vector<NA6PVerTelCluster>& clusters)
+void NA6PMatching::setVerTelTracks(std::vector<NA6PTrack>& tracks)
 {
-  mVerTelClusters = clusters;
-  // Assign a transient index based on position in the vector
-  // to be used for storing the cluster indices in the track
-  for (size_t i = 0; i < mVerTelClusters.size(); ++i) {
-    mVerTelClusters[i].setClusterIndex(static_cast<int>(i));
+  hVerTelTrackPtr = &tracks;
+}
+
+void NA6PMatching::setMuonSpecTracks(std::vector<NA6PTrack>& tracks)
+{
+  hMuonSpecTrackPtr = &tracks;
+}
+
+void NA6PMatching::setMuonSpecClusters(std::vector<NA6PMuonSpecCluster>& clusters)
+{
+  hMuonSpecClusPtr = &clusters;
+  for (size_t i = 0; i < clusters.size(); ++i) {
+    clusters[i].setClusterIndex(static_cast<int>(i));
   }
 }
 
-void NA6PMatching::setMuonSpecClusters(const std::vector<NA6PMuonSpecCluster>& clusters)
+void NA6PMatching::setVerTelClusters(std::vector<NA6PVerTelCluster>& clusters)
 {
-  mMuonSpecClusters = clusters;
-  // Assign a transient index based on position in the vector
-  // to be used for storing the cluster indices in the track
-  for (size_t i = 0; i < mMuonSpecClusters.size(); ++i) {
-    mMuonSpecClusters[i].setClusterIndex(static_cast<int>(i));
+  hVerTelClusPtr = &clusters;
+  for (size_t i = 0; i < clusters.size(); ++i) {
+    clusters[i].setClusterIndex(static_cast<int>(i));
   }
 }
 
@@ -178,10 +183,10 @@ std::tuple<int, bool, double> NA6PMatching::findBestChi2Match(
   const int msPartId = msTrack.getParticleID();
 
   auto lower = std::partition_point(validVerTelIndices.begin(), validVerTelIndices.end(),
-                                    [&](size_t vIdx) { return mVerTelTracks[vIdx].getPOuter() > msP + mPMatchWindow; });
+                                    [&](size_t vIdx) { return (*hVerTelTrackPtr)[vIdx].getPOuter() > msP + mPMatchWindow; });
 
   auto upper = std::partition_point(lower, validVerTelIndices.end(),
-                                    [&](size_t vIdx) { return mVerTelTracks[vIdx].getPOuter() >= msP - mPMatchWindow; });
+                                    [&](size_t vIdx) { return (*hVerTelTrackPtr)[vIdx].getPOuter() >= msP - mPMatchWindow; });
 
   float bestChi2 = mMaxChi2Match;
   int bestIdx = -1;
@@ -189,7 +194,7 @@ std::tuple<int, bool, double> NA6PMatching::findBestChi2Match(
 
   for (auto it = lower; it != upper; ++it) {
     size_t vIdx = *it;
-    const auto& vtTrack = mVerTelTracks[vIdx];
+    const auto& vtTrack = (*hVerTelTrackPtr)[vIdx];
 
     if (vtTrack.getCharge() * msCharge < 0)
       continue;
@@ -211,17 +216,17 @@ std::tuple<int, bool, double> NA6PMatching::findBestChi2Match(
 std::unordered_map<int, int> NA6PMatching::buildMCMatchingIndex()
 {
   std::unordered_map<int, int> vtByPid;
-  vtByPid.reserve(mVerTelTracks.size());
+  vtByPid.reserve(hVerTelTrackPtr->size());
 
-  for (size_t i = 0; i < mVerTelTracks.size(); ++i) {
-    const auto& vt = mVerTelTracks[i];
+  for (size_t i = 0; i < hVerTelTrackPtr->size(); ++i) {
+    const auto& vt = (*hVerTelTrackPtr)[i];
     int pid = vt.getParticleID();
     if (pid <= 0 || vt.getNHits() < mMinVTHits)
       continue;
 
     // Prefer track with more hits if there are duplicates with same particle ID
     auto it = vtByPid.find(pid);
-    if (it == vtByPid.end() || vt.getNHits() > mVerTelTracks[it->second].getNHits()) {
+    if (it == vtByPid.end() || vt.getNHits() > (*hVerTelTrackPtr)[it->second].getNHits()) {
       vtByPid[pid] = static_cast<int>(i);
     }
   }
@@ -231,11 +236,11 @@ std::unordered_map<int, int> NA6PMatching::buildMCMatchingIndex()
 std::vector<size_t> NA6PMatching::prefilterVerTelTracks()
 {
   std::vector<size_t> validIndices;
-  validIndices.reserve(mVerTelTracks.size());
-  sortVTTracksByP(mVerTelTracks);
+  validIndices.reserve(hVerTelTrackPtr->size());
+  sortVTTracksByP(*hVerTelTrackPtr);
 
-  for (size_t vIdx = 0; vIdx < mVerTelTracks.size(); ++vIdx) {
-    const auto& track = mVerTelTracks[vIdx];
+  for (size_t vIdx = 0; vIdx < hVerTelTrackPtr->size(); ++vIdx) {
+    const auto& track = (*hVerTelTrackPtr)[vIdx];
     if (track.getNHits() >= mMinVTHits && track.getP() >= mMinTrackP) {
       validIndices.push_back(vIdx);
     }
@@ -250,7 +255,7 @@ bool NA6PMatching::fitAndStoreMatchedTrack(const NA6PTrack& vtTrk,
 {
   mTrackFitter->cleanupAndStartFit();
 
-  addClustersToFitter(vtTrk, &mVerTelClusters);
+  addClustersToFitter(vtTrk, hVerTelClusPtr);
   addClustersToFitter(msTrk, hMuonSpecClusPtr);
 
   NA6PTrack matchedTrack;
@@ -261,8 +266,8 @@ bool NA6PMatching::fitAndStoreMatchedTrack(const NA6PTrack& vtTrk,
 
     NA6PTrack vtSeed = vtTrk;
 
-    const float zFirstVTCluster =
-        mVerTelClusters[vtTrk.getClusterIndex(0)].getZLab();
+  const float zFirstVTCluster =
+      (*hVerTelClusPtr)[vtTrk.getClusterIndex(0)].getZLab();
 
     if (vtSeed.getZLab() != zFirstVTCluster) {
       mTrackFitter->propagateToZ(&vtSeed, zFirstVTCluster);
@@ -295,7 +300,7 @@ bool NA6PMatching::fitAndStoreMatchedTrack(const NA6PTrack& vtTrk,
 void NA6PMatching::runMCMatching()
 {
   auto vtByPid = buildMCMatchingIndex();
-  for (const auto& msTrack : mMuonSpecTracks) {
+  for (const auto& msTrack : *hMuonSpecTrackPtr) {
     if (msTrack.getNHits() < mMinMSHits)
       continue;
 
@@ -308,7 +313,7 @@ void NA6PMatching::runMCMatching()
       continue;
 
     int vtIdx = it->second;
-    const auto& vtTrack = mVerTelTracks[vtIdx];
+    const auto& vtTrack = (*hVerTelTrackPtr)[vtIdx];
     fitAndStoreMatchedTrack(vtTrack, msTrack, msPartId, 0.0);
   }
 }
@@ -316,13 +321,13 @@ void NA6PMatching::runMCMatching()
 void NA6PMatching::runDataMatching()
 {
   if (mIsZMatchingSet) {
-    propToZMatching(mVerTelTracks, mZMatching, true);
-    propToZMatching(mMuonSpecTracks, mZMatching);
+    propToZMatching(*hVerTelTrackPtr, mZMatching, true);
+    propToZMatching(*hMuonSpecTrackPtr, mZMatching);
   }
 
   auto validVerTelIndices = prefilterVerTelTracks();
 
-  for (const auto& msTrack : mMuonSpecTracks) {
+  for (const auto& msTrack : *hMuonSpecTrackPtr) {
     if (msTrack.getNHits() < mMinMSHits)
       continue;
 
@@ -330,7 +335,7 @@ void NA6PMatching::runDataMatching()
     if (vtIdx < 0)
       continue;
 
-    const auto& vtTrack = mVerTelTracks[vtIdx];
+    const auto& vtTrack = (*hVerTelTrackPtr)[vtIdx];
     int matchedPartID = isTrueMatch ? msTrack.getParticleID() : -std::abs(msTrack.getParticleID());
     fitAndStoreMatchedTrack(vtTrack, msTrack, matchedPartID, bestChi2);
   }
@@ -343,8 +348,8 @@ void NA6PMatching::runMatching()
     return;
   }
   clearTracks();
-  mMatchedTracks.reserve(mMuonSpecTracks.size());
-  LOGP(info, "Process event with nVTTracks {} nMSTracks {}, primary vertex in z = {} cm", mVerTelTracks.size(), mMuonSpecTracks.size(), mPrimaryVertex->getZ());
+  mMatchedTracks.reserve(hMuonSpecTrackPtr->size());
+  LOGP(info, "Process event with nVTTracks {} nMSTracks {}, primary vertex in z = {} cm", hVerTelTrackPtr->size(), hMuonSpecTrackPtr->size(), mPrimaryVertex->getZ());
 
   if (mMCMatching) {
     runMCMatching();

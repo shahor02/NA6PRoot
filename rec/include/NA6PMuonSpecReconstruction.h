@@ -53,7 +53,7 @@ class NA6PMuonSpecReconstruction : public NA6PReconstruction
   NA6PTrackerCA* getTracker() const { return mMSTracker; }
 
   // methods to steer tracking
-  void setClusters(const std::vector<NA6PMuonSpecCluster>& clusters);
+  void setClusters(std::vector<NA6PMuonSpecCluster>& clusters);
 
   void createTracksOutput() override;
   void clearTracks() override { mTracks.clear(); }
