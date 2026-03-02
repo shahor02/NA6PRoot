@@ -67,13 +67,13 @@ void NA6PMuonSpecReconstruction::closeClustersOutput()
   }
 }
 
-void NA6PMuonSpecReconstruction::setClusters(const std::vector<NA6PMuonSpecCluster>& clusters)
+void NA6PMuonSpecReconstruction::setClusters(std::vector<NA6PMuonSpecCluster>& clusters)
 {
-  mClusters = clusters;
+  hClusPtr = &clusters;
   // Assign a transient index based on position in the vector
   // to be used for storing the cluster indices in the track
-  for (size_t i = 0; i < mClusters.size(); ++i) {
-    mClusters[i].setClusterIndex(static_cast<int>(i));
+  for (size_t i = 0; i < clusters.size(); ++i) {
+    clusters[i].setClusterIndex(static_cast<int>(i));
   }
 }
 
@@ -161,7 +161,7 @@ void NA6PMuonSpecReconstruction::runTracking()
     return;
   }
   clearTracks();
-  mMSTracker->findTracks(mClusters, mPrimaryVertex);
+  mMSTracker->findTracks(*hClusPtr, mPrimaryVertex);
   mTracks = mMSTracker->getTracks();
   writeTracks();
 }

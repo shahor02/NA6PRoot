@@ -49,18 +49,12 @@ class NA6PMatching : public NA6PReconstruction
   }
   void setPropagateTracksToPrimaryVertex(bool propagate) { mPropagateTracksToPrimaryVertex = propagate; }
   void setDoOutwardInwardFit(bool opt = true) { mDoOutwardInwardFit = opt; }
-  void setVerTelTracks(const std::vector<NA6PTrack>& tracks)
-  {
-    mVerTelTracks = tracks;
-  }
+  
+  void setVerTelTracks(std::vector<NA6PTrack>& tracks);
+  void setMuonSpecTracks(std::vector<NA6PTrack>& tracks);
 
-  void setMuonSpecTracks(const std::vector<NA6PTrack>& tracks)
-  {
-    mMuonSpecTracks = tracks;
-  }
-
-  void setVerTelClusters(const std::vector<NA6PVerTelCluster>& clusters);
-  void setMuonSpecClusters(const std::vector<NA6PMuonSpecCluster>& clusters);
+  void setVerTelClusters(std::vector<NA6PVerTelCluster>& clusters);
+  void setMuonSpecClusters(std::vector<NA6PMuonSpecCluster>& clusters);
 
   bool initMatching();
   void createTracksOutput() override;
@@ -90,8 +84,8 @@ class NA6PMatching : public NA6PReconstruction
 
   std::vector<size_t> prefilterVerTelTracks();
 
-  std::vector<NA6PVerTelCluster> mVerTelClusters, *hVerTelClusPtr = &mVerTelClusters;         // vector of clusters
-  std::vector<NA6PMuonSpecCluster> mMuonSpecClusters, *hMuonSpecClusPtr = &mMuonSpecClusters; // vector of clusters
+  std::vector<NA6PVerTelCluster>* hVerTelClusPtr = nullptr;
+  std::vector<NA6PMuonSpecCluster>* hMuonSpecClusPtr = nullptr;
 
   bool mDoOutwardInwardFit = false;
   bool mPropagateTracksToPrimaryVertex = false;
@@ -106,8 +100,8 @@ class NA6PMatching : public NA6PReconstruction
   double mPMatchWindow = 3; // GeV/c
 
   NA6PFastTrackFitter* mTrackFitter = nullptr;
-  std::vector<NA6PTrack> mVerTelTracks, *hVerTelTrackPtr = &mVerTelTracks;       // Vertex telescope tracks
-  std::vector<NA6PTrack> mMuonSpecTracks, *hMuonSpecTrackPtr = &mMuonSpecTracks; // Muon spectrometer tracks
+  std::vector<NA6PTrack>* hVerTelTrackPtr = nullptr;       // Vertex telescope tracks
+  std::vector<NA6PTrack>* hMuonSpecTrackPtr = nullptr; // Muon spectrometer tracks
 
   std::vector<NA6PTrack> mMatchedTracks, *hMatchedTrackPtr = &mMatchedTracks; // Matched tracks
 
