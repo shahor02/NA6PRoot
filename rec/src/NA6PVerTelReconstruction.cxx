@@ -175,7 +175,7 @@ void NA6PVerTelReconstruction::runVertexerTracklets()
     initVertexer();
   }
   clearVertices();
-  mVTTrackletVertexer->findVertices(mClusters, mVertices);
+  mVTTrackletVertexer->findVertices(*hClusPtr, mVertices);
   writeVertices();
 }
 //____________________________________________________________________________________
