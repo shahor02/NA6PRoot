@@ -1,21 +1,30 @@
-// NA6PCCopyright
 #ifndef NA6P_TRACKPARCOV_H
 #define NA6P_TRACKPARCOV_H
 
 #include "NA6PTrackPar.h"
 #include "NA6PBaseCluster.h"
 
+// Keep the same correlation checks knobs as your original
 #define _CHECK_BAD_CORRELATIONS_
-//#define _FIX_BAD_CORRELATIONS_
+//#define _FIX_BAD_CORRELATIONS_x
 #define _PRINT_BAD_CORRELATIONS_
 
 /*
   Add covariance matrix and related methods to NA6PTrackPar
+  State: {x, y, tx=px/pxz, ty=py/pxz, q/pxz}
 */
 
 class NA6PTrackParCov : public NA6PTrackPar
 {
  public:
+  using prec_t = double;
+  enum CovLables : int {
+    kXX,
+    kYX, kYY,
+    kTxX, kTxY, kTxTx,
+    kTyX, kTyY, kTyTx, kTyTy,
+    kQ2PxzX, kQ2PxzY, kQ2PxzTx, kQ2PxzTy, kQ2PxzQ2Pxz };
+  
   using NA6PTrackPar::NA6PTrackPar;
 
   NA6PTrackParCov() = default;
@@ -24,11 +33,13 @@ class NA6PTrackParCov : public NA6PTrackPar
   NA6PTrackParCov(const float* xyz, const float* pxyz, int sign, float errLoose = -2);
   ~NA6PTrackParCov() = default;
   NA6PTrackParCov& operator=(const NA6PTrackParCov&) = default;
+
   void init(const float* xyz, const float* pxyz, int sign, float errLoose = -2);
 
   void setCov(const std::array<float, 15>& c) { mC = c; }
   const std::array<float, 15>& getCov() const { return mC; }
   std::array<float, 15>& getCov() { return mC; }
+
   float getSigmaX2() const { return mC[kXX]; }
   float getSigmaYX() const { return mC[kYX]; }
   float getSigmaY2() const { return mC[kYY]; }
@@ -39,104 +50,57 @@ class NA6PTrackParCov : public NA6PTrackPar
   float getSigmaTyY() const { return mC[kTyY]; }
   float getSigmaTyTx() const { return mC[kTyTx]; }
   float getSigmaTy2() const { return mC[kTyTy]; }
-  float getSigmaQ2PX() const { return mC[kQ2PX]; }
-  float getSigmaQ2PY() const { return mC[kQ2PY]; }
-  float getSigmaQ2PTx() const { return mC[kQ2PTx]; }
-  float getSigmaQ2PTy() const { return mC[kQ2PTy]; }
-  float getSigmaQ2P2() const { return mC[kQ2PQ2P]; }
+  float getSigmaQ2PxzX() const { return mC[kQ2PxzX]; }
+  float getSigmaQ2PxzY() const { return mC[kQ2PxzY]; }
+  float getSigmaQ2PxzTx() const { return mC[kQ2PxzTx]; }
+  float getSigmaQ2PzTy() const { return mC[kQ2PxzTy]; }
+  float getSigmaQ2Pxz2() const { return mC[kQ2PxzQ2Pxz]; }
+
   float getCovMatElem(int i, int j) const { return mC[CovarMap[i][j]]; }
   void setCovMatElem(int i, int j, float v) { mC[CovarMap[i][j]] = v; }
 
-  // --- propagation in dipole field B = (0, By, 0) ---
-
+  // --- propagation: state + Jacobian + covariance transport ---
   bool propagateToZ(float z, float by);
-  bool propagateToZ(float z, const float* b) { return propagateToZ(z, b[1]); }                   // TODO
-  bool propagateToZ(float z, const std::array<float, 3> b) { return propagateToZ(z, b.data()); } // TODO
-  bool propagateToDCA(float xv, float yv, float zv, float by, float epsZ = 1e-4, float epsDCA = 1e-5, int maxIt = 30);
+  bool propagateToZ(float z, float by, NA6PTrackPar& linRef);
+  bool propagateToZ(float z, const float* b);
+  bool propagateToZ(float z, const float* b, NA6PTrackPar& linRef);
+  bool propagateToZ(float z, const std::array<float, 3> b) { return propagateToZ(z, b.data()); }
+  bool propagateToZ(float z, const std::array<float, 3> b, NA6PTrackPar& linRef) { return propagateToZ(z, b.data(), linRef); }
 
   float getPredictedChi2(float xm, float ym, float sx2, float syx, float sy2) const;
-  float getPredictedChi2(const std::array<float, 2>& meas, const std::array<float, 3>& cov) const;
-  float getPredictedChi2(const float meas[2], const float cov[3]) const;
-  float getPredictedChi2(const NA6PBaseCluster& cl) const;
+  float getPredictedChi2(const std::array<float, 2>& meas, const std::array<float, 3>& cov) const { return getPredictedChi2(meas[0], meas[1], cov[0], cov[1], cov[2]); }
+  float getPredictedChi2(const float meas[2], const float cov[3]) const { return getPredictedChi2(meas[0], meas[1], cov[0], cov[1], cov[2]); }
+  float getPredictedChi2(const NA6PBaseCluster& cl) const { return getPredictedChi2(cl.getX(), cl.getY(), cl.getSigXX(), cl.getSigYX(), cl.getSigYY()); }
 
   bool update(float xm, float ym, float sx2, float sxy, float sy2);
-  bool update(const std::array<float, 2>& meas, const std::array<float, 3>& cov);
-  bool update(const float meas[2], const float cov[3]);
-  bool update(const NA6PBaseCluster& cl);
+  bool update(const std::array<float, 2>& meas, const std::array<float, 3>& cov) { return update(meas[kX], meas[kY], cov[kXX], cov[kYX], cov[kYY]); }
+  bool update(const float meas[2], const float cov[3]) { return update(meas[kX], meas[kY], cov[kXX], cov[kYX], cov[kYY]); }
+  bool update(const NA6PBaseCluster& cl) { return update(cl.getX(), cl.getY(), cl.getSigXX(), cl.getSigYX(), cl.getSigYY()); }
 
-  bool correctForMeanMaterial(float xOverX0, float xTimesRho);
+  bool correctForMaterial(float x2x0, float xrho, bool anglecorr = false);
+  bool correctForMaterial(float x2x0, float xrho, NA6PTrackPar& linRef, bool anglecorr = false);
 
+  
   void resetCovariance(float s2 = -1.);
   void checkCorrelations();
   void fixCorrelations();
   std::string asString() const;
   void printCorr() const;
 
-  // access to covariance matrix by row and column
-  constexpr static int CovarMap[5][5] = {{kXX, kYX, kTxX, kTyX, kQ2PX},
-                                         {kYX, kYY, kTxY, kTyY, kQ2PY},
-                                         {kTxX, kTxY, kTxTx, kTyTx, kQ2PTx},
-                                         {kTyX, kTyY, kTyTx, kTyTy, kQ2PTy},
-                                         {kQ2PX, kQ2PY, kQ2PTx, kQ2PTy, kQ2PQ2P}};
+  // covariance access map (lower triangle)
+  constexpr static int CovarMap[5][5] = {{kXX,   kYX,   kTxX,  kTyX,  kQ2PxzX},
+                                         {kYX,   kYY,   kTxY,  kTyY,  kQ2PxzY},
+                                         {kTxX,  kTxY,  kTxTx, kTyTx, kQ2PxzTx},
+                                         {kTyX,  kTyY,  kTyTx, kTyTy, kQ2PxzTy},
+                                         {kQ2PxzX, kQ2PxzY, kQ2PxzTx,kQ2PxzTy,kQ2PxzQ2Pxz}};
 
  protected:
+  std::array<float, 15> mC{}; // lower triangle representation
 
-  std::array<float, 15> mC{}; // covariance matrix in lower triangle representation
-  void transportCovarianceFullJac(double f02, double f03, double f04,
-                                  double f12, double f13, double f14,
-                                  double f22, double f23, double f24,
-                                  double f32, double f33, double f34);
+  void transportCovariance(prec_t f02, prec_t f04, prec_t f12, prec_t f13, prec_t f14, prec_t f24);
+
   ClassDefNV(NA6PTrackParCov, 1);
 };
 
-namespace {
-inline float clamp_pm1f(float v) {
-  if (v >  1.f) return  1.f;
-  if (v < -1.f) return -1.f;
-  return v;
-}
-inline double clamp_pm1(double v) {
-  if (v >  1.0) return  1.0;
-  if (v < -1.0) return -1.0;
-  return v;
-}
-} // namespace
 
-
-inline bool NA6PTrackParCov::update(const std::array<float, 2>& meas, const std::array<float, 3>& cov)
-{
-  return update(meas[kX], meas[kY], cov[kXX], cov[kYX], cov[kYY]);
-}
-
-inline bool NA6PTrackParCov::update(const float meas[2], const float cov[3])
-{
-  return update(meas[kX], meas[kY], cov[kXX], cov[kYX], cov[kYY]);
-}
-
-inline bool NA6PTrackParCov::update(const NA6PBaseCluster& cl)
-{
-  return update(cl.getX(), cl.getY(), cl.getSigXX(), cl.getSigYX(), cl.getSigYY());
-}
-
-inline float NA6PTrackParCov::getPredictedChi2(const NA6PBaseCluster& cl) const
-{
-  return getPredictedChi2(cl.getX(), cl.getY(), cl.getSigXX(), cl.getSigYX(), cl.getSigYY());
-}
-
-inline float NA6PTrackParCov::getPredictedChi2(const std::array<float, 2>& meas, const std::array<float, 3>& cov) const
-{
-  return getPredictedChi2(meas[0], meas[1], cov[0], cov[1], cov[2]);
-}
-
-inline float NA6PTrackParCov::getPredictedChi2(const float meas[2], const float cov[3]) const
-{
-  return getPredictedChi2(meas[0], meas[1], cov[0], cov[1], cov[2]);
-}
-
-inline bool NA6PTrackParCov::propagateToDCA(float xv, float yv, float zv, float by, float epsZ, float epsDCA, int maxIt)
-{
-  NA6PTrackPar tTmp(*this);
-  return tTmp.propagateParamToDCA(xv, yv, zv, by, epsZ, epsDCA, maxIt) && propagateToZ(tTmp.getZ(), by);
-}
-
-#endif // NA6P_TRACKPARCOV_H
+#endif

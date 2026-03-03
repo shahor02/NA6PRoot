@@ -1,300 +1,155 @@
-// NA6PCCopyright
-#ifndef NA6P_TRACKPAR_H
-#define NA6P_TRACKPAR_H
+#ifndef NA6P_TRACKPAR_XZ_H
+#define NA6P_TRACKPAR_XZ_H
 
 #include <Rtypes.h>
 #include <array>
 #include <cmath>
+#include <string>
+#include <cfloat>
+#include <algorithm>
 #include "PID.h"
 
-// uncomment this to account for the Bethe-Bloch varaion over the correction range
-// #define _BB_NONCONST_CORR_
 
-/*
-  Units: cm, kGauss, GeV.
-  The dominant B-field in Y dimension
-
-  Propagation of the track parameters a = { x, y, tx=px/pz, ty=py/pz, q/p }
-  from plane z0 to plane z1 in a uniform dipole field B = (0, By, 0).
-
-  Invariants in a pure magnetic field (no energy loss):
-  |p|    = const
-  py     = const
-  |p_xz| = sqrt(px^2 + pz^2) = const
-  q/p   = const
-
-  The motion in the x–z plane is circular with curvature
-  kappa = q * By / |p_xz| = kB2C * By * (q/p_xz), where
-  p_xz / pz = sqrt(1 + tx^2) = D,
-  p   / pz  = sqrt(1 + tx^2 + ty^2) = A,
-  q/p_xz = (q/p) * (A/D).
-
-  => kappa = kB2C*By * q/p * A/D = kB2C*By * q/p * sqrt(1 + ty^2/(1+tx^2))
-
-  Let psi be the angle of the momentum projection in the x–z plane:
-  tan(psi) = tx  = px/pz
-  sin(psi) = tx / D
-  cos(psi) = 1  / D.
-
-  We make a step of dz in z direction (from z0 to z1)
-
-  From the geometry: sinPsi1 - sinPsi0 = dz * kappa
-  => sin(Psi0+dPsi) - sinPsi0 \approx dPsi * cosPsi0
-  => dPsi \approx kappa * dz / cosPsi0
-
-  The exact z–geometry of the circular motion is used to determine
-  the new angle psi1 at z1 such that the z-step is satisfied.
-
-  x1 = x0 + (cosPsi0 - cosPsi1) / kappa                   (1)
-
-  From psi1 we get the new slope:
-  tx1 = tan(psi1)                                         (2)
-
-  The y motion is a drift along the direction component
-  n_y = py / |p_xz| = ty0 / D  and the displacement in y is linear in the arc-length in the x–z plane:
-  s_perp = (psi1 - psi0) / kappa
-  dy     = n_y * s_perp = (ty0 / D) * (psi1 - psi0) / kappa.
-  => y1 = y0 + ty0/D * (psi1 - psi0) / kappa              (3)
-
-  py and q/p and pxz  do not change
-  => ty1 = py/pz1 = ty0*pz0/pz1 = ty0*D1/D0 = ty0*cosPsi0/cosPsi1 (4)
-
-  For the covariance matrix calculation we use simplified (up to dz^2) state propagation
-  x1 = x0 + tx0 * dz + kappa/2 * dz^2                     (1a)
-  tx1 = tx0 + kappa * dz                                  (2a)
-  y1 = y0 + ty0 * dz                                      (3a)
-  ty1 = ty0                                               (4a)
-
-  //-------- cov. matrix transformation ------------//
-  Since the curvature kappa depends on q/p, tx and ty, we need its derivatives:
-
-  dkappa/d(q2pt) = kB2C*By*A/D  or kappa / (q/pt) for q!=0
-  dkappa/dtx = kappa * tx * (1/A^2 - 1/D^2)  = -kappa tx * ty^2(A^2 *D^2)
-  dkappa/dty = kappa * ty /A^2
-
-  Hence, the Jacobian of the state transformation F = dPar(new) / dPar(old) has the following non-0 elements
-  F00 = F11 = F33 = F44 = 1
-  F02 = dz + 0.5*dz^2 kappa * tx * (1/A^2 - 1/D^2)
-  F03 = 0.5*dz^2 * kappa * ty / A^2
-  F04 = 0.5*dz^2 * kB2C*By* A/D  | or 0.5*dz^2 kappa/(q/p) for q/p!=0
-  F13 = dz
-  F22 = 1 + dz * kappa * tx * (1/A^2 - 1/D^2)
-  F23 = dz * kappa * ty / A^2
-  F24 = dz * kB2C*By* A/D    |   or dz * kapa / (q/p)  for q/p != 0
-*/
+// Units: cm, kGauss, GeV.
+// Optimized for uniform dipole field B = (0, By, 0).
+//
+// State a = { x, y, tx, ty, q/pxz } evaluated at z,
+//   tx = px/pxz = sin(psi)   (psi is momentum angle in x–z plane, pz>0 => cos(psi)>0)
+//   ty = py/pxz
+//   q/pxz = charge / |p_xz|
+//
+// Invariants in pure By magnetic field:
+//   pxz = const,  py = const,  q/pxz = const,  ty = py/pxz = const
+//
+// Curvature in x–z plane:
+//   kappa = kB2C * By * (q/pxz)
+//
+// Exact z-geometry gives:
+//   sin(psi1) - sin(psi0) = kappa * dz  =>  tx1 = tx0 + kappa*dz  (must keep |tx|<=1)
+//   cos(psi) = sqrt(1 - tx^2)  (positive since pz>0)
+//
+// Exact x update (same circular-arc identity):
+//   x1 = x0 + (cos(psi0) - cos(psi1)) / kappa     (if |kappa|>0)
+//
+// y motion: drift along y with dy/ds_perp = ty, where s_perp is arc length in x–z plane
+//   s_perp = (psi1 - psi0) / kappa
+//   y1 = y0 + ty * (psi1 - psi0) / kappa          (if |kappa|>0)
+// For |kappa|~0 (straight line): dx/dz = tan(psi)=tx/cos, dy/dz = ty/cos.
 
 class NA6PTrackPar
 {
  public:
-  using prec_t = double;
-  enum ParLabels : int { kX,
-                         kY,
-                         kTx,
-                         kTy,
-                         kQ2P }; // x,y coordinates, px/pz, py/pz, q/P
-  enum CovLables : int { kXX,
-                         kYX,
-                         kYY,
-                         kTxX,
-                         kTxY,
-                         kTxTx,
-                         kTyX,
-                         kTyY,
-                         kTyTx,
-                         kTyTy,
-                         kQ2PX,
-                         kQ2PY,
-                         kQ2PTx,
-                         kQ2PTy,
-                         kQ2PQ2P };
+  enum ParLabels : int { kX, kY, kTx, kTy, kQ2PXZ };
+
   static constexpr float kB2C = -0.299792458e-3f; // GeV/(kG*cm)
-  static constexpr float kTiny = 1e-15f;
-  static constexpr float kSmallBend = 1e-6;       // threshold on |kappa*dz|
-  static constexpr float kSmallKappa = 1e-14;     // threshold on |kappa| for "0 field"
-  static constexpr float kSmallDs   = 1e-10;      // threshold on |s1-s0| == |sin(phi1) - sin(phi0)|
-  static constexpr float kPI = 3.14159265358979323846f;
+  static constexpr float kTinyF = 1e-15f;
+  static constexpr float kAlmost1F = 1.f-FLT_EPSILON;
+  static constexpr float kSmallBend = 1e-6f;      // threshold on |kappa*dz|
+  static constexpr float kSmallKappa = 1e-14f;    // threshold on |kappa|
   static constexpr float ELoss2EKinThreshInv = 1. / 0.025; // do not allow E.Loss correction step with dE/Ekin above the inverse of this value
-  static constexpr float kMSConst2 = 0.0136f * 0.0136f;
-  static constexpr float kMinP = 0.01f;   // kill below this momentum
-  static constexpr int MaxELossIter = 20; // max number of iteration for the ELoss to account for BB dependence on beta*gamma
+  static constexpr int MaxELossIter = 50;                  // max number of iteration for the ELoss to account for BB dependence on beta*gamma
+  static constexpr float kPI = 3.14159265358979323846f;
 
   NA6PTrackPar() = default;
-  NA6PTrackPar(const NA6PTrackPar& src) = default;
-  NA6PTrackPar(float z, const std::array<float, 5>& par) : mZ{z}, mP{par} {}
-  NA6PTrackPar(const std::array<float, 3>& xyz, const std::array<float, 3>& pxyz, int q);
-  NA6PTrackPar(const float* xyz, const float* pxyz, int sign) { initParam(xyz, pxyz, sign); }
+  NA6PTrackPar(const NA6PTrackPar&) = default;
+  NA6PTrackPar(float z, const std::array<float,5>& par) : mZ{z}, mP{par} {}
+  NA6PTrackPar(const std::array<float,3>& xyz, const std::array<float,3>& pxyz, int q) { initParam(xyz.data(), pxyz.data(), q); }
+  NA6PTrackPar(const float* xyz, const float* pxyz, int q) { initParam(xyz, pxyz, q); }
+
   ~NA6PTrackPar() = default;
   NA6PTrackPar& operator=(const NA6PTrackPar&) = default;
+
   void initParam(const float* xyz, const float* pxyz, int sign);
 
+  void setPID(PID pid) { mPID = pid; }
+  PID getPID() const { return mPID; }
+
+  void setUserField(uint8_t v) { mUserField = v; }
+  uint8_t getUserField() const { return mUserField; }
+  
   float getZ() const { return mZ; }
   float getX() const { return mP[kX]; }
   float getY() const { return mP[kY]; }
-  float getTx() const { return mP[kTx]; }
-  float getTy() const { return mP[kTy]; }
-  float getQ2P() const { return mP[kQ2P]; }
-  float getParam(ParLabels l) const { return mP[l]; }
-  float getP() const { return mP[kQ2P] != 0.f ? 1. / std::abs(mP[kQ2P]) : 0.; }
-  PID getPID() const { return mPID; }
-  uint8_t getUserField() const { return mUserField; }
-  int getSign() const { return mP[kQ2P] < 0.f ? -1 : 1; }
-  void setPID(PID v) { mPID = v; }
-  void setUserField(uint8_t v) { mUserField = v; }
-  void setParam(ParLabels l, float v) { mP[l] = v; }
-  void incParam(ParLabels l, float v) { mP[l] += v; }
+  float getTx() const { return mP[kTx]; }         // px/pxz = sin(psi)
+  float getTy() const { return mP[kTy]; }         // py/pxz
+  float getQ2PXZ() const { return mP[kQ2PXZ]; }   // q/pxz
 
-  const std::array<float, 5>& getParam() const { return mP; }
-  std::array<float, 5>& getParam() { return mP; }
+  float getParam(int l) const { return mP[l]; }
+  void  setParam(int l, float v) { mP[l] = v; }
+  void  incParam(int l, float v) { mP[l] += v; }
 
   void setZ(float v) { mZ = v; }
   void setX(float v) { mP[kX] = v; }
   void setY(float v) { mP[kY] = v; }
-  void setTx(float v) { mP[kTx] = v; }
-  void setTy(float v) { mP[kTy] = v; }
-  void setQ2P(float v) { mP[kQ2P] = v; }
+  void setTx(float v) { mP[kTx] = v; }         // px/pxz = sin(psi)
+  void setTy(float v) { mP[kTy] = v; }         // py/pxz
+  void setQ2PXZ(float v) { mP[kQ2PXZ] = v; }   // q/pxz
 
-  // --- position helpers ---
-  template <typename T = float>
-  void getXYZ(std::array<T, 3>& xyz) const;
-  template <typename T = float>
-  void getXYZ(T xyz[3]) const;
-  std::array<float, 3> getXYZ() const { return {getX(), getY(), getZ()}; }
+  
+  float getPxz() const { return mP[kQ2PXZ] != 0.f ? 1.f / std::abs(mP[kQ2PXZ]) : 0.f; }
+  int   getSign() const { return mP[kQ2PXZ] < 0.f ? -1 : 1; }
+  int   getCharge() const { return getSign(); }
 
-  // --- momentum helpers ---
-  float getPx() const { return getTx() * getPz(); }
-  float getPy() const { return getTy() * getPz(); }
-  float getPz() const;
+  // Derived 3D momentum magnitudes
+  float getP2Pxz2() const { return 1.f + getTy()*getTy(); }
+  float getP2Pxz() const { return std::sqrt(getP2Pxz2()); }
+  float getP() const { return getPxz() * getP2Pxz(); }
+  float getPz() const { return getPxz() * getCosPsi(); }         // pz = pxz*cos(psi)
+  float getPx() const { return getPxz() * getTx(); }             // px = pxz*sin(psi)
+  float getPy() const { return getPxz() * getTy(); }             // py = pxz*ty
+  float getQ2P() const;
 
-  std::array<float, 3> getPXYZ() const;
-  template <typename T = float>
-  void getPXYZ(std::array<T, 3>& pxyz) const;
-  template <typename T = float>
-  void getPXYZ(T pxyz[3]) const;
+  float getCosPsi2() const { return getCos2FromSin(getTx()); }
+  float getCosPsi() const { return getCosFromSin(getTx()); }
+  float getPsi() const { return std::asin(std::max(-1.f,std::min(1.f,getTx()))); }
+  float getCurvature(float by) const { return kB2C * by * getQ2PXZ(); }
 
-  template <typename T = float>
-  T getCurvature(float by) const
-  {
-    return kB2C * by * getQ2P() * std::sqrt(T(1) + T(getTy()) * T(getTy()) / getPxz2Pz2<T>());
-  }
-
-  // --- propagation in dipole field B = (0, By, 0) ---
-  bool propagateParamToZ(float z, float by);
-  bool propagateParamToZ(float z, const float* bxyz) { return propagateParamToZ(z, bxyz[1]); }                   // TODO
-  bool propagateParamToZ(float z, const std::array<float, 3> bxyz) { return propagateParamToZ(z, bxyz.data()); } // TODO
-  bool propagateToZ(float z, float by) { return propagateParamToZ(z, by); }
-  bool propagateToZ(float z, const float* bxyz) { return propagateParamToZ(z, bxyz); }
-  bool propagateToZ(float z, const std::array<float, 3> bxyz) { return propagateParamToZ(z, bxyz); }
-
-  bool propagateParamToDCA(float xv, float yv, float zv, float by, float epsZ = 1e-4, float epsDCA = 1e-5, int maxIt = 30);
-  bool correctForMeanMaterial(float, float xTimesRho);
-
-  template <typename T = float>
-  std::array<T, 3> getCircleParams(float by) const;
-
+  bool propagateParamToZ(float z, float by);   // Propagation in dipole field B=(0,By,0)
+  bool propagateParamToZ(float z, const float* bxyz);
+  bool propagateParamToZ(float z, const std::array<float,3>& bxyz) { return propagateParamToZ(z, bxyz.data()); }
+  bool correctForELoss(float xrho, bool anglecorr = false);
+  
   std::string asString() const;
 
+  float getdEdxBB(float betagamma) { return BetheBlochSolid(betagamma); }
+  float getdEdxBBOpt(float betagamma) { return BetheBlochSolidOpt(betagamma); }
+  float getBetheBlochSolidDerivativeApprox(float dedx, float bg) { return BetheBlochSolidDerivative(dedx, bg); }
+
+  
  protected:
-  float BetheBlochSolidOpt(float bg) const;
-  float BetheBlochSolidDerivative(float dedx, float bg) const;
+  float getCos2FromSin(float s) const;
+  float getCosFromSin(float s) const;
+  bool getPosDirGlo(std::array<float, 7>& posdirp) const;
 
-  // helpers
-  template <typename T = float>
-  T getPxz2Pz2() const
-  {
-    return T(1) + T(getTx()) * T(getTx());
-  } // 1 + tx^2 = pxz^2 / pz^2
-  template <typename T = float>
-  T getP2Pz2() const
-  {
-    return getPxz2Pz2<T>() + T(getTy()) * T(getTy());
-  } // 1 + tx^2 + + ty^2 = (p/pz)^2
-  template <typename T = float>
-  T getP2Pz() const
-  {
-    return std::sqrt(getP2Pz2<T>());
-  }
-  template <typename T = float>
-  T getCosXZ() const
-  {
-    return T(1) / std::sqrt(getPxz2Pz2());
-  }
-  template <typename T>
-  void getSinCosXZ(T& s, T& c) const;
+  float BetheBlochSolid(float bg, float rho = 2.33, float kp1 = 0.20, float kp2 = 3.00, float meanI = 173e-9, float meanZA = 0.49848);
+  float BetheBlochSolidOpt(float bg);
+  float BetheBlochSolidDerivative(float dedx, float bg);
+  void g3helx3(float qfield, float step, std::array<float, 7>& vect);
+  
+  float mZ = 0.f;
+  std::array<float,5> mP{{0.f,0.f,0.f,0.f,0.f}};
+  PID mPID{PID::Pion};
+  uint8_t mUserField = 0;
 
-  float mZ{};                // evaluation z
-  std::array<float, 5> mP{}; // parameters: {x,y,px/pz,py/pz,q/p}
-  PID mPID{PID::Pion};       // 8 bit PID
-  uint8_t mUserField = 0;    // 8 bit user field
-
-  ClassDefNV(NA6PTrackPar, 1);
+  ClassDefNV(NA6PTrackPar, 1);   
 };
 
-template <typename T>
-inline void NA6PTrackPar::getXYZ(std::array<T, 3>& xyz) const
+
+inline float NA6PTrackPar::getCos2FromSin(float s) const
 {
-  xyz[0] = getX();
-  xyz[1] = getY();
-  xyz[2] = getZ();
+  s = std::clamp(mP[kTx], -1.f, 1.f);
+  return (1.f + s)*(1.f - s);
 }
 
-template <typename T>
-inline void NA6PTrackPar::getXYZ(T xyz[3]) const
+inline float NA6PTrackPar::getCosFromSin(float s) const
 {
-  xyz[0] = getX();
-  xyz[1] = getY();
-  xyz[2] = getZ();
+  return std::sqrt(getCos2FromSin(s));
 }
 
-inline float NA6PTrackPar::getPz() const
+inline float NA6PTrackPar::getQ2P() const
 {
-  auto pzinv = getP2Pz() * std::abs(getQ2P());
-  return std::abs(pzinv) > kTiny ? 1.f / pzinv : 1e6f;
+  const float denom = getP2Pxz();
+  return denom > 0.f ? getQ2PXZ() / denom : 0.f;               // q/p = (q/pxz)/sqrt(1+ty^2)
 }
 
-inline std::array<float, 3> NA6PTrackPar::getPXYZ() const
-{
-  auto pz = getPz();
-  return {getTx() * pz, getTy() * pz, pz};
-}
-
-template <typename T>
-inline void NA6PTrackPar::getPXYZ(std::array<T, 3>& pxyz) const
-{
-  pxyz[2] = getPz();
-  pxyz[0] = getTx() * pxyz[2];
-  pxyz[1] = getTy() * pxyz[2];
-}
-
-template <typename T>
-inline void NA6PTrackPar::getPXYZ(T pxyz[3]) const
-{
-  pxyz[2] = getPz();
-  pxyz[0] = getTx() * pxyz[2];
-  pxyz[1] = getTy() * pxyz[2];
-}
-
-template <typename T>
-inline void NA6PTrackPar::getSinCosXZ(T& s, T& c) const
-{
-  // get sin and cos of track in the bending plane
-  c = getCosXZ<T>();
-  s = getTx() * c;
-}
-
-template <typename T>
-std::array<T, 3> NA6PTrackPar::getCircleParams(float by) const
-{
-  // get circle params as {R, Xcenter, Zcenter}, for straight line just set to current coordinates
-  constexpr T ZeroCurv = 1e-8;
-  auto crv = getCurvature<T>(by);
-  if (std::abs(crv) > ZeroCurv) {
-    auto crvi = T(1) / crv;
-    T sn, cs;
-    getSinCosXZ(sn, cs);
-    return {std::abs(crvi), getX() + cs * crvi, getZ() - sn * crvi};
-  } else {
-    return {T(0), T(getX()), T(getZ())};
-  }
-}
-
-#endif // NA6P_TRACKPAR_H
+#endif
