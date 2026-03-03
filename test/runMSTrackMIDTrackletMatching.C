@@ -85,8 +85,8 @@ void runMSTrackMIDTrackletMatching(int firstEv = 0,
 
   std::vector<NA6PTrack> ms42Tracks, *hTrackPtr = &ms42Tracks;
   TFile* fouttr = TFile::Open("TracksFourPlusTwo.root", "recreate");
-  TTree* trackTree = new TTree("TracksMuonSpec", "MuonSpec Tracks");
-  trackTree->Branch("MuonsSpec", &hTrackPtr);
+  TTree* trackTree = new TTree("tracksMuonSpec", "MuonSpec Tracks");
+  trackTree->Branch("MuonSpec", &hTrackPtr);
 
   int nFailed = 0;
 
@@ -359,7 +359,18 @@ void runMSTrackMIDTrackletMatching(int firstEv = 0,
       } else {
         refitInw.setStatusConstrained(false);
       }
-
+      int id42track = -2;
+      if (idTrack >= 0) {
+        // good track in the MS
+        if (idTrack == idClu1 && idClu1 == idClu2)
+          id42track = idTrack;
+        else
+          id42track = -idTrack;
+      } else {
+        // fake track in the MS, has negative ID. Keep negative also for the 4+2 track
+        id42track = idTrack;
+      }
+      refitInw.setParticleID(id42track);
       ms42Tracks.push_back(refitInw);
     }
     trackTree->Fill();
