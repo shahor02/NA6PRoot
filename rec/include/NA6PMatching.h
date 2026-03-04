@@ -38,6 +38,11 @@ class NA6PMatching : public NA6PReconstruction
     if (mTrackFitter)
       mTrackFitter->setMaxChi2Cl(v);
   }
+  void setMaxStepForMaterialRecording(double step)
+  {
+    if (mTrackFitter)
+      mTrackFitter->setMaxStepForMaterialRecording(step);
+  }
   void setMinTrackP(double p) { mMinTrackP = p; }
   void setMinVTHits(int n) { mMinVTHits = n; }
   void setMinMSHits(int n) { mMinMSHits = n; }

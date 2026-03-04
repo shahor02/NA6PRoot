@@ -105,6 +105,11 @@ class NA6PTrackerCA
     if (mTrackFitter)
       mTrackFitter->setUseBatMidPointForSeed();
   }
+  void setMaxStepForMaterialRecording(double step)
+  {
+    if (mTrackFitter)
+      mTrackFitter->setMaxStepForMaterialRecording(step);
+  }
   void configureFromRecoParamVT(const std::string& filename = "");
   void configureFromRecoParamMS(const std::string& filename = "");
   void setVerbosity(bool opt = true) { mVerbose = opt; }

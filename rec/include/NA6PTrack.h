@@ -145,11 +145,11 @@ class NA6PTrack
 
   template <typename ClusterType>
   void addCluster(const ClusterType* clu, int cluIndex, double chi2);
-  bool correctForMeanMaterial(double xOverX0, double xTimesRho, bool anglecorr = false)
+  bool correctForMeanMaterial(double xOverX0, double xTimesRho, double density = 0.f, double atomicZ = 0.f, double zOverA = 0.f, bool anglecorr = false)
   {
-    return mExtTrack.correctForMeanMaterial(xOverX0, xTimesRho, mMass, anglecorr);
+    return mExtTrack.correctForMeanMaterialGeneral(xOverX0, xTimesRho, mMass, anglecorr, density, atomicZ, zOverA);
   }
-  bool propagateToZBxByBz(double z, double maxDZ = 1.0, double xOverX0 = 0., double xTimesRho = 0., bool outer = false);
+  bool propagateToZBxByBz(double z, double maxDZ = 1.0, double xOverX0 = 0., double xTimesRho = 0., bool outer = false, double rho = 0.f, double atomicZ = 0.f, double atomicZoverA = 0.f);
   bool propagateToDCA(NA6PTrack* partner);
   bool update(double p[2], double cov[3]) { return mExtTrack.Update(p, cov); }
 

@@ -75,6 +75,7 @@ class NA6PFastTrackFitter
   void setUseBatMidPointForSeed() { mOptionForSeedB = kBatMidPoint; }
   void setUseMaximumBForSeed() { mOptionForSeedB = kMaximumB; }
   void setUseIntegralBForSeed() { mOptionForSeedB = kIntegralB; }
+  void setMaxStepForMaterialRecording(double step) { mMaxStepForMaterialRecording = step; }
   int getLayersForSeed(std::array<int, 3>& layForSeed) const;
   int sortLayersForSeed(std::array<int, 3>& layForSeed, int dir) const;
   void computeSeed(int dir, std::array<int, 3>& layForSeed);
@@ -135,6 +136,7 @@ class NA6PFastTrackFitter
   double mPrimVertZ = 0.0;            // primary vertex z
   bool mIsPrimVertSet = false;        // flag for presence of prim vert z
   bool mCorrectForMaterial = true;    // flag for material corrections
+  double mMaxStepForMaterialRecording = 1.0; // step size for recording material budget along track (in cm)
 
   std::vector<const NA6PBaseCluster*> mClusters; // array with clusters
 
