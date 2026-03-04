@@ -581,6 +581,38 @@ Bool_t ExtTrackPar::correctForMeanMaterialdEdx
   return kTRUE;
 }
 
+Bool_t ExtTrackPar::correctForMeanMaterialGeneral(Double_t xOverX0, Double_t xTimesRho, Double_t mass, Bool_t anglecorr, Double_t density, Double_t atomicZ, Double_t zOverA)
+{
+  //------------------------------------------------------------------
+  // This function corrects the track parameters for the crossed material.
+  // "xOverX0"   - X/X0, the thickness in units of the radiation length.
+  // "xTimesRho" - is the product length*density (g/cm^2).
+  //     It should be passed as negative when propagating tracks
+  //     from the intreaction point to the outside of the central barrel.
+  // "mass" - the mass of this particle (GeV/c^2). mass<0 means charge=2
+  // "density" - mean density (g/cm^3)
+  // "atomicZ" - mean Z
+  // "zOverA" - mean Z/A
+  // "anglecorr" - switch for the angular correction
+  // "Bethe" - function calculating the energy loss (GeV/(g/cm^2))
+  //------------------------------------------------------------------
+
+  Double_t bg = getP() / mass;
+  if (mass < 0) {
+    if (mass < -990) {
+      printf("Mass %f corresponds to unknown PID particle\n", mass);
+      return kFALSE;
+    }
+    bg = -2 * bg;
+  }
+  Double_t mI = (atomicZ < 13) ? (12. * atomicZ + 7.) * 1.e-9 : (9.76 * atomicZ + 58.8 * TMath::Power(atomicZ, -0.19)) * 1.e-9;
+  Double_t dEdx = BetheBlochGeant(bg, density, 0.2, 3, mI, zOverA);
+  if (mass < 0)
+    dEdx *= 4;
+
+  return correctForMeanMaterialdEdx(xOverX0, xTimesRho, mass, dEdx, anglecorr);
+}
+
 Bool_t ExtTrackPar::correctForMeanMaterial
 (Double_t xOverX0,  Double_t xTimesRho, Double_t mass, 
  Bool_t anglecorr,

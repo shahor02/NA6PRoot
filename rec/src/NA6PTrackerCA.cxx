@@ -107,6 +107,7 @@ void NA6PTrackerCA::configureFromRecoParamVT(const std::string& filename)
   setDoTrackConstrainedToPrimVert(param.vtDoConstrainedTrack);
   setNumberOfIterations(param.vtNIterationsTrackerCA);
   setNLayers(param.vtNLayers);
+  setMaxStepForMaterialRecording(param.maxStepForMaterialRecording);
 
   for (int jIter = 0; jIter < mNIterationsCA; ++jIter) {
     setIterationParams(jIter,
@@ -133,6 +134,7 @@ void NA6PTrackerCA::configureFromRecoParamMS(const std::string& filename)
   setNLayers(param.msNLayers);
   setStartLayer(param.vtNLayers);
   setDoTrackConstrainedToPrimVert(param.msDoConstrainedTrack);
+  setMaxStepForMaterialRecording(param.maxStepForMaterialRecording);
   for (int jIter = 0; jIter < mNIterationsCA; ++jIter) {
     setIterationParams(jIter,
                        param.msMaxDeltaThetaTrackletsCA[jIter],

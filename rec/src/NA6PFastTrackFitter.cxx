@@ -242,6 +242,7 @@ int NA6PFastTrackFitter::propagateToZOuter(NA6PTrack* trc, double zTo) const
 
 int NA6PFastTrackFitter::propagateToZImpl(NA6PTrack* trc, double zFrom, double zTo, int dir, bool outer) const
 {
+  double maxStepForProp = 1;
   // Validate track state
   if (trc->getTrackExtParam().getAlpha() < 0) {
     return -1;
@@ -258,40 +259,53 @@ int NA6PFastTrackFitter::propagateToZImpl(NA6PTrack* trc, double zFrom, double z
     return -1;
   }
 
-  // Get starting position
-  double start[3];
-  if (outer) {
-    trc->getXYZOuter(start);
-  } else {
-    trc->getXYZ(start);
-  }
+  const double totalDeltaZ = zTo - zFrom;
+  const double stepSize = dir * mMaxStepForMaterialRecording; // signed step
+  const int nSteps = std::max(1, static_cast<int>(std::abs(totalDeltaZ) / mMaxStepForMaterialRecording));
 
-  // Create temporary track and propagate without material to get endpoint
-  NA6PTrack tmpTrc = *trc;
-  if (!tmpTrc.propagateToZBxByBz(zTo, 1., 0., 0., outer)) {
-    return 0;
-  }
+  double zCurrent = zFrom;
+  for (int iStep = 0; iStep < nSteps; iStep++) {
+    double zNext = (iStep == nSteps - 1) ? zTo : zCurrent + stepSize;
 
-  double end[3];
-  if (outer) {
-    tmpTrc.getXYZOuter(end);
-  } else {
-    tmpTrc.getXYZ(end);
-  }
+    // Get starting position for this step
+    double start[3];
+    if (outer) {
+      trc->getXYZOuter(start);
+    } else {
+      trc->getXYZ(start);
+    }
 
-  // Calculate material budget along path
-  double mparam[7] = {0.};
-  if (mCorrectForMaterial) {
-    getMeanMaterialBudgetFromGeom(start, end, mparam);
-  }
+    // Create temporary track and propagate without material to get endpoint
+    NA6PTrack tmpTrc = *trc;
+    if (!tmpTrc.propagateToZBxByBz(zNext, 1., 0., 0., outer)) {
+      return 0;
+    }
 
-  double xrho = mparam[0] * mparam[4]; // length * density
-  double x2x0 = mparam[1];             // X/X0
-  double corrELoss = 1.0;
+    double end[3];
+    if (outer) {
+      tmpTrc.getXYZOuter(end);
+    } else {
+      tmpTrc.getXYZ(end);
+    }
 
-  // Propagate with material corrections
-  if (!trc->propagateToZBxByBz(zTo, 1., x2x0, -dir * xrho * corrELoss, outer)) {
-    return 0;
+    // Calculate material budget along this step
+    double mparam[7] = {0.};
+    if (mCorrectForMaterial) {
+      getMeanMaterialBudgetFromGeom(start, end, mparam);
+    }
+
+    double density = mparam[0];
+    double xrho = density * mparam[4]; // density * length
+    double x2x0 = mparam[1];             // X/X0
+    double atomicZ = mparam[3];
+    double zOverA = mparam[5];
+
+    double corrELoss = 1.0;    
+    // Propagate with material corrections
+    if (!trc->propagateToZBxByBz(zNext, 1., x2x0, -dir * xrho * corrELoss, outer, density, atomicZ, zOverA)) {
+      return 0;
+    }
+    zCurrent = zNext;
   }
 
   return 1;

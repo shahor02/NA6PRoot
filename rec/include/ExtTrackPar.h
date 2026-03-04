@@ -150,6 +150,8 @@ class ExtTrackPar: public TObject {
   Bool_t correctForMeanMaterialdEdx(Double_t xOverX0, Double_t xTimesRho, 
 	Double_t mass, Double_t dEdx, Bool_t anglecorr=kFALSE);
 
+  Bool_t correctForMeanMaterialGeneral(Double_t xOverX0, Double_t xTimesRho, Double_t mass, Bool_t anglecorr, Double_t density, Double_t atomicZ, Double_t zOverA);
+
   Bool_t correctForMeanMaterialZA(Double_t xOverX0, Double_t xTimesRho, 
                                   Double_t mass,
                                   Double_t zOverA=0.49848,
