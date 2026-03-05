@@ -98,7 +98,7 @@ Bool_t NA6PTrack::init(const double* xyz, const double* pxyz, int sign, double e
 }
 
 //_______________________________________________________________________
-Bool_t NA6PTrack::propagateToZBxByBz(double z, double maxDZ, double xOverX0, double xTimesRho, bool outer)
+Bool_t NA6PTrack::propagateToZBxByBz(double z, double maxDZ, double xOverX0, double xTimesRho, bool outer, double density, double atomicZ, double zOverA)
 {
   // propagate the track to position Z in uniform material with xOverX0 rad lgt and xTimesRho lgt*density
   double zCurr = outer ? getZLabOuter() : getZLab();
@@ -134,8 +134,7 @@ Bool_t NA6PTrack::propagateToZBxByBz(double z, double maxDZ, double xOverX0, dou
       return false;
     }
 
-    if (TMath::Abs(xTimesRho) > 1e-6 &&
-        !correctForMeanMaterial(xOverX0 / nz, xTimesRho / nz)) {
+    if (TMath::Abs(xTimesRho) > 1e-6 && !correctForMeanMaterial(xOverX0 / nz, xTimesRho / nz, density, atomicZ, zOverA)) {
       return false;
     }
   }
