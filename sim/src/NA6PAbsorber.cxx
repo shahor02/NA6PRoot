@@ -25,7 +25,10 @@ void NA6PAbsorber::createMaterials()
   }
   nameM = addName("BeO");
   if (matPool.find(nameM) == matPool.end()) {
-    matPool[nameM] = new TGeoMaterial(nameM.c_str(), 9.012, 4, 3.01);
+    auto mixt = new TGeoMixture(nameM.c_str(), 2, 3.01);
+    mixt->AddElement(new TGeoElement("Be", "Beryllium",  4, 9.012), 1);
+    mixt->AddElement(new TGeoElement("O",  "Oxygen",     8, 16.00), 1);
+    matPool[nameM] = mixt;
     NA6PTGeoHelper::instance().addMedium(nameM, "", kYellow + 2);
   }
   nameM = addName("Graphite");
