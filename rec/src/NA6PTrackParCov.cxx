@@ -52,6 +52,7 @@ bool NA6PTrackParCov::propagateToZ(float z, float by)
 
   const float kappa = getCurvature(by);            // kB2C*By*(q/pxz)
   const float bend  = kappa * dz, abend = std::abs(bend);
+  const float K = kB2C * by;
 
   if (std::abs(kappa) < kSmallKappa || abend < kSmallBend) {     // Straight/near-straight transport: tx, ty, q/pxz unchanged to this order
     const float s0 = getTx(), c0I = 1.f/getCosPsi(), c0Idz = dz * c0I;
@@ -70,7 +71,7 @@ bool NA6PTrackParCov::propagateToZ(float z, float by)
     return false;
   }
 
-  const float c0 = getCosPsi(), c1 = getCos2FromSin(s1), denom = c0 + c1;
+  const float c0 = getCosPsi(), c1 = getCosFromSin(s1), denom = c0 + c1;
   if (denom < kTinyF) {
     return false;
   }
@@ -106,7 +107,6 @@ bool NA6PTrackParCov::propagateToZ(float z, float by)
   mP[kTx] += bend;
   mZ = z;
 
-  const float K = kB2C * by;
   // --- Jacobian for covariance transport ---
   // x1 = x0 + dz*(s0+s1)/(c0+c1)
   const prec_t N = s0 + s1, invDen = 1. / denom, invDen2 = invDen * invDen;
@@ -143,7 +143,7 @@ bool NA6PTrackParCov::propagateToZ(float z, float by, NA6PTrackPar& linRef0)
   }
   // propagate reference track
   NA6PTrackPar linRef1 = linRef0;
-  if (!linRef1.propagateToZ(z, by)) {
+  if (!linRef1.propagateParamToZ(z, by)) {
     return false;
   }
   const float K = kB2C * by;
@@ -165,24 +165,24 @@ bool NA6PTrackParCov::propagateToZ(float z, float by, NA6PTrackPar& linRef0)
   for (int i = 0; i < 5; i++) {
     diff[i] = getParam(i) - linRef0.getParam(i);
   }
-  float snpUpd = snpRef1 + diff[kTx] + f24 * diff[kQ2PXZ];
+  float snpUpd = snpRef1 + diff[kTx] + f24 * diff[kQ2Pxz];
   if (std::abs(snpUpd) > kAlmost1F) {
     return false;
   }
   linRef0 = linRef1; // update reference track
   setZ(z);
-  setX(linRef1.getX() + diff[kX] + f02 * diff[kTx] + f04 * diff[kQ2PXZ]);
-  setY(linRef1.getY() + diff[kY] + f13 * diff[kTy] + f14 * diff[kQ2PXZ]);
+  setX(linRef1.getX() + diff[kX] + f02 * diff[kTx] + f04 * diff[kQ2Pxz]);
+  setY(linRef1.getY() + diff[kY] + f13 * diff[kTy] + f14 * diff[kQ2Pxz]);
   setTx(snpUpd);
   setTy(linRef1.getTy() + diff[kTy]);
-  setQ2PXZ(linRef1.getQ2XZ() + diff[kQ2PXZ]);
+  setQ2Pxz(linRef1.getQ2Pxz() + diff[kQ2Pxz]);
   
   transportCovariance(f02, f04, f12, f13, f14, f24);
   return true;
 
 }
 
-bool NA6PTrackPar::propagateToZ(float z, const float* bxyz)
+bool NA6PTrackParCov::propagateToZ(float z, const float* bxyz)
 {
   //----------------------------------------------------------------
   // Extrapolate this track to the plane z in the field bxyz. Cov matrix is trasported with by only
@@ -196,37 +196,56 @@ bool NA6PTrackPar::propagateToZ(float z, const float* bxyz)
   if (std::abs(kappa) < kSmallKappa) {
     return propagateToZ(z, 0.f); // for the straight-line propagation use 1D field method
   }
-  const float bend  = kappa * dz, abend = std::abs(bend);
+  const float K = kB2C * bxyz[1], bend  = kappa * dz, abend = std::abs(bend);
   const float s0 = getTx(), s1 = s0 + bend;
   if (std::abs(s0) > kAlmost1F || std::abs(s1) > kAlmost1F) {
     return false;
   }
-  const float c0 = getCosPsi(), c1 = getCos2FromSin(s1), denom = c0 + c1;
+  const float c0 = getCosPsi(), c1 = getCosFromSin(s1), denom = c0 + c1;
   if (denom < kTinyF) {
     return false;
   }
-  const float dx2dz = (s0 + s1) / denom;
-  const float step = (abend < 0.05f) ? dz * std::abs(c1 + s1 * dx2dz)              // chord
-    : 2.f * std::asin(0.5f * dz * std::sqrt(1.f + dx2dz * dx2dz) * kappa) / kappa; // arc
-  step *= getP2Pxz();
+  const float dx2dz = (s0 + s1) / denom, cps_dx2dz = (c1 + s1 * dx2dz);
+  const float step = getP2Pxz() * (abend < 0.05f ?
+				   dz * std::abs(c1 + s1 * dx2dz) :             // chord
+				   2.f * std::asin(0.5f * dz * std::sqrt(1.f + dx2dz * dx2dz) * kappa) / kappa); // arc
   //
+  prec_t dr_ds0 = 0.0; // In the ds->0 limit the full derivative is well-behaved but algebra is messy;
+  prec_t dr_dq  = 0.0; // for transport stability we can safely drop these tiny cross-terms (they scale with bend).
+  if (abend > kSmallBend) {
+    auto arg = c0 * s1 - c1 * s0;
+    if (std::abs(arg) > kAlmost1F) {
+      return false; // loop
+    }
+    float rot = std::asin(arg);
+    if (s0*s0 + s1*s1 > 1.f && s0*s1 < 0) {
+      if (s1 > 0.f) {
+	rot = phys_const::PI - rot;
+      } else {
+	rot = -phys_const::PI - rot;
+      }
+    }
+    const prec_t invc0 = 1./c0, invc1 = 1./c1;
+    dr_ds0 = (invc1 - invc0) / bend;
+    dr_dq  = (K * dz) * ( (bend * invc1) - rot ) / (bend * bend);
+  }
   // get the track x,y,z,px/p,py/p,pz/p,p
   std::array<float, 7> vecLab{0.f};
   if (!getPosDirGlo(vecLab)) {
     return false;
   }
   // rotate to the system where Bx=By=0.
-  float bxy2 = b[0] * b[0] + b[1] * b[1];
-  float bt = gpu::CAMath::Sqrt(bxy2);
+  float bxy2 = bxyz[0] * bxyz[0] + bxyz[1] * bxyz[1];
+  float bt = std::sqrt(bxy2);
   float cosphi = 1.f, sinphi = 0.f;
-  if (bt > constants::math::Almost0) {
-    cosphi = b[0] / bt;
-    sinphi = b[1] / bt;
+  if (bt > kTinyF) {
+    cosphi = bxyz[0] / bt;
+    sinphi = bxyz[1] / bt;
   }
-  float bb = gpu::CAMath::Sqrt(bxy2 + b[2] * b[2]);
+  float bb = std::sqrt(bxy2 + bxyz[2] * bxyz[2]);
   float costet = 1.f, sintet = 0.f;
-  if (bb > constants::math::Almost0) {
-    costet = b[2] / bb;
+  if (bb > kTinyF) {
+    costet = bxyz[2] / bb;
     sintet = bt / bb;
   }
   std::array<float, 7> vect{costet * cosphi * vecLab[0] + costet * sinphi * vecLab[1] - sintet * vecLab[2],
@@ -252,23 +271,22 @@ bool NA6PTrackPar::propagateToZ(float z, const float* bxyz)
 
   // Do the final correcting step to the target plane (linear approximation)
   float x = vecLab[0], y = vecLab[1];
-  dz = z - vecLab[2];
-  if (abs(dz) > kAlmost0F) {
-    x += dz * vecLab[3] / vecLab[5]; // dz * px/pz
-    y += dz * vecLab[4] / vecLab[5]; // dz * py/pz
+  auto dzFin = z - vecLab[2];
+  if (std::abs(dzFin) > kTinyF) {
+    x += dzFin * vecLab[3] / vecLab[5]; // dzFin * px/pz
+    y += dzFin * vecLab[4] / vecLab[5]; // dzFin * py/pz
   }
   mP[kX] = x;
   mP[kY] = y;
   
   // Calculate the track parameters
-  t = 1.f / gpu::CAMath::Sqrt(vecLab[3] * vecLab[3] + vecLab[5] * vecLab[5]); // p / pxz
-  mX = xk;
+  auto t = 1.f / std::sqrt(vecLab[3] * vecLab[3] + vecLab[5] * vecLab[5]); // p / pxz
+  mZ = z;
   mP[kTx] = vecLab[3] * t;
   mP[kTy] = vecLab[4] * t;
-  mP[kQ2PXZ] = q * t / vecLab[6];
+  mP[kQ2Pxz] = q * t / vecLab[6];
   //
   // transport cov matrix
-  const float K = kB2C * bxyz[1];
   // --- Jacobian for covariance transport ---
   // x1 = x0 + dz*(s0+s1)/(c0+c1)
   const prec_t N = s0 + s1, invDen = 1.f / denom, invDen2 = invDen * invDen;
@@ -291,12 +309,10 @@ bool NA6PTrackPar::propagateToZ(float z, const float* bxyz)
   const prec_t f24 = K * dz;  // tx1 = s1 = s0 + K*q*dz
 
   transportCovariance(f02, f04, f12, f13, f14, f24);
-
-  
   return true;  
 }
 
-bool NA6PTrackPar::propagateToZ(float z, const float* bxyz, NA6PTrackPar& linRef0)
+bool NA6PTrackParCov::propagateToZ(float z, const float* bxyz, NA6PTrackPar& linRef0)
 {
   //----------------------------------------------------------------
   // Extrapolate this track to the plane z in the field bxyz. Cov matrix is trasported with by only. Linearization wrt externally provided linRef
@@ -316,14 +332,34 @@ bool NA6PTrackPar::propagateToZ(float z, const float* bxyz, NA6PTrackPar& linRef
   if (std::abs(s0) > kAlmost1F || std::abs(s1) > kAlmost1F) {
     return false;
   }
-  const float c0 = linRef0.getCosPsi(), c1 = linRef0.getCos2FromSin(s1), denom = c0 + c1;
+  const float c0 = linRef0.getCosPsi(), c1 = getCosFromSin(s1), denom = c0 + c1;
   if (denom < kTinyF) {
     return false;
   }
-  const float dx2dz = (s0 + s1) / denom;
-  const float step = (abend < 0.05f) ? dz * std::abs(c1 + s1 * dx2dz)              // chord
-    : 2.f * std::asin(0.5f * dz * std::sqrt(1.f + dx2dz * dx2dz) * kappa) / kappa; // arc
-  step *= linRef0.getP2Pxz();
+  const float dx2dz = (s0 + s1) / denom, cps_dx2dz = (c1 + s1 * dx2dz);
+  const float step = linRef0.getP2Pxz() * (abend < 0.05f ?
+					   dz * std::abs(c1 + s1 * dx2dz) :              // chord
+					   2.f * std::asin(0.5f * dz * std::sqrt(1.f + dx2dz * dx2dz) * kappa) / kappa); // arc
+  //
+  prec_t dr_ds0 = 0.0; // In the ds->0 limit the full derivative is well-behaved but algebra is messy;
+  prec_t dr_dq  = 0.0; // for transport stability we can safely drop these tiny cross-terms (they scale with bend).
+  if (abend > kSmallBend) {
+    auto arg = c0 * s1 - c1 * s0;
+    if (std::abs(arg) > kAlmost1F) {
+      return false; // loop
+    }
+    float rot = std::asin(arg);
+    if (s0*s0 + s1*s1 > 1.f && s0*s1 < 0) {
+      if (s1 > 0.f) {
+	rot = phys_const::PI - rot;
+      } else {
+	rot = -phys_const::PI - rot;
+      }
+    }
+    const prec_t invc0 = 1./c0, invc1 = 1./c1;
+    dr_ds0 = (invc1 - invc0) / bend;
+    dr_dq  = (K * dz) * ( (bend * invc1) - rot ) / (bend * bend);
+  }
   //
   // get the track x,y,z,px/p,py/p,pz/p,p
   std::array<float, 7> vecLab{0.f};
@@ -331,17 +367,17 @@ bool NA6PTrackPar::propagateToZ(float z, const float* bxyz, NA6PTrackPar& linRef
     return false;
   }
   // rotate to the system where Bx=By=0.
-  float bxy2 = b[0] * b[0] + b[1] * b[1];
+  float bxy2 = bxyz[0] * bxyz[0] + bxyz[1] * bxyz[1];
   float bt = std::sqrt(bxy2);
   float cosphi = 1.f, sinphi = 0.f;
   if (bt > kTinyF) {
-    cosphi = b[0] / bt;
-    sinphi = b[1] / bt;
+    cosphi = bxyz[0] / bt;
+    sinphi = bxyz[1] / bt;
   }
-  float bb = std::sqrt(bxy2 + b[2] * b[2]);
+  float bb = std::sqrt(bxy2 + bxyz[2] * bxyz[2]);
   float costet = 1.f, sintet = 0.f;
-  if (bb > constants::math::Almost0) {
-    costet = b[2] / bb;
+  if (bb > kTinyF) {
+    costet = bxyz[2] / bb;
     sintet = bt / bb;
   }
   std::array<float, 7> vect{costet * cosphi * vecLab[0] + costet * sinphi * vecLab[1] - sintet * vecLab[2],
@@ -374,19 +410,19 @@ bool NA6PTrackPar::propagateToZ(float z, const float* bxyz, NA6PTrackPar& linRef
   }  
   // Calculate the linRef updated track parameters
   auto linRef1 = linRef0;
-  t = 1.f / std::sqrt(vecLab[3] * vecLab[3] + vecLab[5] * vecLab[5]); // p / pxz
+  auto t = 1.f / std::sqrt(vecLab[3] * vecLab[3] + vecLab[5] * vecLab[5]); // p / pxz
   linRef1.setZ(z);
   linRef1.setX(x);
   linRef1.setY(y);
-  linRef1.setTx(s1 = vecLab[3] * t); // reassign snpRef1
+  linRef1.setTx(vecLab[3] * t);
   linRef1.setTy(vecLab[4] * t);
-  linRef1.setQ2PXZ(q * t / vecLab[6]);
+  linRef1.setQ2Pxz(q * t / vecLab[6]);
   //
   // transport cov matrix
   // --- Jacobian for covariance transport ---
   // x1 = x0 + dz*(s0+s1)/(c0+c1)
-  const prec_t N = s0 + s1, invDen = 1. / denom, invDen2 = invDen * invDen;
-  const prec_t dc0_ds0 = -s0 / c0,  dc1_ds1 = -s1 / c1;
+  const prec_t N = s0 + linRef1.getTx(), invDen = 1. / denom, invDen2 = invDen * invDen;
+  const prec_t dc0_ds0 = -s0 / c0,  dc1_ds1 = -linRef1.getTx() / linRef1.getCosPsi();
   const prec_t ds1_ds0 = 1.0, ds1_dq  = K * dz;   // ds1/ds0 = 1 ; ds1/dq = K*dz
   const prec_t dN_ds0 = 2.0f, dN_dq  = ds1_dq;   // dN/ds0 = 1 + ds1/ds0 = 2 ; dN/dq = ds1/dq
   const prec_t dDen_ds0 = dc0_ds0 + dc1_ds1 * ds1_ds0; // dDen/ds0 = dc0/ds0 + dc1/ds1 * ds1/ds0
@@ -399,26 +435,26 @@ bool NA6PTrackPar::propagateToZ(float z, const float* bxyz, NA6PTrackPar& linRef
   // y1 = y0 + ty * dz * r, r = (asin(s1)-asin(s0))/ds
   // dr/ds0 = (1/c1 - 1/c0)/ds   (since ds is independent of s0)
   // dr/dq  = (K*dz) * ( ds/c1 - dpsi ) / ds^2
-  const prec_t f12 = getTy() * dz * dr_ds0;      // dy/d(tx0)
+  const prec_t f12 = linRef1.getTy() * dz * dr_ds0;      // dy/d(tx0)
   const prec_t f13 = dz * cps_dx2dz;                 // dy/d(ty0)
-  const prec_t f14 = getTy() * dz * dr_dq;       // dy/d(q)
+  const prec_t f14 = linRef1.getTy() * dz * dr_dq;       // dy/d(q)
   const prec_t f24 = K * dz;  // tx1 = s1 = s0 + K*q*dz
 
   float diff[5];
   for (int i = 0; i < 5; i++) {
     diff[i] = getParam(i) - linRef0.getParam(i);
   }
-  float snpUpd = snpRef1 + diff[kTx] + f24 * diff[kQ2PXZ];
+  float snpUpd = linRef1.getTx() + diff[kTx] + f24 * diff[kQ2Pxz];
   if (std::abs(snpUpd) > kAlmost1F) {
     return false;
   }
   linRef0 = linRef1; // update reference track
   setZ(z);
-  setX(linRef1.getX() + diff[kX] + f02 * diff[kTx] + f04 * diff[kQ2PXZ]);
-  setY(linRef1.getY() + diff[kY] + f13 * diff[kTy] + f14 * diff[kQ2PXZ]);
+  setX(linRef1.getX() + diff[kX] + f02 * diff[kTx] + f04 * diff[kQ2Pxz]);
+  setY(linRef1.getY() + diff[kY] + f13 * diff[kTy] + f14 * diff[kQ2Pxz]);
   setTx(snpUpd);
   setTy(linRef1.getTy() + diff[kTy]);
-  setQ2PXZ(linRef1.getQ2XZ() + diff[kQ2PXZ]);  
+  setQ2Pxz(linRef1.getQ2Pxz() + diff[kQ2Pxz]);  
   
   transportCovariance(f02, f04, f12, f13, f14, f24);
   return true;  
@@ -426,8 +462,8 @@ bool NA6PTrackPar::propagateToZ(float z, const float* bxyz, NA6PTrackPar& linRef
 
 void NA6PTrackParCov::transportCovariance(prec_t f02, prec_t f04, prec_t f12, prec_t f13, prec_t f14, prec_t f24)
 {
-  const auto &C00 = mC[kXX], &C10 = mC[kYX], &C20 = mC[kTxX], &C30 = mC[kTyX], &C40 = mC[kQ2PX], &C11 = mC[kYY], &C21 = mC[kTxY],
-    &C31 = mC[kTyY], &C41 = mC[kQ2PY], &C22 = mC[kTxTx], &C32 = mC[kTyTx], &C42 = mC[kQ2PTx], &C33 = mC[kTyTy], &C43 = mC[kQ2PTy], &C44 = mC[kQ2PQ2P];
+  auto &C00 = mC[kXX], &C10 = mC[kYX], &C20 = mC[kTxX], &C30 = mC[kTyX], &C40 = mC[kQ2Pxz], &C11 = mC[kYY], &C21 = mC[kTxY],
+    &C31 = mC[kTyY], &C41 = mC[kQ2PxzY], &C22 = mC[kTxTx], &C32 = mC[kTyTx], &C42 = mC[kQ2PxzTx], &C33 = mC[kTyTy], &C43 = mC[kQ2PxzTy], &C44 = mC[kQ2PxzQ2Pxz];
   
   // b = C*ft
   prec_t b00 = f02 * C20 + f04 * C40, b01 = f12 * C20 + f14 * C40 + f13 * C30;
@@ -531,7 +567,7 @@ bool NA6PTrackParCov::update(float xm, float ym, float sx2, float sxy, float sy2
   mP[kY] += static_cast<float>(Kmat[1][0] * dx + Kmat[1][1] * dy);
   mP[kTx] += static_cast<float>(Kmat[2][0] * dx + Kmat[2][1] * dy);
   mP[kTy] += static_cast<float>(Kmat[3][0] * dx + Kmat[3][1] * dy);
-  mP[kQ2PXZ] += static_cast<float>(Kmat[4][0] * dx + Kmat[4][1] * dy);
+  mP[kQ2Pxz] += static_cast<float>(Kmat[4][0] * dx + Kmat[4][1] * dy);
 
   // Joseph form: C = (I-KH)C(I-KH)^T + K R K^T
   // Here KH affects only first 2 columns of I.
@@ -600,7 +636,7 @@ void NA6PTrackParCov::checkCorrelations()
 {
 #ifdef _CHECK_BAD_CORRELATIONS_
   // minimal sanity: protect against negative variances
-  if (mC[kXX] < 0.f || mC[kYY] < 0.f || mC[kTxTx] < 0.f || mC[kTyTy] < 0.f || mC[kQ2PQ2P] < 0.f) {
+  if (mC[kXX] < 0.f || mC[kYY] < 0.f || mC[kTxTx] < 0.f || mC[kTyTy] < 0.f || mC[kQ2PxzQ2Pxz] < 0.f) {
 #ifdef _PRINT_BAD_CORRELATIONS_
     LOGP(warning, "Bad covariance diag detected: {}", asString());
 #endif
@@ -618,7 +654,7 @@ void NA6PTrackParCov::fixCorrelations()
   mC[kYY] = std::max(mC[kYY], 1e-12f);
   mC[kTxTx] = std::max(mC[kTxTx], 1e-12f);
   mC[kTyTy] = std::max(mC[kTyTy], 1e-12f);
-  mC[kQ2PQ2P] = std::max(mC[kQ2PQ2P], 1e-18f);
+  mC[kQ2PxzQ2Pxz] = std::max(mC[kQ2PxzQ2Pxz], 1e-18f);
 }
 
 bool NA6PTrackParCov::correctForMaterial(float x2x0, float xrho, bool anglecorr)
@@ -721,7 +757,7 @@ bool NA6PTrackParCov::correctForMaterial(float x2x0, float xrho, bool anglecorr)
       theta2 *= charge2;
       fp34 *= getCharge2Pt();
     }
-    if (theta2 > kPI * kPI) {
+    if (theta2 >  phys_const::PI *  phys_const::PI) {
       return false;
     }
     float t2c2I = theta2 * cst2I;
@@ -742,9 +778,9 @@ bool NA6PTrackParCov::correctForMaterial(float x2x0, float xrho, bool anglecorr)
   fC43 += cC43;
   fC44 += cC44;
   
-  mP[kQ2PXZ] * = p0 / p;
+  mP[kQ2Pxz] *= p0 / p;
 
-  checkCovariance();
+  checkCorrelations();
 
   return true;
 }
@@ -849,7 +885,7 @@ bool NA6PTrackParCov::correctForMaterial(float x2x0, float xrho, NA6PTrackPar& l
       theta2 *= charge2;
       fp34 *= linRef.getCharge2Pt();
     }
-    if (theta2 > kPI * kPI) {
+    if (theta2 > phys_const::PI * phys_const::PI) {
       return false;
     }
     float t2c2I = theta2 * cst2I;
@@ -869,10 +905,11 @@ bool NA6PTrackParCov::correctForMaterial(float x2x0, float xrho, NA6PTrackPar& l
   fC33 += cC33;
   fC43 += cC43;
   fC44 += cC44;
-  linRef.mP[kQ2PXZ] * = p0 / p;
-  mP[kQ2PXZ] * = p0 / p;
+  auto fact = p0 / p;
+  linRef.setQ2Pxz(linRef.getQ2Pxz() * fact);
+  mP[kQ2Pxz] *= fact;
 
-  checkCovariance();
+  checkCorrelations();
 
   return true;
 }

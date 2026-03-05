@@ -18,7 +18,7 @@ void NA6PTrackPar::initParam(const float* xyz, const float* pxyz, int sgn)
   const float pxz = std::hypot(px, pz);
   mP[kTx] = px / pxz;                      // sin(psi)
   mP[kTy] = py / pxz;                      // py/pxz
-  mP[kQ2PXZ] = (sgn >= 0 ? +1.f : -1.f) / pxz;
+  mP[kQ2Pxz] = (sgn >= 0 ? +1.f : -1.f) / pxz;
 }
 
 bool NA6PTrackPar::propagateParamToZ(float z, float by)
@@ -47,7 +47,7 @@ bool NA6PTrackPar::propagateParamToZ(float z, float by)
     return false;
   }
 
-  const float c0 = getCosPsi(), c1 = getCos2FromSin(s1), denom = c0 + c1;
+  const float c0 = getCosPsi(), c1 = getCosFromSin(s1), denom = c0 + c1;
   if (denom < kTinyF) {
     return false;
   }
@@ -80,7 +80,7 @@ bool NA6PTrackPar::propagateParamToZ(float z, float by)
   return true;  // ty and q/pxz invariant in pure By
 }
 
-bool NA6PTrackPar::propagateParamToZ(float z, float* bxyz)
+bool NA6PTrackPar::propagateParamToZ(float z, const float* bxyz)
 {
   //----------------------------------------------------------------
   // Extrapolate this track params (w/o cov matrix) to the plane z in the field bxyz.
@@ -90,23 +90,23 @@ bool NA6PTrackPar::propagateParamToZ(float z, float* bxyz)
     mZ = z;
     return true;
   }
-  const float kappa = getCurvature(by);            // kB2C*By*(q/pxz)
+  const float kappa = getCurvature(bxyz[1]);            // kB2C*By*(q/pxz)
   if (std::abs(kappa) < kSmallKappa) {
-    return propagateParamTo(xk, 0.f); // for the straight-line propagation use 1D field method
+    return propagateParamToZ(z, 0.f); // for the straight-line propagation use 1D field method
   }
   const float bend  = kappa * dz, abend = std::abs(bend);
   const float s0 = getTx(), s1 = s0 + bend;
   if (std::abs(s0) > kAlmost1F || std::abs(s1) > kAlmost1F) {
     return false;
   }
-  const float c0 = getCosPsi(), c1 = getCos2FromSin(s1), denom = c0 + c1;
+  const float c0 = getCosPsi(), c1 = getCosFromSin(s1), denom = c0 + c1;
   if (denom < kTinyF) {
     return false;
   }
   const float dx2dz = (s0 + s1) / denom;
-  const float step = (abend < 0.05f) ? dz * std::abs(c1 + s1 * dx2dz)              // chord
-    : 2.f * std::asin(0.5f * dz * std::sqrt(1.f + dx2dz * dx2dz) * kappa) / kappa; // arc
-  step *= getP2Pxz();
+  const float step = getP2Pxz() * (abend < 0.05f ?
+				   dz * std::abs(c1 + s1 * dx2dz) :              // chord
+				   2.f * std::asin(0.5f * dz * std::sqrt(1.f + dx2dz * dx2dz) * kappa) / kappa); // arc
   //
   // get the track x,y,z,px/p,py/p,pz/p,p
   std::array<float, 7> vecLab{0.f};
@@ -114,17 +114,17 @@ bool NA6PTrackPar::propagateParamToZ(float z, float* bxyz)
     return false;
   }
   // rotate to the system where Bx=By=0.
-  float bxy2 = b[0] * b[0] + b[1] * b[1];
+  float bxy2 = bxyz[0] * bxyz[0] + bxyz[1] * bxyz[1];
   float bt = std::sqrt(bxy2);
   float cosphi = 1.f, sinphi = 0.f;
-  if (bt > constants::math::Almost0) {
-    cosphi = b[0] / bt;
-    sinphi = b[1] / bt;
+  if (bt > kTinyF) {
+    cosphi = bxyz[0] / bt;
+    sinphi = bxyz[1] / bt;
   }
-  float bb = std::sqrt(bxy2 + b[2] * b[2]);
+  float bb = std::sqrt(bxy2 + bxyz[2] * bxyz[2]);
   float costet = 1.f, sintet = 0.f;
-  if (bb > constants::math::Almost0) {
-    costet = b[2] / bb;
+  if (bb > kTinyF) {
+    costet = bxyz[2] / bb;
     sintet = bt / bb;
   }
   std::array<float, 7> vect{costet * cosphi * vecLab[0] + costet * sinphi * vecLab[1] - sintet * vecLab[2],
@@ -150,20 +150,20 @@ bool NA6PTrackPar::propagateParamToZ(float z, float* bxyz)
 
   // Do the final correcting step to the target plane (linear approximation)
   float x = vecLab[0], y = vecLab[1];
-  dz = z - vecLab[2];
-  if (abs(dz) > kAlmost0F) {
-    x += dz * vecLab[3] / vecLab[5]; // dz * px/pz
-    y += dz * vecLab[4] / vecLab[5]; // dz * py/pz
+  auto dzFin = z - vecLab[2];
+  if (std::abs(dzFin) > kTinyF) {
+    x += dzFin * vecLab[3] / vecLab[5]; // dz * px/pz
+    y += dzFin * vecLab[4] / vecLab[5]; // dz * py/pz
   }
   mP[kX] = x;
   mP[kY] = y;
   
   // Calculate the track parameters
-  t = 1.f / std::sqrt(vecLab[3] * vecLab[3] + vecLab[5] * vecLab[5]); // p / pxz
-  mX = xk;
+  auto t = 1.f / std::sqrt(vecLab[3] * vecLab[3] + vecLab[5] * vecLab[5]); // p / pxz
+  mZ = z;
   mP[kTx] = vecLab[3] * t;
   mP[kTy] = vecLab[4] * t;
-  mP[kQ2PXZ] = q * t / vecLab[6];
+  mP[kQ2Pxz] = q * t / vecLab[6];
   return true;  
 }
 
@@ -174,7 +174,7 @@ bool NA6PTrackPar::getPosDirGlo(std::array<float, 7>& posdirp) const
   posdirp[1] = getY();
   posdirp[2] = getZ();
   auto p2pxz = getP2Pxz();
-  auto pxz2p = 1.f/pxz2p;
+  auto pxz2p = 1.f/p2pxz;
   posdirp[3] = getTx() * pxz2p; // px/p
   posdirp[4] = getTy() * pxz2p; // py/p
   posdirp[5] = getCosPsi() * pxz2p; // pz/p
@@ -205,7 +205,7 @@ bool NA6PTrackPar::correctForELoss(float xrho, bool anglecorr)
     }
     int charge2 = 1; //in case we introduce charge > 1 particle: getAbsCharge() * getAbsCharge();
     float p = getP(), p0 = p, p2 = p * p, e2 = p2 + getPID().getMass2(), massInv = 1. / m, bg = p * massInv;
-    float e = str::sqrt(e2), ekin = e - m, dedx = getdEdxBBOpt(bg);
+    float e = std::sqrt(e2), ekin = e - m, dedx = getdEdxBBOpt(bg);
 #ifdef _BB_NONCONST_CORR_
     float dedxDer = 0., dedx1 = dedx;
 #endif
@@ -262,7 +262,7 @@ bool NA6PTrackPar::correctForELoss(float xrho, bool anglecorr)
     if (p < kMinP) {
       return false;
     }
-    mP[kQ2PXZ] * = p0 / p;
+    mP[kQ2Pxz] *= p0 / p;
   }
 
   return true;

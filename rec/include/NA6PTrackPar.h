@@ -39,7 +39,7 @@
 class NA6PTrackPar
 {
  public:
-  enum ParLabels : int { kX, kY, kTx, kTy, kQ2PXZ };
+  enum ParLabels : int { kX, kY, kTx, kTy, kQ2Pxz };
 
   static constexpr float kB2C = -0.299792458e-3f; // GeV/(kG*cm)
   static constexpr float kTinyF = 1e-15f;
@@ -48,7 +48,6 @@ class NA6PTrackPar
   static constexpr float kSmallKappa = 1e-14f;    // threshold on |kappa|
   static constexpr float ELoss2EKinThreshInv = 1. / 0.025; // do not allow E.Loss correction step with dE/Ekin above the inverse of this value
   static constexpr int MaxELossIter = 50;                  // max number of iteration for the ELoss to account for BB dependence on beta*gamma
-  static constexpr float kPI = 3.14159265358979323846f;
 
   NA6PTrackPar() = default;
   NA6PTrackPar(const NA6PTrackPar&) = default;
@@ -72,8 +71,10 @@ class NA6PTrackPar
   float getY() const { return mP[kY]; }
   float getTx() const { return mP[kTx]; }         // px/pxz = sin(psi)
   float getTy() const { return mP[kTy]; }         // py/pxz
-  float getQ2PXZ() const { return mP[kQ2PXZ]; }   // q/pxz
+  float getQ2Pxz() const { return mP[kQ2Pxz]; }   // q/pxz
 
+  bool getPosDirGlo(std::array<float, 7>& posdirp) const;
+  
   float getParam(int l) const { return mP[l]; }
   void  setParam(int l, float v) { mP[l] = v; }
   void  incParam(int l, float v) { mP[l] += v; }
@@ -83,11 +84,11 @@ class NA6PTrackPar
   void setY(float v) { mP[kY] = v; }
   void setTx(float v) { mP[kTx] = v; }         // px/pxz = sin(psi)
   void setTy(float v) { mP[kTy] = v; }         // py/pxz
-  void setQ2PXZ(float v) { mP[kQ2PXZ] = v; }   // q/pxz
+  void setQ2Pxz(float v) { mP[kQ2Pxz] = v; }   // q/pxz
 
   
-  float getPxz() const { return mP[kQ2PXZ] != 0.f ? 1.f / std::abs(mP[kQ2PXZ]) : 0.f; }
-  int   getSign() const { return mP[kQ2PXZ] < 0.f ? -1 : 1; }
+  float getPxz() const { return mP[kQ2Pxz] != 0.f ? 1.f / std::abs(mP[kQ2Pxz]) : 0.f; }
+  int   getSign() const { return mP[kQ2Pxz] < 0.f ? -1 : 1; }
   int   getCharge() const { return getSign(); }
 
   // Derived 3D momentum magnitudes
@@ -98,11 +99,12 @@ class NA6PTrackPar
   float getPx() const { return getPxz() * getTx(); }             // px = pxz*sin(psi)
   float getPy() const { return getPxz() * getTy(); }             // py = pxz*ty
   float getQ2P() const;
-
+  float getCharge2Pt() const { return getQ2P(); }                // in case of q=0 return 0, while  getQ2P() returns 1/pT
+  
   float getCosPsi2() const { return getCos2FromSin(getTx()); }
   float getCosPsi() const { return getCosFromSin(getTx()); }
   float getPsi() const { return std::asin(std::max(-1.f,std::min(1.f,getTx()))); }
-  float getCurvature(float by) const { return kB2C * by * getQ2PXZ(); }
+  float getCurvature(float by) const { return kB2C * by * getQ2Pxz(); }
 
   bool propagateParamToZ(float z, float by);   // Propagation in dipole field B=(0,By,0)
   bool propagateParamToZ(float z, const float* bxyz);
@@ -117,9 +119,8 @@ class NA6PTrackPar
 
   
  protected:
-  float getCos2FromSin(float s) const;
-  float getCosFromSin(float s) const;
-  bool getPosDirGlo(std::array<float, 7>& posdirp) const;
+  static float getCos2FromSin(float s);
+  static float getCosFromSin(float s);
 
   float BetheBlochSolid(float bg, float rho = 2.33, float kp1 = 0.20, float kp2 = 3.00, float meanI = 173e-9, float meanZA = 0.49848);
   float BetheBlochSolidOpt(float bg);
@@ -135,13 +136,13 @@ class NA6PTrackPar
 };
 
 
-inline float NA6PTrackPar::getCos2FromSin(float s) const
+inline float NA6PTrackPar::getCos2FromSin(float s)
 {
-  s = std::clamp(mP[kTx], -1.f, 1.f);
+  s = std::clamp(s, -1.f, 1.f);
   return (1.f + s)*(1.f - s);
 }
 
-inline float NA6PTrackPar::getCosFromSin(float s) const
+inline float NA6PTrackPar::getCosFromSin(float s)
 {
   return std::sqrt(getCos2FromSin(s));
 }
@@ -149,7 +150,7 @@ inline float NA6PTrackPar::getCosFromSin(float s) const
 inline float NA6PTrackPar::getQ2P() const
 {
   const float denom = getP2Pxz();
-  return denom > 0.f ? getQ2PXZ() / denom : 0.f;               // q/p = (q/pxz)/sqrt(1+ty^2)
+  return denom > 0.f ? getQ2Pxz() / denom : 0.f;               // q/p = (q/pxz)/sqrt(1+ty^2)
 }
 
 #endif
