@@ -160,6 +160,48 @@ Bool_t NA6PTrack::propagateToDCA(NA6PTrack* partner)
   //
 }
 
+bool NA6PTrack::propagateToDCABeamAxis(float beamX, float beamY, float maxDCA)
+{
+  // iterative propagation to DCA with beam axis (beamX, beamY, *) in z_lab steps 
+  
+  double xyz[3], pxyz[3];
+  getXYZ(xyz);
+  getPXYZ(pxyz);
+
+  const int maxIter = 10;
+  for (int iter = 0; iter < maxIter; ++iter) {
+    double dx  = xyz[0] - beamX;
+    double dy  = xyz[1] - beamY;
+    double px  = pxyz[0];
+    double py  = pxyz[1];
+    double pz  = pxyz[2];
+    double pt2 = px*px + py*py;
+    if (pt2 < 1e-12) break;  // track parallel to beam, can't converge
+
+    // derivative of transverse distance w.r.t. z_lab:
+    // d/dz [(x-bx)^2 + (y-by)^2] = 2(dx*px/pz + dy*py/pz)
+    double ddistdz = dx * (px / pz) + dy * (py / pz);
+    // second derivative (approximated as pt^2/pz^2):
+    double d2distdz2 = pt2 / (pz*pz);
+
+    double dz = -ddistdz / d2distdz2;  // Newton step in z_lab
+
+    // dampen large steps
+    if (std::abs(dz) > 5.0) dz = std::copysign(5.0, dz);
+    if (std::abs(dz) < 1e-4) break;  // converged
+
+    double zNew = xyz[2] + dz;
+    if (!propagateToZBxByBz(zNew)) return false;
+
+    getXYZ(xyz);
+    getPXYZ(pxyz);
+  }
+
+  // final DCA check
+  double dx = xyz[0] - beamX, dy = xyz[1] - beamY;
+  return (dx*dx + dy*dy) < maxDCA * maxDCA;
+}
+
 //_______________________________________________________________________
 double NA6PTrack::getSigmaP2() const
 {

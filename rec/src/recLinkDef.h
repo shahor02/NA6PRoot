@@ -24,6 +24,7 @@
 #pragma link C++ class NA6PMatching + ;
 #pragma link C++ class ExtTrackPar + ;
 #pragma link C++ class NA6PVertexerTracklets + ;
+#pragma link C++ class NA6PVertexerTracks + ;
 #pragma link C++ class NA6PTrackerCA + ;
 #pragma link C++ class NA6PFastTrackFitter + ;
 
