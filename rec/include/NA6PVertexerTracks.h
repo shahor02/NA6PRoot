@@ -18,6 +18,7 @@
 #include <vector>
 #include <NA6PLine.h>
 #include <NA6PTrack.h>
+#include <NA6PVertex.h>
 
 struct TrackVF {
   
@@ -62,19 +63,98 @@ struct TrackVF {
   ClassDefNV(TrackVF, 1);
 };
 
+struct VertexSeed {
+  float x = 0.f, y = 0.f, z = 0.f;
+  double wghSum = 0.;    // sum of tracks weights
+  double wghChi2 = 0.;   // sum of tracks weighted chi2's
+  double cxx = 0., cyy = 0., czz = 0., cxy = 0., cxz = 0., cyz = 0., cx0 = 0., cy0 = 0., cz0 = 0.; // elements of lin.equation matrix
+  float scaleSigma2 = 1.;  // scaling parameter on top of Tukey param
+  float scaleSigma2Prev = 1.;
+  float maxScaleSigma2Tested = 0.;
+  float scaleSig2ITuk2I = 0; // inverse squared Tukey parameter scaled by scaleSigma2
+  int nScaleSlowConvergence = 0;
+  int nScaleIncrease = 0;
+  int nIterations = 0;
+
+  void setScale(float scale2, float tukey2I)
+  {
+    scaleSigma2Prev = scaleSigma2;
+    scaleSigma2 = scale2;
+    scaleSig2ITuk2I = tukey2I / scale2;
+  }
+
+  void resetForNewIteration()
+  {
+    wghSum = 0.;
+    wghChi2 = 0.;
+    cxx = cyy = czz = cxy = cxz = cyz = cx0 = cy0 = cz0 = 0.;
+  }
+
+  VertexSeed() = default;
+  VertexSeed(const NA6PVertex& src)
+  {
+    x = src.getX();
+    y = src.getY();
+    z = src.getZ();
+  }
+
+};
+
 class NA6PVertexerTracks
 {
 
  public:
+  
+  enum class FitStatus : int { Failure,
+                               PoolEmpty,
+                               NotEnoughTracks,
+                               IterateFurther,
+                               OK };
+  
+  NA6PVertexerTracks();
+  ~NA6PVertexerTracks() = default;
+
   void setBeamX(float x) { mBeamX = x; }
   void setBeamY(float y) { mBeamY = y; }
+  void configurePeakFinding(float zmin = -20.0, float zmax = 5., int nbins = 250)
+  {
+    mZMin = zmin;
+    mZMax = zmax;
+    mNBinsForPeakFind = nbins;
+    mZBinWidth = (mZMax - mZMin) / mNBinsForPeakFind;
+    mHistZ.assign(nbins, 0.f);
+  }
+  void setZRange(float zmin, float zmax)
+  {
+    mZMin = zmin;
+    mZMax = zmax;
+    if (mNBinsForPeakFind > 0)
+      configurePeakFinding(mZMin, mZMax, mNBinsForPeakFind);
+  }
+  void setNBinsForPeakFind(int nbins)
+  {
+    mNBinsForPeakFind = nbins;
+    configurePeakFinding(mZMin, mZMax, mNBinsForPeakFind);
+  }
   void createTracksPool(const std::vector<NA6PTrack>& tracks);
+  void buildAndFillHistoZ();
+  int findPeakBin();
+  int findVertices();
 
+  
  private:
   std::vector<TrackVF> mTracksPool;  ///< tracks in internal representation used for vertexing
   float mBeamX = 0.;                 // beam transverse coordindates
   float mBeamY = 0.;                 // beam transverse coordindates
   float mMaxDCA = 0.1;               // cut on DCA of track to beam line (cm)
+  float mZMin = -20.0;               // z range, min, cm
+  float mZMax = 5.;                  // z range, max, cm
+  int mNBinsForPeakFind = 250;       // 0.1 cm per bin
+  float mZBinWidth = 0.1;            // bin width 
+  std::vector<float> mHistZ;         // histogram for the peak finding method
+  std::vector<int>   mFilledBinsZ;   // indices of non-empty bins
+  int mMaxVerticesPerCluster = 5;    // one vertex per target
+  int mMaxTrialsPerCluster = 2;      //
   
   ClassDefNV(NA6PVertexerTracks, 1);
 };
