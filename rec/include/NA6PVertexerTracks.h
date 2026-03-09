@@ -21,12 +21,20 @@
 #include <NA6PVertex.h>
 
 struct TrackVF {
-  
+  enum { kUsed,
+         kNoVtx = -1,
+         kDiscarded = kNoVtx - 1 };
+
   NA6PLine mLine;           // straight line representation of the track
   float mSig2XI = 0.f;      // XX component of inverse cov.matrix
   float mSig2YI = 0.f;      // YY component of inverse cov.matrix
-  float mSigXYI = 0.f;      // XY component of inverse cov.matrix
-  float mWeightHisto = 0.f; // weight for histogram seeder 
+  float mSig2ZI  = 0.f;  // ZZ component of inverse cov matrix  
+  float mSigXYI  = 0.f;  // XY component of inverse cov matrix
+  float mSigXZI  = 0.f;  // XZ component of inverse cov matrix
+  float mSigYZI  = 0.f;  // YZ component of inverse cov matrix
+  
+  float wgh = 0.f;      ///< track weight wrt current vertex seed
+  int vtxID = kNoVtx;       // assigned vertex
 
   TrackVF() = default;
   TrackVF(const NA6PTrack& src) {
@@ -44,22 +52,42 @@ struct TrackVF {
     float szz = (cx * cx * sxx + cy * cy * syy + 2.f * cx * cy * sxy) * iczcz;
     float det = sxx * syy - sxy * sxy;
     if (det <= 1e-20f) {
-      mWeightHisto = -1;
+      mSig2ZI = -1.;
       return;
     }
-    auto detI = 1. / det;
-    mSig2XI = sxx * detI;
-    mSig2YI = syy * detI;
+    float detI = 1.f / det;
+    mSig2XI = syy * detI;
+    mSig2YI = sxx * detI;
     mSigXYI = -sxy * detI;
-    mWeightHisto = (szz > 0.f) ? 1.f / szz : 0.f;
+    // z weight from error propagation of transverse cov along track direction
+    // xz and yz correlations neglected (mSigXZI = mSigYZI = 0)
+    mSig2ZI = (szz > 0.f) ? 1.f / szz : 0.f;
   }
-  bool isValid() const { return mWeightHisto >= 0.f; }
-  std::array<float,3> residual(const float vtxPos[3]) const
+  bool isValid() const { return mSig2ZI >= 0.f; }
+  bool canUse() const { return vtxID == kNoVtx; }
+
+  std::array<float,3> getResiduals(const float vtxPos[3]) const
   {
     // vector from closest point on line to vtxPos
     auto comps = mLine.getDCAComponents(vtxPos);
     return {comps[0], comps[3], comps[5]}; // dx, dy, dz components
   }
+
+  float evalChi2ToVertex(const float vtxPos[3]) const
+  {
+    auto res = getResiduals(vtxPos); // track-vertex residuals and chi2
+    float dx = res[0], dy = res[1];
+    return evalChi2ToVertex(dx, dy);
+  }
+  float evalChi2ToVertex(float dx, float dy) const
+  {
+    constexpr float NDOF2I = 0.5;
+    float chi2T = dx * dx * mSig2XI + 2.f * dx * dy * mSigXYI + dy * dy * mSig2YI;
+    chi2T *= NDOF2I;
+    return chi2T;
+  }
+
+  
   ClassDefNV(TrackVF, 1);
 };
 
@@ -75,7 +103,12 @@ struct VertexSeed {
   int nScaleSlowConvergence = 0;
   int nScaleIncrease = 0;
   int nIterations = 0;
+  float chi2 = 0.f;       ///< final vertex chi2
+  int nContributors = 0;  ///< number of tracks contributing to current iteration
 
+  void setChi2(float c) { chi2 = c; }
+  float getChi2() const { return chi2; }
+  int getNContributors() const { return nContributors; }
   void setScale(float scale2, float tukey2I)
   {
     scaleSigma2Prev = scaleSigma2;
@@ -87,6 +120,7 @@ struct VertexSeed {
   {
     wghSum = 0.;
     wghChi2 = 0.;
+    nContributors = 0;
     cxx = cyy = czz = cxy = cxz = cyz = cx0 = cy0 = cz0 = 0.;
   }
 
@@ -136,27 +170,51 @@ class NA6PVertexerTracks
     mNBinsForPeakFind = nbins;
     configurePeakFinding(mZMin, mZMax, mNBinsForPeakFind);
   }
+  void setInitScaleSigma2(float s) { mInitScaleSigma2 = s; }
+  void setTukey2I(float t) { mTukey2I = t > 0.f ? 1.f / (t * t) : 1.f / (kDefTukey * kDefTukey); }
+  void setMinTracksPerVtx(int n) { mMinTracksPerVtx = n; }
+  
   void createTracksPool(const std::vector<NA6PTrack>& tracks);
   void buildAndFillHistoZ();
   int findPeakBin();
   int findVertices();
-
+  bool fitVertex(float zSeed, NA6PVertex& vtx);
+  FitStatus fitIteration(VertexSeed& vtxSeed);
+  FitStatus evalIterations(VertexSeed& vtxSeed) const;
+  bool upscaleSigma(VertexSeed& vtxSeed) const;
+  bool solveVertex(VertexSeed& vtxSeed) const;
+  void accountTrack(TrackVF& trc, VertexSeed& vtxSeed) const;
   
  private:
   std::vector<TrackVF> mTracksPool;  ///< tracks in internal representation used for vertexing
-  float mBeamX = 0.;                 // beam transverse coordindates
-  float mBeamY = 0.;                 // beam transverse coordindates
-  float mMaxDCA = 0.1;               // cut on DCA of track to beam line (cm)
-  float mZMin = -20.0;               // z range, min, cm
-  float mZMax = 5.;                  // z range, max, cm
-  int mNBinsForPeakFind = 250;       // 0.1 cm per bin
-  float mZBinWidth = 0.1;            // bin width 
-  std::vector<float> mHistZ;         // histogram for the peak finding method
-  std::vector<int>   mFilledBinsZ;   // indices of non-empty bins
-  int mMaxVerticesPerCluster = 5;    // one vertex per target
-  int mMaxTrialsPerCluster = 2;      //
-  
+  float mBeamX = 0.;                 ///< beam transverse coordindates
+  float mBeamY = 0.;                 ///< beam transverse coordindates
+  float mMaxDCA = 0.1;               ///< cut on DCA of track to beam line (cm)
+  float mZMin = -20.0;               ///< z range, min, cm
+  float mZMax = 5.;                  ///< z range, max, cm
+  int mNBinsForPeakFind = 250;       ///< 0.1 cm per bin
+  float mZBinWidth = 0.1;            ///< bin width 
+  std::vector<float> mHistZ;         ///< histogram for the peak finding method
+  std::vector<int>   mFilledBinsZ;   ///< indices of non-empty bins
+  int mMaxVerticesPerCluster = 5;                   ///< one vertex per target
+  int mMaxTrialsPerCluster = 2;                     //
+  static constexpr float kAlmost0F = 1e-12;         ///< tiny float
+  static constexpr float kDefTukey = 5.0f;          ///< def.value for tukey constant
+  float mTukey2I = 1.f / (kDefTukey * kDefTukey); ///< 1./[Tukey parameter]^2
+  float mInitScaleSigma2 = 10.f;      ///< scaling parameter on top of Tukey param
+  int mMaxIterations = 20;            ///< max iterations per vertex fit
+  int mMinTracksPerVtx = 2;           ///< minimum number of tracks per vertex
+  float mMinScale2 = 1.;              ///< min scaling factor^2
+  float mMaxScale2 = 50.;             ///< max slaling factor^2
+  float mMaxChi2Mean = 10.;           ///< max mean chi2 of vertex to accept
+  int mMaxNScaleIncreased = 2;        ///< max number of scaling-non-decreasing iterations
+  float mSlowConvergenceFactor = 0.5; ///< consider convergence as slow if ratio new/old scale2 exceeds it
+  int mMaxNScaleSlowConvergence = 3;  ///< max number of weak scaling decrease iterations
+  float mAcceptableScale2 = 4.;       ///< if below this factor, try to refit with minScale2
+  float mUpscaleFactor = 9.;          ///< factor for upscaling if not candidate is found
+
   ClassDefNV(NA6PVertexerTracks, 1);
 };
+
 
 #endif
