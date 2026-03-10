@@ -11,6 +11,7 @@
 #include <TGeoNode.h>
 #include <TGeoBBox.h>
 #include <TGeoTube.h>
+#include <TGeoXtru.h>
 #include <TGeoParaboloid.h>
 #include <TGeoTrd1.h>
 #include <TGeoTrd2.h>
@@ -21,6 +22,66 @@
 #include <fairlogger/Logger.h>
 #include <TFile.h>
 #include <TTree.h>
+#include <TMath.h>
+
+static TGeoXtru* CreateRoundedRect(const char* name, double dx, double dy, double r, double dz)
+{
+  const int nSegments = 20;
+  int nPoints = 4 * nSegments;
+  double* x = new double[nPoints];
+  double* y = new double[nPoints];
+
+  for (int i = 0; i < nSegments; i++) {
+    double phi = i * (TMath::Pi() / 2) / (nSegments - 1);
+    x[i] = (dx - r) + r * std::cos(phi);
+    y[i] = (dy - r) + r * std::sin(phi);
+    x[i + nSegments] = -(dx - r) + r * std::cos(phi + TMath::Pi() / 2);
+    y[i + nSegments] = (dy - r) + r * std::sin(phi + TMath::Pi() / 2);
+    x[i + 2 * nSegments] = -(dx - r) + r * std::cos(phi + TMath::Pi());
+    y[i + 2 * nSegments] = -(dy - r) + r * std::sin(phi + TMath::Pi());
+    x[i + 3 * nSegments] = (dx - r) + r * std::cos(phi + 3 * TMath::Pi() / 2);
+    y[i + 3 * nSegments] = -(dy - r) + r * std::sin(phi + 3 * TMath::Pi() / 2);
+  }
+
+  TGeoXtru* xtru = new TGeoXtru(2);
+  xtru->SetName(name);
+  xtru->DefinePolygon(nPoints, x, y);
+  xtru->DefineSection(0, -dz);
+  xtru->DefineSection(1, dz);
+  delete[] x;
+  delete[] y;
+  return xtru;
+}
+
+static TGeoXtru* CreateStadium(const char* name, double halfLen, double halfH, double dz)
+{
+  const int nSemi = 30;
+  int nPoints = 2 * nSemi;
+  double* x = new double[nPoints];
+  double* y = new double[nPoints];
+
+  // Right semicircle
+  for (int i = 0; i < nSemi; i++) {
+    double phi = -TMath::Pi() / 2 + i * TMath::Pi() / (nSemi - 1);
+    x[i] = halfLen + halfH * std::cos(phi);
+    y[i] = halfH * std::sin(phi);
+  }
+  // Left semicircle
+  for (int i = 0; i < nSemi; i++) {
+    double phi = TMath::Pi() / 2 + i * TMath::Pi() / (nSemi - 1);
+    x[nSemi + i] = -halfLen + halfH * std::cos(phi);
+    y[nSemi + i] = halfH * std::sin(phi);
+  }
+
+  TGeoXtru* xtru = new TGeoXtru(2);
+  xtru->SetName(name);
+  xtru->DefinePolygon(nPoints, x, y);
+  xtru->DefineSection(0, -dz);
+  xtru->DefineSection(1, dz);
+  delete[] x;
+  delete[] y;
+  return xtru;
+}
 
 void NA6PVerTel::createMaterials()
 {
@@ -53,6 +114,11 @@ void NA6PVerTel::createMaterials()
     matPool[nameM] = mixt;
     NA6PTGeoHelper::instance().addMedium(nameM);
   }
+  nameM = addName("Aluminium");
+  if (matPool.find(nameM) == matPool.end()) {
+    matPool[nameM] = new TGeoMaterial(nameM.c_str(), 26.98, 13, 2.7);
+    NA6PTGeoHelper::instance().addMedium(nameM, "", kAzure - 9);
+  }
 }
 
 void NA6PVerTel::createGeometry(TGeoVolume* world)
@@ -60,92 +126,133 @@ void NA6PVerTel::createGeometry(TGeoVolume* world)
   const auto& param = NA6PLayoutParam::Instance();
 
   createMaterials();
-  float frameDX = 30.0f;
-  float frameDY = 30.0f;
-  float frameDZ = 0.50f;
-  float frameHoleR = 0.424f;
-
-  float pixChipHoleDX = 12.5f;
-  float pixChipHoleDY = 13.0f;
-  float dxyCut = 1.0f;
-
-  float pixChipContainerDX = frameDX;
-  float pixChipContainerDY = frameDY;
+  // ── pixel station dimensions
+  float pixChipContainerDX = 30.0f;
+  float pixChipContainerDY = 30.0f;
   float pixChipContainerDz = 0.1f;
-
   float pixChipDX = 14.69f;
   float pixChipDY = 14.69f;
   float pixChipDz = 50e-4f;
   float pixChipOffsX = 0.29f;
   float pixChipOffsY = 0.31f;
-
   float carbonPlateDX = 2 * pixChipDX + 2 * pixChipOffsX;
   float carbonPlateDY = 2 * pixChipDY + 2 * pixChipOffsY;
   float carbonPlateDz = 400e-4f;
 
+  // Al frame dimensions
+  const double alFrameHX = 19.0; // base plate half-x
+  const double alFrameHY = 16.0; // base plate half-y
+  const double alFrameHZ = 0.4;  // base plate half-z
+  const double alCutHZ = 0.5;    // cut solids slightly thicker than plate
+  const double alCornerR = 1;    // corner rounding radius
+  const double alSlotR = 2.5;    // stadium slot half-height
+  const double alSlotL = 10.5;   // stadium slot straight half-length
+
   float boxDZMargin = pixChipContainerDz + 0.5f;
-  float boxDZ = param.posVerTelPlaneZ[param.nVerTelPlanes - 1] - param.posVerTelPlaneZ[0] + 2 * boxDZMargin;
+  float boxDZ = param.posVerTelPlaneZ[param.nVerTelPlanes - 1] - param.posVerTelPlaneZ[0] + 2 * boxDZMargin + 2 * static_cast<float>(alFrameHZ);
 
-  std::vector<float> chipHoleX = {pixChipDX / 2 + dxyCut, -pixChipDX / 2, -pixChipDX / 2 - dxyCut, pixChipDX / 2};
-  std::vector<float> chipHoleY = {pixChipDY / 2, pixChipDY / 2 + dxyCut, -pixChipDY / 2, -pixChipDY / 2 - dxyCut};
-
-  // Container
-  auto* vtShape = new TGeoBBox("VTContainer", (frameDX + 2.f) / 2, (frameDY + 2.f) / 2, boxDZ / 2);
-  TGeoVolume* vtContainer = new TGeoVolume("VTContainer", vtShape, NA6PTGeoHelper::instance().getMedium(addName("Air")));
-  auto* vtTransform = new TGeoCombiTrans(param.shiftVerTel[0],
-                                         param.shiftVerTel[1],
-                                         param.shiftVerTel[2] + (param.posVerTelPlaneZ[0] + boxDZ / 2 - boxDZMargin),
-                                         NA6PTGeoHelper::rotAroundVector(0.0, 0.0, 0.0, 0.0));
+  auto* vtShape = new TGeoBBox("VTContainer",
+                               alFrameHX + 1.f,
+                               alFrameHY + 1.f,
+                               boxDZ / 2);
+  TGeoVolume* vtContainer = new TGeoVolume("VTContainer", vtShape,
+                                           NA6PTGeoHelper::instance().getMedium(addName("Air")));
+  auto* vtTransform = new TGeoCombiTrans(
+    param.shiftVerTel[0],
+    param.shiftVerTel[1],
+    param.shiftVerTel[2] + (param.posVerTelPlaneZ[0] + boxDZ / 2 - boxDZMargin),
+    NA6PTGeoHelper::rotAroundVector(0.0, 0.0, 0.0, 0.0));
   world->AddNode(vtContainer, composeNonSensorVolID(0), vtTransform);
 
-  // pixel station Frame with holes (box with subtracted holes)
-  // COMMENTED OUT: to be replaced with the new Al frame
-  // auto* pixStFrameBox = new TGeoBBox("PixStFrameBox", frameDX / 2, frameDY / 2, frameDZ / 2);
-  // auto* beamPipeHole = new TGeoTube("PixStFrameBoxBPHole", 0, frameHoleR, frameDZ);
-  // auto* frameSubtraction = new TGeoSubtraction(pixStFrameBox, beamPipeHole);
-  // auto* pixStFrameShape = new TGeoCompositeShape("PixStFrameBoxHole0", frameSubtraction);
-  // for (size_t ii = 0; ii < chipHoleX.size(); ++ii) {
-  //   auto* pixChipHole = new TGeoBBox("PixChipHole", pixChipHoleDX / 2, pixChipHoleDY / 2, frameDZ);
-  //   auto* holeTransform = new TGeoTranslation(chipHoleX[ii], chipHoleY[ii], 0);
-  //   frameSubtraction = new TGeoSubtraction(pixStFrameShape, pixChipHole, nullptr, holeTransform);
-  //   pixStFrameShape = new TGeoCompositeShape(Form("PixStFrameBoxHole0%zu", ii), frameSubtraction);
-  // }
-  // TGeoVolume* pixStFrame = new TGeoVolume("PixStFrame", pixStFrameShape, NA6PTGeoHelper::instance().getMedium(addName("CarbonFoam")));
-  // pixStFrame->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName("CarbonFoam")));
+  // Pixel sensor station
+  auto* pixelStationShape = new TGeoBBox("PixelStationShape",
+                                         pixChipContainerDX / 2,
+                                         pixChipContainerDY / 2,
+                                         pixChipContainerDz / 2);
+  auto* sensorShape = new TGeoBBox("SensorShape",
+                                   pixChipDX / 2, pixChipDY / 2, pixChipDz / 2);
 
-  // Silicon Tracker Station
-  auto* pixelStationShape = new TGeoBBox("PixelStationShape", pixChipContainerDX / 2, pixChipContainerDY / 2, pixChipContainerDz / 2);
-  auto* sensorShape = new TGeoBBox("SensorShape", pixChipDX / 2, pixChipDY / 2, pixChipDz / 2);
-  auto* pixelStationVol = new TGeoVolume("PixelStationVol", pixelStationShape, NA6PTGeoHelper::instance().getMedium(addName("Air")));
-  TGeoVolume* pixelSensor = new TGeoVolume("PixelSensor", sensorShape, NA6PTGeoHelper::instance().getMedium(addName("Silicon")));
+  auto* pixelStationVol = new TGeoVolume("PixelStationVol", pixelStationShape,
+                                         NA6PTGeoHelper::instance().getMedium(addName("Air")));
+  TGeoVolume* pixelSensor = new TGeoVolume("PixelSensor", sensorShape,
+                                           NA6PTGeoHelper::instance().getMedium(addName("Silicon")));
   pixelSensor->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName("Silicon")));
 
-  // Carbon fiber plate, with central hole for the beam
-  auto* carbonplateFullShape = new TGeoBBox("CarbonPlateFullShape", carbonPlateDX / 2, carbonPlateDY / 2, carbonPlateDz / 2);
-  auto* beamHole = new TGeoBBox("CarbonPlateBeamHole", pixChipOffsX, pixChipOffsY, carbonPlateDz );
+  // Carbon-fiber plate with central beam hole 
+  auto* carbonplateFullShape = new TGeoBBox("CarbonPlateFullShape",
+                                            carbonPlateDX / 2, carbonPlateDY / 2, carbonPlateDz / 2);
+  auto* beamHole = new TGeoBBox("CarbonPlateBeamHole", pixChipOffsX, pixChipOffsY, carbonPlateDz);
   auto* holeRemoval = new TGeoSubtraction(carbonplateFullShape, beamHole);
   auto* cbPlateWithHoleShape = new TGeoCompositeShape("CarbonPlateWithHoleShape", holeRemoval);
-  TGeoVolume* cbPlate = new TGeoVolume("CarbonPlateWithHole", cbPlateWithHoleShape, NA6PTGeoHelper::instance().getMedium(addName("CarbonFiber")));
+  TGeoVolume* cbPlate = new TGeoVolume("CarbonPlateWithHole", cbPlateWithHoleShape,
+                                       NA6PTGeoHelper::instance().getMedium(addName("CarbonFiber")));
   cbPlate->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName("CarbonFiber")));
 
-  // place sensors to station
-  std::vector<float> alpdx{pixChipDX / 2 + pixChipOffsX, -pixChipDX / 2 + pixChipOffsX, -pixChipDX / 2 - pixChipOffsX, pixChipDX / 2 - pixChipOffsX};
-  std::vector<float> alpdy{pixChipDY / 2 - pixChipOffsY, pixChipDY / 2 + pixChipOffsY, -pixChipDY / 2 + pixChipOffsY, -pixChipDY / 2 - pixChipOffsY};
+  // Base plate
+  auto* alBase = new TGeoBBox("AlFrameBase", alFrameHX, alFrameHY, alFrameHZ);
+
+  // Central hole
+  TGeoXtru* hC = CreateRoundedRect("AlHoleC", 6.5, 6.5, alCornerR, alCutHZ);
+
+  // Horizontal stadium slots (top & bottom)
+  TGeoXtru* hH = CreateStadium("AlHoleH", alSlotL, alSlotR, alCutHZ);
+  auto* tTop = new TGeoTranslation("AlTTop", 0, 10.5, 0);
+  auto* tBot = new TGeoTranslation("AlTBot", 0, -10.5, 0);
+  tTop->RegisterYourself();
+  tBot->RegisterYourself();
+
+  // Vertical rounded-rectangle holes (left & right)
+  TGeoXtru* hV = CreateRoundedRect("AlHoleV", 2.5, 5.5, alCornerR, alCutHZ);
+  auto* tL = new TGeoTranslation("AlTL", -10.5, -0.5, 0);
+  auto* tR = new TGeoTranslation("AlTR", 10.5, -0.5, 0);
+  tL->RegisterYourself();
+  tR->RegisterYourself();
+
+  auto* alFrameShape = new TGeoCompositeShape("AlFrameShape",
+                                              "AlFrameBase - (AlHoleC + AlHoleH:AlTTop + AlHoleH:AlTBot + AlHoleV:AlTL + AlHoleV:AlTR)");
+
+  TGeoVolume* alFrame = new TGeoVolume("AlFrame", alFrameShape,
+                                       NA6PTGeoHelper::instance().getMedium(addName("Aluminium")));
+  alFrame->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName("Aluminium")));
+
+  // place sensors into the station volume
+  std::vector<float> alpdx{pixChipDX / 2 + pixChipOffsX, -pixChipDX / 2 + pixChipOffsX,
+                           -pixChipDX / 2 - pixChipOffsX, pixChipDX / 2 - pixChipOffsX};
+  std::vector<float> alpdy{pixChipDY / 2 - pixChipOffsY, pixChipDY / 2 + pixChipOffsY,
+                           -pixChipDY / 2 + pixChipOffsY, -pixChipDY / 2 - pixChipOffsY};
   for (size_t ii = 0; ii < alpdx.size(); ++ii) {
     auto* sensorTransform = new TGeoTranslation(alpdx[ii], alpdy[ii], 0);
     pixelStationVol->AddNode(pixelSensor, composeSensorVolID(ii), sensorTransform);
   }
-  auto* cbTransform = new TGeoCombiTrans(0., 0., pixChipDz / 2 + carbonPlateDz / 2, NA6PTGeoHelper::rotAroundVector(0, 0.0, 0.0, 0.0));
-  pixelStationVol->AddNode(cbPlate,composeNonSensorVolID(20),cbTransform);
-  // place frames + sensor stations
-  float zoffs = param.posVerTelPlaneZ[0] + boxDZ / 2 - boxDZMargin; // offset to be added due to the placement of stations to the VT box
+
+  // Carbon plate
+  auto* cbTransform = new TGeoCombiTrans(0., 0.,
+                                         pixChipDz / 2 + carbonPlateDz / 2,
+                                         NA6PTGeoHelper::rotAroundVector(0, 0.0, 0.0, 0.0));
+  pixelStationVol->AddNode(cbPlate, composeNonSensorVolID(20), cbTransform);
+
+  // place station planes + Al frames into the VT container
+  float zoffs = param.posVerTelPlaneZ[0] + boxDZ / 2 - boxDZMargin;
+  float alFrameRelZ = static_cast<float>(pixChipDz / 2 + carbonPlateDz + alFrameHZ);
+
   for (int ll = 0; ll < param.nVerTelPlanes; ++ll) {
-    auto* stationTransform = new TGeoCombiTrans(param.posVerTelPlaneX[ll], param.posVerTelPlaneY[ll], param.posVerTelPlaneZ[ll] - zoffs,
-                                                NA6PTGeoHelper::rotAroundVector(0.0, 0.0, 0.0, 0.0));
+    // Pixel station
+    auto* stationTransform = new TGeoCombiTrans(
+      param.posVerTelPlaneX[ll],
+      param.posVerTelPlaneY[ll],
+      param.posVerTelPlaneZ[ll] - zoffs,
+      NA6PTGeoHelper::rotAroundVector(0.0, 0.0, 0.0, 0.0));
     vtContainer->AddNode(pixelStationVol, composeNonSensorVolID(ll), stationTransform);
-    //    auto* frameTransform = new TGeoCombiTrans(param.posVerTelPlaneX[ll], param.posVerTelPlaneY[ll], param.posVerTelPlaneZ[ll] + 0.5 * (frameDZ + pixChipDz) - zoffs,
-    //                                              NA6PTGeoHelper::rotAroundVector(0, 0.0, 0.0, 0.0));
-    //    vtContainer->AddNode(pixStFrame, composeNonSensorVolID(ll + 20), frameTransform);
+
+    if (param.useAluminumPlate) {
+      // Al frame behind the carbon plate
+      auto* alFrameTransform = new TGeoCombiTrans(
+        param.posVerTelPlaneX[ll],
+        param.posVerTelPlaneY[ll],
+        param.posVerTelPlaneZ[ll] - zoffs + alFrameRelZ,
+        NA6PTGeoHelper::rotAroundVector(0.0, 0.0, 0.0, 0.0));
+      vtContainer->AddNode(alFrame, composeNonSensorVolID(ll + 40), alFrameTransform);
+    }
   }
 }
 
@@ -193,7 +300,6 @@ bool NA6PVerTel::stepManager(int volID)
     status |= NA6PBaseHit::kTrackAlive;
   }
 
-  // track is entering or created in the volume
   if ((status & NA6PBaseHit::kTrackEntering) || (status & NA6PBaseHit::kTrackInside && !mTrackData.mHitStarted)) {
     startHit = true;
   } else if ((status & (NA6PBaseHit::kTrackExiting | NA6PBaseHit::kTrackOut | NA6PBaseHit::kTrackStopped))) {
@@ -218,7 +324,6 @@ bool NA6PVerTel::stepManager(int volID)
     TLorentzVector positionStop, momentumStop;
     mc->TrackMomentum(momentumStop);
     mc->TrackPosition(positionStop);
-    // Retrieve the indices with the volume path
     int stationID(-1);
     mc->CurrentVolOffID(1, stationID);
     stationID = volID2NonSensID(stationID);
