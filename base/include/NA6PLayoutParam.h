@@ -46,6 +46,7 @@ struct NA6PLayoutParam : public na6p::conf::ConfigurableParamHelper<NA6PLayoutPa
   std::string medTarget[MaxTargets] = {"Lead", "Lead", "Lead", "Lead", "Lead"};
 
   // VerTel
+  bool useAluminumPlate = false; 
   int nVerTelPlanes = 5;                  // number of stations
   float shiftVerTel[3] = {0.f, 0.f, 0.f}; // VerTel box global shift, added to posVerTelPlaneX,Y,Z
   float posVerTelPlaneX[MaxVTPlanes] = {};
