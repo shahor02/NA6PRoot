@@ -25,7 +25,8 @@ class NA6PLine
 {
  public:
   NA6PLine() = default;
-  NA6PLine(const NA6PLine& source);
+  NA6PLine(const NA6PLine& source) = default;
+  NA6PLine& operator=(const NA6PLine& source) = default;
   NA6PLine(const float firstPoint[3], const float secondPoint[3]);
   
   static NA6PLine fromTwoPoints(const float p0[3], const float p1[3]);

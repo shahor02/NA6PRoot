@@ -6,7 +6,7 @@
 
 ClassImp(NA6PVertexerTracks)
 
-NA6PVertexerTracks::NA6PVertexerTracks()
+  NA6PVertexerTracks::NA6PVertexerTracks()
 {
   configurePeakFinding(mZMin, mZMax, mNBinsForPeakFind);
 }
@@ -21,12 +21,14 @@ void NA6PVertexerTracks::createTracksPool(const std::vector<NA6PTrack>& tracks)
     NA6PTrack trc = tracks[i];
     if (!trc.propagateToDCABeamAxis(mBeamX, mBeamY, mMaxDCA))
       continue;
-    auto& tvf = mTracksPool.emplace_back(trc);
+    auto& tvf = mTracksPool.emplace_back(trc, i);
     if (!tvf.isValid()) {
       mTracksPool.pop_back(); // discard bad track
       continue;
     }
   }
+  if (mVerbose)
+    LOGP(info, "Number of tracks in pool = {}", mTracksPool.size());
 }
 
 void NA6PVertexerTracks::buildAndFillHistoZ()
@@ -39,7 +41,7 @@ void NA6PVertexerTracks::buildAndFillHistoZ()
       int bin = int((z - mZMin) / mZBinWidth);
       if (mHistZ[bin] == 0.f)
         mFilledBinsZ.push_back(bin);
-      mHistZ[bin] += tvf.mSig2ZI;  // weighted fill      
+      mHistZ[bin] += tvf.mSig2ZI; // weighted fill
     }
   }
 }
@@ -49,7 +51,7 @@ int NA6PVertexerTracks::findPeakBin()
 {
   if (mFilledBinsZ.empty())
     return -1;
-  
+
   int maxBin = -1, ib = mFilledBinsZ.size(), last = ib;
   float maxv = 0.f;
   while (ib--) {
@@ -58,7 +60,7 @@ int NA6PVertexerTracks::findPeakBin()
     if (v > maxv) {
       maxv = v;
       maxBin = bin;
-    } else if (v <= 0.f) {                      // bin was emptied
+    } else if (v <= 0.f) {                     // bin was emptied
       mFilledBinsZ[ib] = mFilledBinsZ[--last]; // move last non-empty bin in place of emptied one
     }
   }
@@ -67,9 +69,9 @@ int NA6PVertexerTracks::findPeakBin()
 }
 
 //___________________________________________________________________
-int NA6PVertexerTracks::findVertices()
+int NA6PVertexerTracks::findVertices(std::vector<NA6PVertex>& vertices)
 {
-  int nfound = 0, ntr = 0;
+  int nfound = 0;
   buildAndFillHistoZ();
   int nTrials = 0;
   while (nfound < mMaxVerticesPerCluster && nTrials < mMaxTrialsPerCluster) {
@@ -78,9 +80,17 @@ int NA6PVertexerTracks::findVertices()
       break;
     }
     float zSeed = mZMin + (peakBin + 0.5f) * mZBinWidth;
+
     NA6PVertex vtx;
     if (fitVertex(zSeed, vtx)) {
+      finalizeVertex(vtx, vertices);
+      nfound++;
+      nTrials = 0;
+    } else {
+      // suppress failed seeding bin and its proximities
+      mHistZ[peakBin] = -1.f;
     }
+    nTrials++;
   }
   return nfound;
 }
@@ -95,7 +105,7 @@ bool NA6PVertexerTracks::fitVertex(float zSeed, NA6PVertex& vtx)
   vtxSeed.setScale(mInitScaleSigma2, mTukey2I);
   vtxSeed.scaleSigma2Prev = mInitScaleSigma2;
   vtx.setChi2(1.e30);
-  
+
   FitStatus result = FitStatus::IterateFurther;
   while (result == FitStatus::IterateFurther) {
     vtxSeed.resetForNewIteration();
@@ -124,10 +134,23 @@ bool NA6PVertexerTracks::fitVertex(float zSeed, NA6PVertex& vtx)
   vtx.setNContributors(vtxSeed.nContributors);
   vtx.setChi2(vtxSeed.getChi2());
   vtx.setCov(vtxSeed.cxx, vtxSeed.cxy, vtxSeed.cxz, vtxSeed.cyy, vtxSeed.cyz, vtxSeed.czz);
+  vtx.setVertexType(NA6PVertex::kTrackPrimaryVertex);
 
   return true;
 }
 
+//___________________________________________________________________
+void NA6PVertexerTracks::finalizeVertex(NA6PVertex& vtx, std::vector<NA6PVertex>& vertices)
+{
+  int lastID = vertices.size();
+  for (auto& trc : mTracksPool) {
+    if (trc.canAssign()) {
+      vtx.addTrackID(trc.trackIndex);
+      trc.vtxID = lastID;
+    }
+  }
+  vertices.emplace_back(vtx);
+}
 //___________________________________________________________________
 NA6PVertexerTracks::FitStatus NA6PVertexerTracks::fitIteration(VertexSeed& vtxSeed)
 {
@@ -138,7 +161,6 @@ NA6PVertexerTracks::FitStatus NA6PVertexerTracks::fitIteration(VertexSeed& vtxSe
       nTested++;
     }
   }
-
   vtxSeed.maxScaleSigma2Tested = vtxSeed.scaleSigma2;
   if (vtxSeed.getNContributors() < mMinTracksPerVtx) {
     return nTested < mMinTracksPerVtx ? FitStatus::PoolEmpty : FitStatus::NotEnoughTracks;
@@ -154,7 +176,7 @@ void NA6PVertexerTracks::accountTrack(TrackVF& trc, VertexSeed& vtxSeed) const
 {
   // deltas defined as track - vertex
   float vtxPos[3] = {vtxSeed.x, vtxSeed.y, vtxSeed.z};
-  auto res = trc.getResiduals(vtxPos); 
+  auto res = trc.getResiduals(vtxPos);
   float dx = res[0], dy = res[1], dz = res[2];
   auto chi2T = trc.evalChi2ToVertex(dx, dy);
   float wghT = (1.f - chi2T * vtxSeed.scaleSig2ITuk2I); // weighted distance to vertex
@@ -198,11 +220,16 @@ bool NA6PVertexerTracks::solveVertex(VertexSeed& vtxSeed) const
   }
   ROOT::Math::SVector<double, 3> rhs(vtxSeed.cx0, vtxSeed.cy0, vtxSeed.cz0);
   auto sol = mat * rhs;
-  vtxSeed.x = sol(0);
-  vtxSeed.y = sol(1);
-  vtxSeed.z = sol(2);
-  vtxSeed.cxx = mat(0,0);  vtxSeed.cxy = mat(1,0);  vtxSeed.cyy = mat(1,1);
-  vtxSeed.cxz = mat(2,0);  vtxSeed.cyz = mat(2,1);  vtxSeed.czz = mat(2,2);
+  // sol gives a correction to the current position, not the absolute position
+  vtxSeed.x += sol(0);
+  vtxSeed.y += sol(1);
+  vtxSeed.z += sol(2);
+  vtxSeed.cxx = mat(0, 0);
+  vtxSeed.cxy = mat(1, 0);
+  vtxSeed.cyy = mat(1, 1);
+  vtxSeed.cxz = mat(2, 0);
+  vtxSeed.cyz = mat(2, 1);
+  vtxSeed.czz = mat(2, 2);
 
   vtxSeed.setChi2((vtxSeed.getNContributors() - vtxSeed.wghSum) / vtxSeed.scaleSig2ITuk2I); // calculate chi^2
   auto newScale = vtxSeed.wghSum > 0. ? vtxSeed.wghChi2 / vtxSeed.wghSum : mInitScaleSigma2;
@@ -216,11 +243,16 @@ NA6PVertexerTracks::FitStatus NA6PVertexerTracks::evalIterations(VertexSeed& vtx
   // decide if new iteration should be done, prepare next one if needed
   // if scaleSigma2 reached its lower limit stop
   FitStatus result = FitStatus::IterateFurther;
+  if (mVerbose)
+    LOGP(debug, "evalIteration: after {} iterations, scaleSigma2Prev = {}, scaleSigma2 = {}, nScaleIncrease = {}, nScaleSlowConvergence = {}, chi2 = {}", vtxSeed.nIterations, vtxSeed.scaleSigma2Prev, vtxSeed.scaleSigma2, vtxSeed.nScaleIncrease, vtxSeed.nScaleSlowConvergence, vtxSeed.getChi2() / vtxSeed.getNContributors());
 
   if (vtxSeed.nIterations > mMaxIterations) {
     result = FitStatus::Failure;
     return result;
   } else if (vtxSeed.scaleSigma2Prev <= mMinScale2 + kAlmost0F) {
+    result = FitStatus::OK;
+  } else if (std::abs(vtxSeed.scaleSigma2 - vtxSeed.scaleSigma2Prev) < kScaleStability * vtxSeed.scaleSigma2Prev) {
+    // scale is oscillating at a fixed point
     result = FitStatus::OK;
   }
 
@@ -263,4 +295,3 @@ bool NA6PVertexerTracks::upscaleSigma(VertexSeed& vtxSeed) const
   }
   return false;
 }
-
