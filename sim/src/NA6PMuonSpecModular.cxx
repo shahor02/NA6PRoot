@@ -79,14 +79,14 @@ void NA6PMuonSpecModular::createGeometry(TGeoVolume* world)
 {
   const auto& param = NA6PLayoutParam::Instance();
 
-  const float EnvelopDXH = 1;
-  const float EnvelopDYH = 1;
   const float EnvelopDZH = 1;
   float pixChipDz = param.thicknessMSPlane[0];
 
   createMaterials();
 
   for (int ist = 0; ist < param.nMSPlanes; ist++) {
+    const float EnvelopDXH = param.dimXMSPlaneHole[ist] / 2.0f;
+    const float EnvelopDYH = param.dimYMSPlaneHole[ist] / 2.0f;
     auto* sensorShape = new TGeoBBox("SensorShape", param.msChipDX[ist] / 2.0f, param.msChipDY[ist] / 2.0f, pixChipDz / 2.0f);
     TGeoVolume* MSSensor = new TGeoVolume("MSSensor", sensorShape, NA6PTGeoHelper::instance().getMedium(addName("Silicon")));
     MSSensor->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName("Silicon")));
