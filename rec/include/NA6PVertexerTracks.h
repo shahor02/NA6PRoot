@@ -69,14 +69,14 @@ struct TrackVF {
   bool canUse() const { return vtxID == kNoVtx; }
   bool canAssign() const { return wgh > 0. && vtxID == kNoVtx; }
 
-  std::array<float, 3> getResiduals(const float vtxPos[3]) const
+  std::array<float, 3> getResiduals(const std::array<float,3>& vtxPos) const
   {
     // vector from closest point on line to vtxPos
     auto comps = mLine.getDCAComponents(vtxPos);
     return {comps[0], comps[3], comps[5]}; // dx, dy, dz components
   }
 
-  float evalChi2ToVertex(const float vtxPos[3]) const
+  float evalChi2ToVertex(const std::array<float,3>& vtxPos) const
   {
     auto res = getResiduals(vtxPos); // track-vertex residuals and chi2
     float dx = res[0], dy = res[1];

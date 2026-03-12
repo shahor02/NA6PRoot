@@ -43,7 +43,7 @@ class NA6PLine
     return getDistanceFromPoint(*this, point);
   }
   std::array<float, 6> getDCAComponents(const float point[3]) const;
-  std::array<float, 6> getDCAComponents(const std::array<float, 3> point) const
+  std::array<float, 6> getDCAComponents(const std::array<float, 3>& point) const
   {
     return getDCAComponents(point.data());
   }

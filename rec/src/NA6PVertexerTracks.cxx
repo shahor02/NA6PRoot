@@ -175,7 +175,7 @@ NA6PVertexerTracks::FitStatus NA6PVertexerTracks::fitIteration(VertexSeed& vtxSe
 void NA6PVertexerTracks::accountTrack(TrackVF& trc, VertexSeed& vtxSeed) const
 {
   // deltas defined as track - vertex
-  float vtxPos[3] = {vtxSeed.x, vtxSeed.y, vtxSeed.z};
+  std::array<float,3> vtxPos = {vtxSeed.x, vtxSeed.y, vtxSeed.z};
   auto res = trc.getResiduals(vtxPos);
   float dx = res[0], dy = res[1], dz = res[2];
   auto chi2T = trc.evalChi2ToVertex(dx, dy);

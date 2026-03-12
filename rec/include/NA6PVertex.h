@@ -43,7 +43,7 @@ class NA6PVertex
   NA6PVertex(const float* xyz, int nCont);
   NA6PVertex(const NA6PVertex&) = default;
   NA6PVertex& operator=(const NA6PVertex&) = default;
-  virtual ~NA6PVertex() = default;
+  ~NA6PVertex() = default;
 
   void init(const float* xyz, const float* cov, int nCont, float chi2);
   void setX(float x) { mPos.SetX(x); }
@@ -103,7 +103,7 @@ class NA6PVertex
   void addTrackID(int id) { mTrackIDs.push_back(id); }
   const std::vector<int>& getTrackIDs() const { return mTrackIDs; }
   
-  virtual void print() const;
+  void print() const;
   std::string asString() const;
 
  protected:

@@ -2,6 +2,7 @@
 #include <TTree.h>
 #include <TFile.h>
 #include <TH1F.h>
+#include <TH2F.h>
 #include <TCanvas.h>
 #include <TParticle.h>
 #include "MagneticField.h"
@@ -27,11 +28,14 @@ void runVertexerTracks(const char* dirSimu = ".")
   std::vector<TParticle>* mcArr = nullptr;
   mcTree->SetBranchAddress("tracks", &mcArr);
 
-  TH1F* hncontr = new TH1F("hncontr", "", 100, -0.5, 999.5);
-  TH1F* hnvert = new TH1F("hnvert", "", 11, -0.5, 10.5);
-  TH1F* hdx = new TH1F("hdx", "", 100, -0.2, 0.2);
-  TH1F* hdy = new TH1F("hdy", "", 100, -0.2, 0.2);
-  TH1F* hdz = new TH1F("hdz", "", 100, -0.5, 0.5);
+  TH1F* hncontr = new TH1F("hncontr", ";N_{contributors}", 100, -0.5, 999.5);
+  TH1F* hnvert = new TH1F("hnvert", ";Number of reco vertices", 11, -0.5, 10.5);
+  TH2F* hxrecgen = new TH2F("hxrecgen", ";x_{gen} (cm);x_{rec} (cm)", 50, -0.05, 0.05, 50, -0.05, 0.05);
+  TH2F* hyrecgen = new TH2F("hyrecgen", ";y_{gen} (cm);y_{rec} (cm)", 50, -0.05, 0.05, 50, -0.05, 0.05);
+  TH2F* hzrecgen = new TH2F("hzrecgen", ";z_{gen} (cm);z_{rec} (cm)", 50, -4., 2., 50, -4., 2.);
+  TH1F* hdx = new TH1F("hdx", ";x_{rec} - x_{gen} (cm)", 100, -0.05, 0.05);
+  TH1F* hdy = new TH1F("hdy", ";y_{rec} - y_{gen} (cm)", 100, -0.05, 0.05);
+  TH1F* hdz = new TH1F("hdz", ";z_{rec} - z_{gen} (cm)", 100, -0.5, 0.5);
 
   NA6PVertexerTracks* vertxr = new NA6PVertexerTracks();
   vertxr->setVerbosity(true);
@@ -70,19 +74,34 @@ void runVertexerTracks(const char* dirSimu = ".")
       double xRec = vert.getX();
       double yRec = vert.getY();
       double zRec = vert.getZ();
+      if (jv == 0) {
+        hxrecgen->Fill(xVertGen, xRec);
+        hyrecgen->Fill(yVertGen, yRec);
+        hzrecgen->Fill(zVertGen, zRec);
+        hdx->Fill(xRec - xVertGen);
+        hdy->Fill(yRec - yVertGen);
+        hdz->Fill(zRec - zVertGen);
+        hncontr->Fill(vert.getNContributors());
+      }
       printf("Vertex %d, z = %f contrib = %d\n", jv++, zRec, vert.getNContributors());
-      hdx->Fill(xRec - xVertGen);
-      hdy->Fill(yRec - yVertGen);
-      hdz->Fill(zRec - zVertGen);
-      hncontr->Fill(vert.getNContributors());
     }
   }
-  TCanvas* coutp = new TCanvas("coutp", "", 1200, 800);
+
+  TCanvas* cv = new TCanvas("cv", "", 1000, 500);
+  cv->Divide(2, 1);
+  cv->cd(1);
+  hnvert->Draw();
+  cv->cd(2);
+  hncontr->Draw();
+
+  TCanvas* coutp = new TCanvas("coutp", "", 1400, 800);
   coutp->Divide(3, 2);
   coutp->cd(1);
-  hnvert->Draw();
+  hxrecgen->Draw("colz");
   coutp->cd(2);
-  hncontr->Draw();
+  hyrecgen->Draw("colz");
+  coutp->cd(3);
+  hzrecgen->Draw("colz");
   coutp->cd(4);
   hdx->Draw();
   coutp->cd(5);
