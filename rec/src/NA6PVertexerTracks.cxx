@@ -175,9 +175,19 @@ NA6PVertexerTracks::FitStatus NA6PVertexerTracks::fitIteration(VertexSeed& vtxSe
 void NA6PVertexerTracks::accountTrack(TrackVF& trc, VertexSeed& vtxSeed) const
 {
   // deltas defined as track - vertex
-  std::array<float,3> vtxPos = {vtxSeed.x, vtxSeed.y, vtxSeed.z};
+  std::array<float, 3> vtxPos = {vtxSeed.x, vtxSeed.y, vtxSeed.z};
   auto res = trc.getResiduals(vtxPos);
-  float dx = res[0], dy = res[1], dz = res[2];
+  float dx = res[0], dy = res[1];
+  // z intercept residual: z of track at closest transverse approach to (vx, vy)
+  float ox = trc.mLine.mOriginPoint[0];
+  float oy = trc.mLine.mOriginPoint[1];
+  float oz = trc.mLine.mOriginPoint[2];
+  float cx = trc.mLine.mCosinesDirector[0];
+  float cy = trc.mLine.mCosinesDirector[1];
+  float cz = trc.mLine.mCosinesDirector[2];
+  float t = cx * (vtxSeed.x - ox) + cy * (vtxSeed.y - oy);
+  float dz = oz + cz * t - vtxSeed.z;
+
   auto chi2T = trc.evalChi2ToVertex(dx, dy);
   float wghT = (1.f - chi2T * vtxSeed.scaleSig2ITuk2I); // weighted distance to vertex
   if (wghT < kAlmost0F) {
