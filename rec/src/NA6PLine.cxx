@@ -4,15 +4,7 @@
 
 ClassImp(NA6PLine)
 
-  NA6PLine::NA6PLine(const NA6PLine& source)
-{
-  for (int i{0}; i < 3; ++i) {
-    mOriginPoint[i] = source.mOriginPoint[i];
-    mCosinesDirector[i] = source.mCosinesDirector[i];
-  }
-}
-
-NA6PLine::NA6PLine(const float firstPoint[3], const float secondPoint[3])
+  NA6PLine::NA6PLine(const float firstPoint[3], const float secondPoint[3])
 {
   for (int index{0}; index < 3; ++index) {
     mOriginPoint[index] = firstPoint[index];

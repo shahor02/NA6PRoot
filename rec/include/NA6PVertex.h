@@ -43,7 +43,7 @@ class NA6PVertex
   NA6PVertex(const float* xyz, int nCont);
   NA6PVertex(const NA6PVertex&) = default;
   NA6PVertex& operator=(const NA6PVertex&) = default;
-  virtual ~NA6PVertex() = default;
+  ~NA6PVertex() = default;
 
   void init(const float* xyz, const float* cov, int nCont, float chi2);
   void setX(float x) { mPos.SetX(x); }
@@ -100,15 +100,19 @@ class NA6PVertex
   float getChi2() const { return mChi2; }
   short getVertexType() const { return mVertexType; }
 
-  virtual void print() const;
+  void addTrackID(int id) { mTrackIDs.push_back(id); }
+  const std::vector<int>& getTrackIDs() const { return mTrackIDs; }
+  
+  void print() const;
   std::string asString() const;
 
  protected:
-  ROOT::Math::XYZPointF mPos{0., 0., 0.};
-  std::array<float, kNCov> mCov{};
-  float mChi2 = 0.0;
-  int mNContributors = 0;
-  short mVertexType = kBaseVertex;
+  ROOT::Math::XYZPointF mPos{0., 0., 0.}; ///< vertex position
+  std::array<float, kNCov> mCov{};        ///< covariance matrix
+  float mChi2 = 0.0;                      ///< chi2
+  int mNContributors = 0;                 ///< number of contributors
+  short mVertexType = kBaseVertex;        ///< vertex type
+  std::vector<int> mTrackIDs;             ///< indices of tracks assigned to this vertex
 
   ClassDefNV(NA6PVertex, 1);
 };

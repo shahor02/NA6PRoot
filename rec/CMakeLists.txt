@@ -31,6 +31,7 @@ set(DICTIONARY_HEADERS
   NA6PVerTelReconstruction.h
   NA6PMuonSpecReconstruction.h
   NA6PVertexerTracklets.h
+  NA6PVertexerTracks.h
   NA6PTrackerCA.h
   NA6PFastTrackFitter.h
   NA6PMatching.h

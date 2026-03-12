@@ -151,6 +151,7 @@ class NA6PTrack
   }
   bool propagateToZBxByBz(double z, double maxDZ = 1.0, double xOverX0 = 0., double xTimesRho = 0., bool outer = false, double rho = 0.f, double atomicZ = 0.f, double atomicZoverA = 0.f);
   bool propagateToDCA(NA6PTrack* partner);
+  bool propagateToDCABeamAxis(float beamX, float beamY, float maxDCA);
   bool update(double p[2], double cov[3]) { return mExtTrack.Update(p, cov); }
 
   virtual void print() const;

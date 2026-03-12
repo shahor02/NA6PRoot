@@ -25,9 +25,14 @@ class NA6PLine
 {
  public:
   NA6PLine() = default;
-  NA6PLine(const NA6PLine& source);
+  NA6PLine(const NA6PLine& source) = default;
+  NA6PLine& operator=(const NA6PLine& source) = default;
   NA6PLine(const float firstPoint[3], const float secondPoint[3]);
-
+  
+  static NA6PLine fromTwoPoints(const float p0[3], const float p1[3]);
+  static NA6PLine fromPointAndDirection(const float xyz[3], const float dir[3]);
+  static NA6PLine fromPointAndDirection(const double xyz[3], const double dir[3]);
+  
   static float getDistanceFromPoint(const NA6PLine& line, const float point[3]);
   static float getDistanceFromPoint(const NA6PLine& line, const std::array<float, 3> point)
   {
@@ -38,7 +43,7 @@ class NA6PLine
     return getDistanceFromPoint(*this, point);
   }
   std::array<float, 6> getDCAComponents(const float point[3]) const;
-  std::array<float, 6> getDCAComponents(const std::array<float, 3> point) const
+  std::array<float, 6> getDCAComponents(const std::array<float, 3>& point) const
   {
     return getDCAComponents(point.data());
   }
@@ -67,6 +72,31 @@ class NA6PLine
 };
 
 // static functions:
+
+inline NA6PLine NA6PLine::fromTwoPoints(const float p0[3], const float p1[3])
+{
+  NA6PLine l(p0, p1);
+  return l;
+}
+
+inline NA6PLine NA6PLine::fromPointAndDirection(const double xyz[3], const double dir[3])
+{
+  float f0[3] = {(float)xyz[0], (float)xyz[1], (float)xyz[2]};
+  float f1[3] = {(float)dir[0], (float)dir[1], (float)dir[2]};
+  return fromPointAndDirection(f0, f1);
+}
+
+inline NA6PLine NA6PLine::fromPointAndDirection(const float xyz[3], const float dir[3])
+{
+  NA6PLine l;
+  float norm = std::sqrt(dir[0]*dir[0] + dir[1]*dir[1] + dir[2]*dir[2]);
+  float inv  = (norm > 1e-12f) ? 1.f/norm : 0.f;
+  for (int i = 0; i < 3; i++) {
+    l.mOriginPoint[i]    = xyz[i];
+    l.mCosinesDirector[i] = dir[i] * inv;
+  }
+  return l;
+}
 
 inline float NA6PLine::getDistanceFromPoint(const NA6PLine& line, const float point[3])
 {
