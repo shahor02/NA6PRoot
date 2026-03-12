@@ -514,6 +514,9 @@ void NA6PMC::selectTracksToSave()
   // update headers
   mcHeader->setNTracks(mSavID.size());
   mcHeader->setNPrimaries(nPrimIni);
+  mcHeader->setNColl(mStack->getNColl());
+  mcHeader->setNPart(mStack->getNPart());
+  mcHeader->setImpPar(mStack->getImpPar());
   mcHeader->setEventID(mEvCount);
   // register secondaries offsets and store primaries
   nkeep = 0;

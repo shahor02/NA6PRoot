@@ -74,6 +74,13 @@ class NA6PMCStack : public TVirtualMCStack
   void setVerbosity(int v) { mVerbosity = v; }
   auto getVerbosity() const { return mVerbosity; }
 
+  void setNColl(int nColl) { mNColl = nColl; }
+  void setNPart(int nPart) { mNPart = nPart; }
+  void setImpPar(float impPar) { mImpPar = impPar; }
+  int getNColl() { return mNColl; }
+  int getNPart() { return mNPart; }
+  float getImpPar() { return mImpPar; }
+
  private:
   // data members
   NA6PMCEventHeader mMCHeader{};
@@ -82,6 +89,9 @@ class NA6PMCStack : public TVirtualMCStack
   bool mPVGenerated = false;
   int mCurrentTrack = -1;
   int mNPrimary = 0;
+  int mNColl = 0;
+  int mNPart = 0;
+  float mImpPar = 0;
   int mVerbosity = 0;
 
   ClassDefOverride(NA6PMCStack, 1); // NA6PMCStack

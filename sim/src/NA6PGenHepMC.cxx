@@ -191,6 +191,9 @@ void NA6PGenHepMC::generate()
       int dummy = 0;
 
       getStack()->PushTrack(tobetracked, mothertobestored, pdgCode, pt * cs, pt * sn, pZ, en, vx, vy, vz, tof, 0., 0., 0., TMCProcess::kPPrimary, dummy, 1., status);
+      getStack()->setNColl(ncoll);
+      getStack()->setNPart(npart);
+      getStack()->setImpPar(b);
     } else {
       LOGP(info, "particle ID# {} with no production vertex\n", p->id());
       continue;

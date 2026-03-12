@@ -22,21 +22,23 @@
 #include "NA6PVerTelCluster.h"
 #include "NA6PVertex.h"
 #include "NA6PVerTelReconstruction.h"
+#include "NA6PMCEventHeader.h"
+#include "NA6PMCGenHeader.h"
 #endif
 
 void runVertexerTracklets(int firstEv = 0,
-                          int lastEv = 999999,
-                          const char* dirSimu = "/data/lmichele/datasets/real_config/PYTHIA_PbPb_MB",
+                          int lastEv = 10,
+                          const char* dirSimu = "/data/lmichele/datasets/real_config/PYTHIA_PbPb_MB_fragments_test/0",
                           const char* na6pLayoutFile = "/data/lmichele/datasets/na6pLayout_real.ini",
-                          const char* fOutName = "outputs/real_config/PYTHIA_PbPb_MB/vtx_fixed.root")
-                          const char* dirSimu = ".")
-//			const char *dirSimu = "Angantyr")
+                          const char* fOutName = "outputs/real_config/PYTHIA_PbPb_MB_newTest/vtx_fixed_new_test.root")
 {
   TFile* fk = new TFile(Form("%s/MCKine.root", dirSimu));
   TTree* mcTree = (TTree*)fk->Get("mckine");
   int nEv = mcTree->GetEntries();
   std::vector<TParticle>* mcArr = nullptr;
+  NA6PMCEventHeader* mcHead = nullptr;
   mcTree->SetBranchAddress("tracks", &mcArr);
+  mcTree->SetBranchAddress("header", &mcHead);
 
   TFile* fc=new TFile(Form("%s/ClustersVerTel.root",dirSimu));
   printf("Open cluster file: %s\n",fc->GetName());
@@ -104,6 +106,7 @@ void runVertexerTracklets(int firstEv = 0,
   vtrec->initVertexer();
   for (int jEv = firstEv; jEv < lastEv; jEv++) {
     mcTree->GetEvent(jEv);
+    std::cout << "NColl: " << mcHead->getNColl() << " NPart: " << mcHead->getNPart() << " Impact Parameter: " << mcHead->getImpPar() << std::endl;
     tc->GetEvent(jEv);
     int nPart = mcArr->size();
     double xVertGen = 0;
