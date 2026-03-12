@@ -17,6 +17,9 @@ class NA6PMCEventHeader
   float getVZ() const { return mVZ; }
   uint32_t getNTracks() const { return mNTracks; }
   uint32_t getNPrimaries() const { return mNPrimaries; }
+  uint32_t getNColl() const { return mNColl; }
+  uint32_t getNPart() const { return mNPart; }
+  float getImpPar() const { return mImpPar; }
   const std::vector<NA6PMCGenHeader>& getGenHeaders() const { return mGenHeaders; }
   std::vector<NA6PMCGenHeader>& getGenHeaders() { return mGenHeaders; }
   size_t getNGenHeaders() const { return mGenHeaders.size(); }
@@ -30,6 +33,9 @@ class NA6PMCEventHeader
   void setVZ(float vz) { mVZ = vz; }
   void setNTracks(uint32_t nTrack) { mNTracks = nTrack; }
   void setNPrimaries(uint32_t nPrimaries) { mNPrimaries = nPrimaries; }
+  void setNColl(uint32_t nColl) { mNColl = nColl; }
+  void setNPart(uint32_t nPart) { mNPart = nPart; }
+  void setImpPar(float impPar) { mImpPar = impPar; }
   void incNPrimaries(uint32_t increment = 1) { mNPrimaries += increment; }
   void setGenHeaders(const std::vector<NA6PMCGenHeader>& genHeaders) { mGenHeaders = genHeaders; }
   void addGenHeader(const NA6PMCGenHeader& h) { mGenHeaders.push_back(h); }
@@ -47,6 +53,9 @@ class NA6PMCEventHeader
 
   uint32_t mNTracks = 0;    // total number of tracks
   uint32_t mNPrimaries = 0; // total number of primaries from generators
+  uint32_t mNColl = 0;      // total number of collisions from generators
+  uint32_t mNPart = 0;      // total number of participants from generators
+  float mImpPar = 0;        // impact parameter
 
   std::vector<NA6PMCGenHeader> mGenHeaders; // generator headers
 
