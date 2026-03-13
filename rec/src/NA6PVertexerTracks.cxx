@@ -133,7 +133,7 @@ bool NA6PVertexerTracks::fitVertex(float zSeed, NA6PVertex& vtx)
   vtx.setXYZ(vtxSeed.x, vtxSeed.y, vtxSeed.z);
   vtx.setNContributors(vtxSeed.nContributors);
   vtx.setChi2(vtxSeed.getChi2());
-  vtx.setCov(vtxSeed.cxx, vtxSeed.cxy, vtxSeed.cxz, vtxSeed.cyy, vtxSeed.cyz, vtxSeed.czz);
+  vtx.setCov(vtxSeed.cxx, vtxSeed.cxy, vtxSeed.cyy, vtxSeed.cxz, vtxSeed.cyz, vtxSeed.czz);
   vtx.setVertexType(NA6PVertex::kTrackPrimaryVertex);
 
   return true;
