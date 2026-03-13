@@ -50,8 +50,8 @@ struct TrackVF {
     float cx = mLine.mCosinesDirector[0];
     float cy = mLine.mCosinesDirector[1];
     float cz = mLine.mCosinesDirector[2];
-    float iczcz = 1.f / (cz * cz);
-    float szz = (cx * cx * sxx + cy * cy * syy + 2.f * cx * cy * sxy) * iczcz;
+    float pt2 = cx * cx + cy * cy;
+    float szz = (pt2 > 1e-6f) ? 0.5f * (sxx + syy) * (cz * cz) / pt2 : 1e10f;
     float det = sxx * syy - sxy * sxy;
     if (det <= 1e-20f) {
       mSig2ZI = -1.f;
@@ -69,14 +69,14 @@ struct TrackVF {
   bool canUse() const { return vtxID == kNoVtx; }
   bool canAssign() const { return wgh > 0. && vtxID == kNoVtx; }
 
-  std::array<float, 3> getResiduals(const std::array<float,3>& vtxPos) const
+  std::array<float, 3> getResiduals(const std::array<float, 3>& vtxPos) const
   {
     // vector from closest point on line to vtxPos
     auto comps = mLine.getDCAComponents(vtxPos);
     return {comps[0], comps[3], comps[5]}; // dx, dy, dz components
   }
 
-  float evalChi2ToVertex(const std::array<float,3>& vtxPos) const
+  float evalChi2ToVertex(const std::array<float, 3>& vtxPos) const
   {
     auto res = getResiduals(vtxPos); // track-vertex residuals and chi2
     float dx = res[0], dy = res[1];
@@ -213,7 +213,7 @@ class NA6PVertexerTracks
   int mMaxVerticesPerCluster = 5;                 ///< one vertex per target
   int mMaxTrialsPerCluster = 100;                 //
   static constexpr float kAlmost0F = 1e-7f;       ///< tiny float
-  static constexpr float kScaleStability = 0.1f;  ///< tolerance for scale change
+  //  static constexpr float kScaleStability = 0.1f;  ///< tolerance for scale change
   static constexpr float kDefTukey = 5.0f;        ///< def.value for tukey constant
   float mTukey2I = 1.f / (kDefTukey * kDefTukey); ///< 1./[Tukey parameter]^2
   float mInitScaleSigma2 = 10.f;                  ///< scaling parameter on top of Tukey param

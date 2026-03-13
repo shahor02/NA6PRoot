@@ -261,9 +261,9 @@ NA6PVertexerTracks::FitStatus NA6PVertexerTracks::evalIterations(VertexSeed& vtx
     return result;
   } else if (vtxSeed.scaleSigma2Prev <= mMinScale2 + kAlmost0F) {
     result = FitStatus::OK;
-  } else if (std::abs(vtxSeed.scaleSigma2 - vtxSeed.scaleSigma2Prev) < kScaleStability * vtxSeed.scaleSigma2Prev) {
-    // scale is oscillating at a fixed point
-    result = FitStatus::OK;
+    // } else if (std::abs(vtxSeed.scaleSigma2 - vtxSeed.scaleSigma2Prev) < kScaleStability * vtxSeed.scaleSigma2Prev) {
+    //   // scale is oscillating at a fixed point
+    //   result = FitStatus::OK;
   }
 
   if (result == FitStatus::OK) {
