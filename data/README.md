@@ -31,3 +31,8 @@ This directory contains magnetic field maps for the NA60+/DiCE simulation.
 ## Additional Resources
 
 A more finely binned map of the MNP33 magnet can be downloaded here: [2cm grid spacing MNP33 field map](https://cernbox.cern.ch/remote.php/dav/public-files/5aLwTEOLaZ8Ly59/mnp33_fieldmap_2cm.dat)  
+
+
+# Open-charm pT and y distributions
+
+To run `test/genOpenCharmBgEvent.C`, download the `.root` file containing the kinematic distributions of **D0**, **D+**, **Ds+**, and **Λc+** here: [pp0_frag-PtSpectra-Boost.root](https://cernbox.cern.ch/remote.php/dav/public-files/kucKpPZyysKeUpc/pp0_frag-PtSpectra-Boost.root)
