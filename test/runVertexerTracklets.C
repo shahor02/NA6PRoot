@@ -102,7 +102,6 @@ void runVertexerTracklets(int firstEv = 0,
   int indexTarg = -999;
 
   NA6PVerTelReconstruction* vtrec = new NA6PVerTelReconstruction();
-  vtrec->setRecoParamFile("../na6pRecoParam-default.ini");
   vtrec->initVertexer();
   for (int jEv = firstEv; jEv < lastEv; jEv++) {
     mcTree->GetEvent(jEv);

@@ -15,10 +15,13 @@
 #ifndef NA6P_TRACKER_CA_H
 #define NA6P_TRACKER_CA_H
 
+#define _CHI2_TUNING_MODE_
+
 #include <string>
 #include <Rtypes.h>
 #include "NA6PFastTrackFitter.h"
 #include "NA6PTrack.h"
+#include "NA6PTreeStreamRedirector.h"
 
 // Cellular Automaton track finder
 
@@ -50,6 +53,16 @@ struct TrackCandidate {
   int outerLayer;
   int outerCellIndex;
   std::vector<int> cluIDs;
+  int getCluIDsWOGaps(std::vector<int>& dest) const // fill vectors of cluster IDs w/o gaps. RSTOD: check if cluIDs has actually gaps
+  {
+    dest.clear();
+    for (const auto cid : cluIDs) {
+      if (cid >= 0) {
+        dest.push_back(cid);
+      }
+    }
+    return dest.size();
+  }
 };
 
 struct TrackFitted {
@@ -68,13 +81,19 @@ enum class ExtendDirection { kInward,
 class NA6PTrackerCA
 {
  public:
+  enum RecoType {
+    NONE = 0,
+    VT,
+    MS,
+    NRecoType
+  };
   static constexpr int kMaxIterationsCA = 10;
 
   NA6PTrackerCA();
   ~NA6PTrackerCA();
 
   // setters for configurable parameters
-  void setNLayers(int n);
+  void setNLayers(int n) { mNLayers = n; }
   void setStartLayer(int start) { mLayerStart = start; }
   void setMaxNumberOfSharedClusters(int n) { mMaxSharedClusters = n; }
   void setPropagateTracksToPrimaryVertex(bool opt = true) { mPropagateTracksToPrimaryVertex = opt; }
@@ -94,25 +113,13 @@ class NA6PTrackerCA
                           float maxChi2ndfCells,
                           float maxChi2ndfTracks,
                           int minNClusTracks);
-  void setParticleHypothesis(int pdg);
-  void setUseIntegralBForSeed()
-  {
-    if (mTrackFitter)
-      mTrackFitter->setUseIntegralBForSeed();
-  }
-  void setUseBatMidPointForSeed()
-  {
-    if (mTrackFitter)
-      mTrackFitter->setUseBatMidPointForSeed();
-  }
-  void setMaxStepForMaterialRecording(double step)
-  {
-    if (mTrackFitter)
-      mTrackFitter->setMaxStepForMaterialRecording(step);
-  }
-  void configureFromRecoParamVT(const std::string& filename = "");
-  void configureFromRecoParamMS(const std::string& filename = "");
+  void setParticleHypothesis(PID pid) { mPID = pid; }
+
+  void setMaxPropagationStep(float step) { mTrackFitter->setMaxPropagationStep(step); }
+  void configureFromRecoParamVT();
+  void configureFromRecoParamMS();
   void setVerbosity(bool opt = true) { mVerbose = opt; }
+  void setUseLinRef(bool v) { mUseLinRef = v; }
 
   void printConfiguration() const;
   int getNIterations() const { return mNIterationsCA; }
@@ -123,7 +130,7 @@ class NA6PTrackerCA
   std::vector<NA6PTrack> getTracks();
   template <typename ClusterType>
   std::vector<std::pair<ClusterType, ClusterType>> findTracklets(int jFirstLay, int jLastLay, std::vector<ClusterType>& cluArr, const NA6PVertex* primVert);
-  NA6PFastTrackFitter* getTrackFitter() { return mTrackFitter; }
+  NA6PFastTrackFitter* getTrackFitter() { return mTrackFitter.get(); }
 
  protected:
   // methods used in tracking
@@ -157,14 +164,14 @@ class NA6PTrackerCA
                          float maxChi2TrClu,
                          float maxChi2NDF);
   template <typename ClusterType>
-  float computeTrackToClusterChi2(const NA6PTrack& track,
+  float computeTrackToClusterChi2(const NA6PTrackParCov& track,
                                   const ClusterType& clu);
   template <typename ClusterType>
-  bool fitTrackPointsFast(const std::vector<int>& cluIDs,
-                          const std::vector<ClusterType>& cluArr,
-                          NA6PTrack& fitTrack,
-                          float maxChi2TrClu,
-                          float maxChi2NDF);
+  float fitTrackPointsFast(const std::vector<int>& cluIDs,
+                           const std::vector<ClusterType>& cluArr,
+                           NA6PTrackParCov& fitTrack,
+                           float maxChi2TrClu,
+                           float maxChi2NDF);
   template <typename ClusterType>
   void findCellsNeighbours(const std::vector<CellCandidate>& cells,
                            const std::vector<int>& firstIndex,
@@ -204,14 +211,21 @@ class NA6PTrackerCA
                   const std::string& label,
                   int requiredClus = -1);
 
+  template <typename T, typename ClusterType>
+  std::pair<int, bool> getTrackMCTruthStatus(const T& clIDs, const std::vector<ClusterType>& cluArr) const;
+
  private:
+  static constexpr std::array<std::string_view, RecoType::NRecoType> mRecoTypeNames{"NONE", "VerTel", "MS"};
+  RecoType mRecoType = RecoType::NONE;
+  PID mPID{};
   int mNLayers = 5;
   int mLayerStart = 0;
   float mPrimVertPos[3] = {};
-  NA6PFastTrackFitter* mTrackFitter = nullptr;
+  std::unique_ptr<NA6PFastTrackFitter> mTrackFitter;
   std::vector<bool> mIsClusterUsed = {};
   std::vector<TrackFitted> mFinalTracks = {};
   int mMaxSharedClusters = 0;
+  bool mUseLinRef = true;
   bool mVerbose = false;
   bool mPropagateTracksToPrimaryVertex = false;
   bool mDoOutwardPropagation = false;
@@ -219,6 +233,8 @@ class NA6PTrackerCA
   bool mDoTrackConstrainedToPrimVert = false;
   float mZOutProp = 38.1175;
   int mNIterationsCA = 2;
+  int mCurIteration = -1;
+  int mNDOF = 5;
   float mMaxDeltaThetaTrackletsCA[kMaxIterationsCA] = {0.04, 0.1, 0.15, 0.3, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   float mMaxDeltaPhiTrackletsCA[kMaxIterationsCA] = {0.1, 0.2, 0.25, 0.5, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   float mMaxDeltaTanLCellsCA[kMaxIterationsCA] = {4., 9., 18., 40., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
@@ -230,7 +246,36 @@ class NA6PTrackerCA
   float mMaxChi2ndfTracksCA[kMaxIterationsCA] = {100., 500., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   int mMinNClusTracksCA[kMaxIterationsCA] = {5, 3, 0, 0, 0, 0, 0, 0, 0, 0};
 
+  std::unique_ptr<NA6PTreeStreamRedirector> dbgStream;
+
   ClassDefNV(NA6PTrackerCA, 1);
 };
+
+template <typename T, typename ClusterType>
+std::pair<int, bool> NA6PTrackerCA::getTrackMCTruthStatus(const T& clIDs, const std::vector<ClusterType>& cluArr) const
+{
+  std::vector<std::pair<int, int>> occurrences;
+  int ncl = 0;
+  for (auto id : clIDs) {
+    if (id < 0) {
+      continue;
+    }
+    ncl++;
+    const int pid = cluArr[id].getParticleID();
+    bool found{false};
+    for (int i = 0; i < (int)occurrences.size(); i++) {
+      if (pid == occurrences[i].first) {
+        occurrences[i].second++;
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      occurrences.emplace_back(pid, 1);
+    }
+  }
+  std::sort(std::begin(occurrences), std::end(occurrences), [](auto e1, auto e2) { return e1.second > e2.second; });
+  return {occurrences.front().second == ncl, occurrences.front().first};
+}
 
 #endif

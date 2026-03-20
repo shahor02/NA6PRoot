@@ -9,20 +9,14 @@
 #include "NA6PVertexerTracklets.h"
 #include "NA6PVerTelReconstruction.h"
 
-ClassImp(NA6PVerTelReconstruction)
-
-  NA6PVerTelReconstruction::NA6PVerTelReconstruction() : NA6PReconstruction("VerTel")
+NA6PVerTelReconstruction::NA6PVerTelReconstruction() : NA6PReconstruction("VerTel")
 {
+  initAll();
 }
 
-NA6PVerTelReconstruction::NA6PVerTelReconstruction(const char* recparfile,
-                                                   const char* geofile,
-                                                   const char* geoname) : NA6PReconstruction("VerTel")
+NA6PVerTelReconstruction::~NA6PVerTelReconstruction()
 {
-  mGeoFilName = geofile;
-  mGeoObjName = geoname;
-  mRecoParFilName = recparfile;
-  initAll();
+  // move to cxx since NA6PVertexerTracklets and NA6PTrackerCA were fwd-declared
 }
 
 bool NA6PVerTelReconstruction::initAll()
@@ -34,29 +28,22 @@ bool NA6PVerTelReconstruction::initAll()
 
 bool NA6PVerTelReconstruction::initVertexer()
 {
-  if (!mVTTrackletVertexer)
-    mVTTrackletVertexer = new NA6PVertexerTracklets();
-  if (mRecoParFilName == "")
-    LOGP(info, "Initializing vertexer with default parameters");
-  else
-    LOGP(info, "Initializing vertexer from file {}", mRecoParFilName.c_str());
-  mVTTrackletVertexer->configureFromRecoParam(mRecoParFilName.c_str());
+  if (!mVTTrackletVertexer) {
+    mVTTrackletVertexer = std::make_unique<NA6PVertexerTracklets>();
+  }
+  mVTTrackletVertexer->configureFromRecoParam();
   createVerticesOutput();
   return true;
 }
 
 bool NA6PVerTelReconstruction::initTracker()
 {
-  NA6PReconstruction::init(mGeoFilName.c_str(), mGeoObjName.c_str());
-  if (!mVTTracker)
-    mVTTracker = new NA6PTrackerCA();
+  if (!mVTTracker) {
+    mVTTracker = std::make_unique<NA6PTrackerCA>();
+  }
   mVTTracker->setNLayers(5);
   mVTTracker->setStartLayer(0);
-  if (mRecoParFilName == "")
-    LOGP(info, "Initializing tracker with default parameters");
-  else
-    LOGP(info, "Initializing tracker from file {}", mRecoParFilName.c_str());
-  mVTTracker->configureFromRecoParamVT(mRecoParFilName.c_str());
+  mVTTracker->configureFromRecoParamVT();
   createTracksOutput();
   return true;
 }
@@ -212,14 +199,6 @@ void NA6PVerTelReconstruction::closeTracksOutput()
 
 void NA6PVerTelReconstruction::runTracking()
 {
-  if (!mIsInitialized) {
-    LOGP(error, "Magnetic field and geometry not initialized");
-    return;
-  }
-  if (!mVTTracker) {
-    LOGP(info, "Tracker not initialized, will call default initialization");
-    initTracker();
-  }
   clearTracks();
   mVTTracker->findTracks(*hClusPtr, mPrimaryVertex);
   mTracks = mVTTracker->getTracks();

@@ -9,14 +9,22 @@
 #include "ConfigurableParam.h"
 #endif
 
-void runMatching(
-                 bool useMC = false,
+void runMatching(bool useMC = false,
                  double zmatch = 38.1175,
                  int firstEv = 0,
                  int lastEv = 99999,
-                 const char* dirSimu = "../tst",
+                 const char* dirSimu = ".",
                  const char* dirRec = ".")
 {
+  NA6PRecoParam::setValue("reco.mtZMatching", std::to_string(zmatch));
+  na6p::conf::ConfigurableParam::updateFromFile(Form("%s/na6pLayout.ini", dirSimu), "", true);
+  if (!Propagator::loadField() || !Propagator::loadGeometry(Form("%s/geometry.root", dirSimu))) {
+    return;
+  }
+
+  std::unique_ptr<NA6PMatching> matching = std::make_unique<NA6PMatching>();
+  matching->setMCMatching(useMC);
+
   // kine file needed to get the primary vertex position (temporary)
   TFile* fk = new TFile(Form("%s/MCKine.root", dirSimu));
   TTree* mcTree = (TTree*)fk->Get("mckine");
@@ -50,13 +58,6 @@ void runMatching(
   std::vector<NA6PTrack> msTracks, *msTrackPtr = &msTracks;
   tmstracks->SetBranchAddress("MuonSpec", &msTrackPtr);
 
-  na6p::conf::ConfigurableParam::updateFromFile(Form("%s/na6pLayout.ini",dirSimu), "", true);
-  NA6PMatching* matching = new NA6PMatching();
-  matching->configureFromRecoParam();
-  matching->setGeometryFile(Form("%s/geometry.root", dirSimu));
-  matching->setZMatching(zmatch);
-  matching->setMCMatching(useMC);
-  
   int nEv = tmstracks->GetEntries();
   if (lastEv > nEv || lastEv < 0)
     lastEv = nEv;
@@ -96,7 +97,6 @@ void runMatching(
     matching->runMatching();
   }
   matching->closeTracksOutput();
-
   timer.Stop();
   timer.Print();
 }

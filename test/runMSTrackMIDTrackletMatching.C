@@ -30,7 +30,6 @@ void runMSTrackMIDTrackletMatching(int firstEv = 0,
   NA6PTrackerCA* tracker = new NA6PTrackerCA();
   tracker->setNLayers(4);
   tracker->setStartLayer(5);
-  tracker->setUseIntegralBForSeed();
   tracker->setDoOutwardPropagation(true);
   tracker->setZForOutwardPropagation(810.);
   // tracker->setVerbosity(true);
@@ -150,10 +149,12 @@ void runMSTrackMIDTrackletMatching(int firstEv = 0,
         for (int j = 0; j < 3; ++j)
           dirSegm[j] /= norm;
 
-        fitter->propagateToZOuter(&tr, zToProp);
-        double xyzTr[3], pxyzTr[3];
-        tr.getXYZOuter(xyzTr);
-        tr.getPXYZOuter(pxyzTr);
+        auto trOuter = tr.getOuterParam();
+        if (!Propagator::Instance()->propagateToZ(trOuter, zToProp, fitter->getPropOpt())) {
+          continue;
+        }
+        auto xyzTr = trOuter.getXYZ<float>();
+        auto pxyzTr = trOuter.getPXYZ<float>();
         norm = 0.f;
         for (int j = 0; j < 3; ++j)
           norm += pxyzTr[j] * pxyzTr[j];
@@ -219,10 +220,12 @@ void runMSTrackMIDTrackletMatching(int firstEv = 0,
         for (int j = 0; j < 3; ++j)
           dirSegm[j] /= norm;
 
-        fitter->propagateToZOuter(&tr, zToProp);
-        double xyzTr[3], pxyzTr[3];
-        tr.getXYZOuter(xyzTr);
-        tr.getPXYZOuter(pxyzTr);
+        auto trOuter = tr.getOuterParam();
+        if (!Propagator::Instance()->propagateToZ(trOuter, zToProp, fitter->getPropOpt())) {
+          continue;
+        }
+        auto xyzTr = trOuter.getXYZ<float>();
+        auto pxyzTr = trOuter.getPXYZ<float>();
         norm = 0.f;
         for (int j = 0; j < 3; ++j)
           norm += pxyzTr[j] * pxyzTr[j];
@@ -258,8 +261,7 @@ void runMSTrackMIDTrackletMatching(int firstEv = 0,
     for (int jT = 0; jT < nTrks; jT++) {
       NA6PTrack tr = trks[jT];
       hNClusOrigTracks->Fill(tr.getNHits());
-      double pxyz[3];
-      tr.getPXYZ(pxyz);
+      auto pxyz = tr.getPXYZ<float>();
       float momtr = tr.getP();
       float thetatr = std::acos(pxyz[2] / momtr);
       float etatr = -std::log(std::tan(thetatr / 2.));
@@ -289,7 +291,6 @@ void runMSTrackMIDTrackletMatching(int firstEv = 0,
       }
 
       fitter->cleanupAndStartFit();
-      fitter->setNLayers(6);
       std::vector<int> clusterLookup(msClus.size(), -1);
       for (size_t i = 0; i < msClus.size(); ++i) {
         int originalID = msClus[i].getClusterIndex();
@@ -302,63 +303,63 @@ void runMSTrackMIDTrackletMatching(int firstEv = 0,
         if (originalID >= 0 && (size_t)originalID < clusterLookup.size()) {
           int jNewPos = clusterLookup[originalID];
           const auto& cl = msClus[jNewPos];
-          fitter->addCluster(jl, cl);
+          fitter->addCluster(cl);
         }
       }
 
       NA6PTrack outTr = tr;
-      outTr.setParam(tr.getOuterParam());
-      outTr.setChi2VT(tr.getChi2VTOuter());
-      outTr.setChi2MS(tr.getChi2MSOuter());
+      static_cast<NA6PTrackParCov&>(outTr) = tr.getOuterParam();
+      outTr.setChi2(tr.getChi2Outer());
       float zToProp = 810.;
-      fitter->propagateToZ(&outTr, zToProp);
+      if (!Propagator::Instance()->propagateToZ(outTr, zToProp, fitter->getPropOpt())) {
+        continue;
+      }
 
       float zFirst = -999.;
       float zSecond = -999.;
       if (clu1.getZ() < clu2.getZ()) {
-        fitter->addCluster(4, clu1);
-        fitter->addCluster(5, clu2);
+        fitter->addCluster(clu1);
+        fitter->addCluster(clu2);
         zFirst = clu1.getZ();
         zSecond = clu2.getZ();
       } else {
-        fitter->addCluster(4, clu2);
-        fitter->addCluster(5, clu1);
+        fitter->addCluster(clu2);
+        fitter->addCluster(clu1);
         zFirst = clu2.getZ();
         zSecond = clu1.getZ();
       }
       //      fitter->printClusters();
-      fitter->propagateToZ(&outTr, zFirst);
+      if (!Propagator::Instance()->propagateToZ(outTr, zFirst, fitter->getPropOpt())) {
+        continue;
+      }
       bool success = false;
-      if (fitter->updateTrack(&outTr, &clu1)) {
-        fitter->propagateToZ(&outTr, zSecond);
-        if (fitter->updateTrack(&outTr, &clu2))
+      if (outTr.update(clu1)) {
+        if (!Propagator::Instance()->propagateToZ(outTr, zSecond, fitter->getPropOpt())) {
+          continue;
+        }
+        if (outTr.update(clu2)) {
           success = true;
+        }
       }
       if (!success)
         continue;
 
-      NA6PTrack refitInw;
-      if (!fitter->fitTrackPointsInward(refitInw, &outTr))
+      NA6PTrack refitInw = outTr;
+      float chi2Refit = fitter->fitSeedInward(refitInw, true);
+      if (chi2Refit < 0.f)
         continue;
-      refitInw.setOuterParam(outTr.getTrackExtParam());
-      refitInw.setChi2VTOuter(outTr.getChi2VT());
-      refitInw.setChi2MSOuter(outTr.getChi2MS());
+      refitInw.setChi2(chi2Refit);
+      refitInw.setOuterParam(outTr);
+      fitter->addClustersToTrack(refitInw);
 
       hNClusRefitTracks->Fill(refitInw.getNHits());
-      refitInw.getPXYZ(pxyz);
+      pxyz = refitInw.getPXYZ<float>();
       momtr = refitInw.getP();
       thetatr = std::acos(pxyz[2] / momtr);
       etatr = -std::log(std::tan(thetatr / 2.));
       hEtaRefitTracks->Fill(etatr);
-      NA6PTrack constrainedTr = refitInw;
-      fitter->propagateToZ(&constrainedTr, zvert);
-      bool vcOk = fitter->constrainTrackToVertex(&constrainedTr, primVert);
-      if (vcOk) {
-        refitInw.setVertexConstrainedParam(constrainedTr.getTrackExtParam());
-        refitInw.setStatusConstrained(true);
-      } else {
-        refitInw.setStatusConstrained(false);
-      }
+      bool vcOk = fitter->constrainTrackToVertex(refitInw, primVert);
+      refitInw.setStatusConstrained(vcOk);
       int id42track = -2;
       if (idTrack >= 0) {
         // good track in the MS

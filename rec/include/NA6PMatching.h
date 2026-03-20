@@ -14,7 +14,9 @@
 #include "NA6PMuonSpecCluster.h"
 #include "NA6PFastTrackFitter.h"
 #include "NA6PRecoParam.h"
+#include "NA6PTreeStreamRedirector.h"
 
+#include "NA6PMatch.h"
 #include "NA6PTrack.h"
 #include "NA6PVertex.h"
 
@@ -22,39 +24,22 @@ class TFile;
 class TTree;
 class NA6PFastTrackFitter;
 
+#define _CHI2_TUNING_MODE_
+
 class NA6PMatching : public NA6PReconstruction
 {
  public:
-  NA6PMatching();
-  NA6PMatching(const char* recparfile, const char* geofile = "geometry.root", const char* geoname = "NA6P");
-  ~NA6PMatching() override = default;
+  struct MatchRecord {
+    int vtID = -1; // reference of the VT track
+    int msID = -1; // reference of the MS track
+    float chi2Match = 1e9;
+  };
 
-  void configureFromRecoParam(const std::string& filename = "");
+  NA6PMatching(bool init = true);
+  ~NA6PMatching() override;
+
   void setMCMatching(bool mc) { mMCMatching = mc; }
-  void setMaxChi2Match(double v) { mMaxChi2Match = v; }
-  void setMaxChi2Refit(double v)
-  {
-    mMaxChi2Refit = v;
-    if (mTrackFitter)
-      mTrackFitter->setMaxChi2Cl(v);
-  }
-  void setMaxStepForMaterialRecording(double step)
-  {
-    if (mTrackFitter)
-      mTrackFitter->setMaxStepForMaterialRecording(step);
-  }
-  void setMinTrackP(double p) { mMinTrackP = p; }
-  void setMinVTHits(int n) { mMinVTHits = n; }
-  void setMinMSHits(int n) { mMinMSHits = n; }
-  void setPMatchWindow(double w) { mPMatchWindow = w; }
-  void setZMatching(double z)
-  {
-    mZMatching = z;
-    mIsZMatchingSet = true;
-  }
-  void setPropagateTracksToPrimaryVertex(bool propagate) { mPropagateTracksToPrimaryVertex = propagate; }
-  void setDoOutwardInwardFit(bool opt = true) { mDoOutwardInwardFit = opt; }
-  
+
   void setVerTelTracks(std::vector<NA6PTrack>& tracks);
   void setMuonSpecTracks(std::vector<NA6PTrack>& tracks);
 
@@ -69,49 +54,43 @@ class NA6PMatching : public NA6PReconstruction
   }
   void writeTracks() override;
   void closeTracksOutput() override;
-  void sortVTTracksByP(std::vector<NA6PTrack>& tracks);
   double computeChi2(const double* par1, const double* cov1,
                      const double* par2, const double* cov2);
   void propToZMatching(std::vector<NA6PTrack>& tracks, double z, bool outer = false);
   void runMatching();
 
-  bool fitAndStoreMatchedTrack(const NA6PTrack& vtTrk, const NA6PTrack& msTrk, int particleId, double matchChi2);
+  bool fitAndStoreMatchedTrack(const NA6PTrack& vtTrk, const NA6PTrack& msTrk, float matchChi2);
 
  private:
   void addClustersToFitter(const NA6PTrack& trk, const auto* clusPtr);
   void runMCMatching();
   void runDataMatching();
+  void prefilterTracks();
+  void buildMatchingCandidates(int msID);
+
   std::unordered_map<int, int> buildMCMatchingIndex();
 
-  std::tuple<int, bool, double> findBestChi2Match(
-    const NA6PTrack& msTrack,
-    const std::vector<size_t>& validVerTelIndices);
-
-  std::vector<size_t> prefilterVerTelTracks();
+  const NA6PRecoParam* mRecoParam = nullptr;
 
   std::vector<NA6PVerTelCluster>* hVerTelClusPtr = nullptr;
   std::vector<NA6PMuonSpecCluster>* hMuonSpecClusPtr = nullptr;
 
-  bool mDoOutwardInwardFit = false;
-  bool mPropagateTracksToPrimaryVertex = false;
-  double mZMatching = 38.1175;
-  bool mIsZMatchingSet = false;
+  int mNDOF = 5;
   bool mMCMatching = false;
-  int mMinVTHits = 5;
-  int mMinMSHits = 6;
-  double mMinTrackP = 2.0;
-  double mMaxChi2Match = std::numeric_limits<double>::max();
-  double mMaxChi2Refit = std::numeric_limits<double>::max();
-  double mPMatchWindow = 3; // GeV/c
 
-  NA6PFastTrackFitter* mTrackFitter = nullptr;
+  std::unique_ptr<NA6PFastTrackFitter> mTrackFitter;
   std::vector<NA6PTrack>* hVerTelTrackPtr = nullptr;       // Vertex telescope tracks
   std::vector<NA6PTrack>* hMuonSpecTrackPtr = nullptr; // Muon spectrometer tracks
 
-  std::vector<NA6PTrack> mMatchedTracks, *hMatchedTrackPtr = &mMatchedTracks; // Matched tracks
+  std::vector<int> mSelIDVT;
+  std::vector<int> mSelIDMS;
+  std::vector<NA6PMatch> mMatchedTracks, *hMatchedTrackPtr = &mMatchedTracks; // Matched tracks
+  std::vector<MatchRecord> mMatchRecords;
 
   TFile* mMatchedTrackFile = nullptr; // file with Matched tracks
   TTree* mMatchedTrackTree = nullptr; // tree of Matched tracks
+
+  std::unique_ptr<NA6PTreeStreamRedirector> dbgStream;
 
   ClassDefNV(NA6PMatching, 1);
 };
