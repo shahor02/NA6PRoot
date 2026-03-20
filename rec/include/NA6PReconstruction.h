@@ -25,14 +25,14 @@ class NA6PReconstruction
 {
  public:
   NA6PReconstruction(const std::string& name) : mName(name) {}
-  virtual ~NA6PReconstruction() {}
+  virtual ~NA6PReconstruction() = default;
 
   const std::string& getName() const { return mName; }
 
-  virtual bool init(const char* filename, const char* geoname = "NA6P");
+  virtual bool init(const std::string& filename, const std::string& geoname = "NA6P");
 
-  void setRecoParamFile(const char* recparfile) { mRecoParFilName = recparfile; }
-  void setGeometryFile(const char* geofile, const char* geoname = "NA6P")
+  void setRecoParamFile(const std::string& recparfile) { mRecoParFilName = recparfile; }
+  void setGeometryFile(const std::string& geofile, const std::string& geoname = "NA6P")
   {
     mGeoFilName = geofile;
     mGeoObjName = geoname;

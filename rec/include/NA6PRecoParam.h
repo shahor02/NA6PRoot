@@ -9,7 +9,7 @@
 struct NA6PRecoParam : public na6p::conf::ConfigurableParamHelper<NA6PRecoParam> {
 
   static constexpr int MaxIterationsTrackerCA = 10;
-  float maxStepForMaterialRecording = 1.0; // in cm
+  float maxPropagationStep = 1.0; // in cm
   // VerTel reconstruction parameters
   int vtNLayers = 5;
   // tracklet vertexer

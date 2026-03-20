@@ -18,6 +18,8 @@
 #include <string>
 #include <Rtypes.h>
 #include "NA6PBaseCluster.h"
+#include "NA6PTrack.h"
+#include "Propagator.h"
 
 // Fast track fit based on Kalman filter
 
@@ -44,23 +46,27 @@ class NA6PFastTrackFitter
   ~NA6PFastTrackFitter(){};
 
   // setters for configurable parameters
-  void setMaxChi2Cl(double v = 10) { mMaxChi2Cl = v; }
+  void setMaxChi2Cl(float v = 10) { mMaxChi2Cl = v; }
   void setNLayers(int n)
   {
     mNLayers = n;
     mClusters.clear();
     mClusters.resize(n);
   }
-  void setParticleHypothesis(int pdg);
-  void enableMaterialCorrections() { mCorrectForMaterial = true; }
-  void disableMaterialCorrections() { mCorrectForMaterial = false; }
+  void setParticleHypothesis(int pdg) { mPID.setFromPDG(pdg); }
+
+  void enableMaterialCorrections() { mPropOpt.matCorr = Propagator::MatCorrType::USEMatCorrTGeo; }
+  void disableMaterialCorrections() { mPropOpt.matCorr = Propagator::MatCorrType::USEMatCorrNONE; }
+  void setMaxPropagationStep(float v) { mPropOpt.maxStep = std::max(0.1f, std::abs(v)); }
+  void setUseByPropagation(bool v = true) { mPropOpt.byOnly = v; }
+
   void setPropagateToPrimaryVertex(bool opt = true) { mPropagateToPrimVert = opt; }
-  void setPrimaryVertexZ(double zvert)
+  void setPrimaryVertexZ(float zvert)
   {
     mPrimVertZ = zvert;
     mIsPrimVertSet = true;
   }
-  void setSeed(const double* pos, const double* mom, int charge = 1);
+  void setSeed(const float* pos, const float* mom, int charge = 1);
   void setCharge(int ch)
   {
     if (ch != 0)
@@ -75,7 +81,6 @@ class NA6PFastTrackFitter
   void setUseBatMidPointForSeed() { mOptionForSeedB = kBatMidPoint; }
   void setUseMaximumBForSeed() { mOptionForSeedB = kMaximumB; }
   void setUseIntegralBForSeed() { mOptionForSeedB = kIntegralB; }
-  void setMaxStepForMaterialRecording(double step) { mMaxStepForMaterialRecording = step; }
   int getLayersForSeed(std::array<int, 3>& layForSeed) const;
   int sortLayersForSeed(std::array<int, 3>& layForSeed, int dir) const;
   void computeSeed(int dir, std::array<int, 3>& layForSeed);
@@ -84,8 +89,8 @@ class NA6PFastTrackFitter
   void computeSeedInner() { computeSeed(1); }
   void printClusters() const;
   void printSeed() const;
-  const double* getSeedMomentum() const { return mSeedMom; }
-  const double* getSeedPosition() const { return mSeedPos; }
+  const auto& getSeedMomentum() const { return mSeedMom; }
+  const auto& getSeedPosition() const { return mSeedPos; }
   int getCharge() const { return mCharge; }
   void addCluster(int jLay, const NA6PBaseCluster& cl);
   void resetClusters()
@@ -98,46 +103,34 @@ class NA6PFastTrackFitter
     unsetSeed();
   }
 
-  bool loadGeometry(const char* filename = "geometry.root", const char* geoname = "NA6P");
+  bool loadGeometry(const std::string& filename = "geometry.root", const std::string geoname = "NA6P") { return Propagator::loadGeometry(filename, geoname); }
 
-  bool fitTrackPoints(NA6PTrack& trackToFit, int dir = -1, const NA6PTrack* seed = nullptr);
-  bool fitTrackPointsInward(NA6PTrack& trackToFit, const NA6PTrack* seed = nullptr) { return fitTrackPoints(trackToFit, -1, seed); }
-  bool fitTrackPointsOutward(NA6PTrack& trackToFit, const NA6PTrack* seed = nullptr) { return fitTrackPoints(trackToFit, 1, seed); }
-  bool updateTrack(NA6PTrack* trc, const NA6PBaseCluster* cl) const;
-  bool constrainTrackToVertex(NA6PTrack* trc, const NA6PVertex& pv) const;
+  bool fitTrackPoints(NA6PTrack& trackToFit, int dir = -1, const NA6PTrackParCov* seed = nullptr);
+  bool fitTrackPointsInward(NA6PTrack& trackToFit, const NA6PTrackParCov* seed = nullptr) { return fitTrackPoints(trackToFit, -1, seed); }
+  bool fitTrackPointsOutward(NA6PTrack& trackToFit, const NA6PTrackParCov* seed = nullptr) { return fitTrackPoints(trackToFit, 1, seed); }
 
-  int propagateToZ(NA6PTrack* trc, double zTo) const;
-  int propagateToZ(NA6PTrack* trc, double zFrom, double zTo, int dir) const;
-  int propagateToZOuter(NA6PTrack* trc, double zTo) const;
-  int propagateToZOuter(NA6PTrack* trc, double zFrom, double zTo, int dir) const;
-  int propagateToZImpl(NA6PTrack* trc, double zFrom, double zTo, int dir, bool outer) const;
-
-  void getMeanMaterialBudgetFromGeom(double* start, double* end, double* mparam) const;
-
-  static const Double_t kMassP;
-  static const Double_t kMassK;
-  static const Double_t kMassPi;
-  static const Double_t kMassMu;
-  static const Double_t kMassE;
-  static const Double_t kAlmostZero;
+  bool constrainTrackToVertex(NA6PTrack& trc, const NA6PVertex& pv) const;
+  const auto& getPropOpt() const { return mPropOpt; }
 
  protected:
   int mNLayers = 5;                   // number of active
-  double mMaxChi2Cl = 10.;            // max cluster-track chi2
+  float mMaxChi2Cl = 10.;             // max cluster-track chi2
   bool mIsSeedSet = false;            // flag for set seed
   int mSeedOption = kOutermostAsSeed; // seed option (see enum)
   int mSeedPoints = kThreePointSeed;  // number of hits used for seed
-  double mSeedPos[3];                 // seed for track position
-  double mSeedMom[3];                 // seed for track momentum
   int mOptionForSeedB = kBatMidPoint; // option for B field usage in seed
-  int mCharge = 1;                    // track charge for seed
-  double mMass = kMassPi;             // mass hypothesis for particle
-  bool mPropagateToPrimVert = false;  // flag for propagation to primary vertex
-  double mPrimVertZ = 0.0;            // primary vertex z
-  bool mIsPrimVertSet = false;        // flag for presence of prim vert z
-  bool mCorrectForMaterial = true;    // flag for material corrections
-  double mMaxStepForMaterialRecording = 1.0; // step size for recording material budget along track (in cm)
 
+  std::array<float, 3> mSeedPos{};                 // seed for track position
+  std::array<float, 3> mSeedMom = {0.f, 0.f, 1.f}; // seed for track momentum
+  int mCharge = 1;                    // track charge for seed
+
+  bool mPropagateToPrimVert = false;  // flag for propagation to primary vertex
+  bool mIsPrimVertSet = false;        // flag for presence of prim vert z
+  float mPrimVertZ = 0.0;             // primary vertex z
+
+  Propagator::PropOpt mPropOpt{}; // propagator options
+
+  PID mPID;                                      // PID to impose
   std::vector<const NA6PBaseCluster*> mClusters; // array with clusters
 
  protected:

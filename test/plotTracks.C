@@ -204,8 +204,8 @@ void plotTracks(const char* dirSimu = ".")
       double momReco = tr.getP();
       double thetaReco = std::acos(pxyzReco[2] / momReco);
       double etaReco = -std::log(std::tan(thetaReco / 2.));
-      double impparX = tr.getXLab() - xvert;
-      double impparY = tr.getYLab() - yvert;
+      double impparX = tr.getX() - xvert;
+      double impparY = tr.getY() - yvert;
       hImpParXVsP->Fill(momReco, impparX * 1e4);
       hImpParYVsP->Fill(momReco, impparY * 1e4);
       hMomAllReco->Fill(momReco);

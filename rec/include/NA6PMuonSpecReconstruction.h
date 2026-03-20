@@ -37,7 +37,7 @@ class NA6PMuonSpecReconstruction : public NA6PReconstruction
 {
  public:
   NA6PMuonSpecReconstruction();
-  NA6PMuonSpecReconstruction(const char* recparfile, const char* geofile = "geometry.root", const char* geoname = "NA6P");
+  NA6PMuonSpecReconstruction(const std::string& recparfile, const std::string& geofile = "geometry.root", const std::string& geoname = "NA6P");
   ~NA6PMuonSpecReconstruction() override = default;
 
   bool initTracker();

@@ -37,16 +37,13 @@ struct TrackVF {
   int vtxID = kNoVtx;  // assigned vertex
 
   TrackVF() = default;
-  TrackVF(const NA6PTrack& src, int id)
+  TrackVF(const NA6PTrackParCov& src, int id)
   {
     // NB: src must already be propagated to its DCA to the beam axis
     // before constructing TrackVF — call propagateToDCABeamAxis() first
     trackIndex = id;
-    double xyz[3], pxyz[3];
-    src.getXYZ(xyz);
-    src.getPXYZ(pxyz);
-    mLine = NA6PLine::fromPointAndDirection(xyz, pxyz);
-    float sxx = src.getSigmaX2(), syy = src.getSigmaY2(), sxy = src.getSigmaXY();
+    mLine = NA6PLine::fromPointAndDirection(src.getXYZ().data(), src.getPXYZ().data());
+    float sxx = src.getSigmaX2(), syy = src.getSigmaY2(), sxy = src.getSigmaYX();
     float cx = mLine.mCosinesDirector[0];
     float cy = mLine.mCosinesDirector[1];
     float cz = mLine.mCosinesDirector[2];

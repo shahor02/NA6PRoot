@@ -38,10 +38,10 @@ class NA6PMatching : public NA6PReconstruction
     if (mTrackFitter)
       mTrackFitter->setMaxChi2Cl(v);
   }
-  void setMaxStepForMaterialRecording(double step)
+  void setMaxPropagationStep(double step)
   {
     if (mTrackFitter)
-      mTrackFitter->setMaxStepForMaterialRecording(step);
+      mTrackFitter->setMaxPropagationStep(step);
   }
   void setMinTrackP(double p) { mMinTrackP = p; }
   void setMinVTHits(int n) { mMinVTHits = n; }
@@ -54,7 +54,7 @@ class NA6PMatching : public NA6PReconstruction
   }
   void setPropagateTracksToPrimaryVertex(bool propagate) { mPropagateTracksToPrimaryVertex = propagate; }
   void setDoOutwardInwardFit(bool opt = true) { mDoOutwardInwardFit = opt; }
-  
+
   void setVerTelTracks(std::vector<NA6PTrack>& tracks);
   void setMuonSpecTracks(std::vector<NA6PTrack>& tracks);
 

@@ -5,14 +5,14 @@
 #include <fairlogger/Logger.h>
 
 NA6PBaseCluster::NA6PBaseCluster(float x, float y, float z, int clusiz, int layer)
-  : mPos{x, y, z}, mCluSiz(clusiz), mLayer(layer)
+  : mXYZ{x, y, z}, mCluSiz{clusiz}, mLayer{int8_t(layer)}
 {
 }
 
 std::string NA6PBaseCluster::asString() const
 {
-  return fmt::format("Cluster: Det:{} XYZlab:{:.3f},{:.3f},{:.3f} XYZtrackingframe:{:.3f},{:.3f},{:.3f} cluster size:{} ParticleID:{}",
-                     mDetectorID, getXLab(), getYLab(), getZLab(), getXTF(), getYTF(), getZTF(), mCluSiz, mParticleID);
+  return fmt::format("Cluster: Det:{} XYZ:{:+.3e},{:+.3e},{:+.3e} Sig2:{:.3e},{:.3e},{:.3e} cluster size:{} ParticleID:{}",
+                     mDetectorID, getX(), getY(), getZ(), getSigXX(), getSigYX(), getSigYY(), mCluSiz, mParticleID);
 }
 
 void NA6PBaseCluster::print() const

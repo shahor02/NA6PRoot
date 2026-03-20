@@ -5,46 +5,21 @@
 #include <TGeoManager.h>
 #include <TFile.h>
 #include <TSystem.h>
-#include "NA6PTrack.h"
 #include "NA6PVertex.h"
 #include "MagneticField.h"
+#include "NA6PPhysConst.h"
 #include "NA6PFastTrackFitter.h"
 #include "NA6PVerTelCluster.h"
 #include "NA6PMuonSpecCluster.h"
 
 ClassImp(NA6PFastTrackFitter)
 
-  const double NA6PFastTrackFitter::kMassP = 0.938;
-const double NA6PFastTrackFitter::kMassK = 0.4937;
-const double NA6PFastTrackFitter::kMassPi = 0.1396;
-const double NA6PFastTrackFitter::kMassMu = 0.1057;
-const double NA6PFastTrackFitter::kMassE = 0.0005;
-const double NA6PFastTrackFitter::kAlmostZero = 1.e-12;
-// const double NA6PFastTrackFitter::fgkFldEps = 1.e-4;
-
-NA6PFastTrackFitter::NA6PFastTrackFitter() : mNLayers{5},
-                                             mMaxChi2Cl{10.},
-                                             mIsSeedSet{false},
-                                             mSeedOption{kOutermostAsSeed},
-                                             mSeedPoints{kThreePointSeed},
-                                             mOptionForSeedB{kBatMidPoint},
-                                             mCharge{1},
-                                             mMass{kMassPi},
-                                             mPropagateToPrimVert{false},
-                                             mPrimVertZ{0.0},
-                                             mIsPrimVertSet{false},
-                                             mCorrectForMaterial{true},
-                                             mClusters(5)
+  NA6PFastTrackFitter::NA6PFastTrackFitter()
 {
   if (TGeoGlobalMagField::Instance()->GetField() == nullptr) {
-    auto magField = new MagneticField();
-    magField->loadField();
-    magField->setAsGlobalField();
-  } else {
-    LOGP(info, "NA6PFastTrackFitter: TGeoGlobalMagField already initialized");
+    Propagator::loadField();
   }
-  mSeedPos[0] = mSeedPos[1] = mSeedPos[2] = 0.;
-  mSeedMom[0] = mSeedMom[1] = mSeedMom[2] = 1.; // 1 GeV for default momentum seed
+  mClusters.resize(mNLayers);
 }
 
 void NA6PFastTrackFitter::addCluster(int jLay, const NA6PBaseCluster& cl)
@@ -61,13 +36,13 @@ void NA6PFastTrackFitter::printClusters() const
   LOGP(info, "N layers = {}", mNLayers);
   for (int jLay = 0; jLay < mNLayers; ++jLay) {
     if (mClusters[jLay])
-      LOGP(info, "Layer {} Cluster position = {} {} {}", jLay, mClusters[jLay]->getXLab(), mClusters[jLay]->getYLab(), mClusters[jLay]->getZLab());
+      LOGP(info, "Layer {} Cluster position = {} {} {}", jLay, mClusters[jLay]->getX(), mClusters[jLay]->getY(), mClusters[jLay]->getZ());
     else
       LOGP(info, "Layer {} No cluster", jLay);
   }
 }
 
-void NA6PFastTrackFitter::setSeed(const double* pos, const double* mom, int charge)
+void NA6PFastTrackFitter::setSeed(const float* pos, const float* mom, int charge)
 {
   if (!pos || !mom) {
     LOGP(error, "Null pointers passer seed");
@@ -81,291 +56,27 @@ void NA6PFastTrackFitter::setSeed(const double* pos, const double* mom, int char
   mIsSeedSet = true;
 }
 
-void NA6PFastTrackFitter::setParticleHypothesis(int pdg)
+bool NA6PFastTrackFitter::constrainTrackToVertex(NA6PTrack& trc, const NA6PVertex& pv) const
 {
-  pdg = std::abs(pdg);
-  if (pdg == 211)
-    mMass = kMassPi;
-  else if (pdg == 321)
-    mMass = kMassK;
-  else if (pdg == 2212)
-    mMass = kMassP;
-  else if (pdg == 11)
-    mMass = kMassE;
-  else if (pdg == 13)
-    mMass = kMassMu;
-  else
-    LOGP(info, "pdg code {} not valid (only pi, K, p, e, and mu are accepted)", pdg);
-}
-
-bool NA6PFastTrackFitter::loadGeometry(const char* filename, const char* geoname)
-{
-  if (gGeoManager) {
-    LOGP(info, "NA6PFastTrackFitter: Geometry was already loaded");
-    return true;
-  }
-  if (gSystem->Exec(Form("ls -l %s > /dev/null", filename)) != 0) {
-    LOGP(error, "filename {} does not exist", filename);
+  NA6PTrackParCov t = trc;
+  if (!Propagator::Instance()->propagateToZ(t, pv.getZ(), mPropOpt)) {
     return false;
   }
-  TFile* f = TFile::Open(filename);
-  gGeoManager = (TGeoManager*)f->Get(geoname);
-  f->Close();
-  if (gGeoManager)
-    return true;
-  else {
-    LOGP(error, "No geometry with name {} found in file {}", geoname, filename);
-    return false;
-  }
-}
-
-void NA6PFastTrackFitter::getMeanMaterialBudgetFromGeom(double* start, double* end, double* mparam) const
-{
-
-  // "mparam" - parameters used for the energy and multiple scattering
-  //  corrections:
-  //
-  // mparam[0] - mean density: sum(x_i*rho_i)/sum(x_i) [g/cm3]
-  // mparam[1] - equivalent rad length fraction: sum(x_i/X0_i) [adimensional]
-  // mparam[2] - mean A: sum(x_i*A_i)/sum(x_i) [adimensional]
-  // mparam[3] - mean Z: sum(x_i*Z_i)/sum(x_i) [adimensional]
-  // mparam[4] - length: sum(x_i) [cm]
-  // mparam[5] - Z/A mean: sum(x_i*Z_i/A_i)/sum(x_i) [adimensional]
-  // mparam[6] - number of boundary crosses
-
-  mparam[0] = 0;
-  mparam[1] = 1;
-  mparam[2] = 0;
-  mparam[3] = 0;
-  mparam[4] = 0;
-  mparam[5] = 0;
-  mparam[6] = 0;
-
-  if (gGeoManager == nullptr) {
-    LOGP(info, "No geometry was loaded, won't apply materical corrections");
-    return;
-  }
-  double tolerance = 1e-9;
-  double length = std::sqrt((end[0] - start[0]) * (end[0] - start[0]) +
-                            (end[1] - start[1]) * (end[1] - start[1]) +
-                            (end[2] - start[2]) * (end[2] - start[2]));
-  mparam[4] = length;
-  if (length < tolerance)
-    return;
-  double invlen = 1. / length;
-  double dir[3];
-  dir[0] = (end[0] - start[0]) * invlen;
-  dir[1] = (end[1] - start[1]) * invlen;
-  dir[2] = (end[2] - start[2]) * invlen;
-
-  TGeoNode* currNode = gGeoManager->InitTrack(start, dir);
-  double sumSteps = 0.0;
-  double minStep = 1e-4; // 1 micron
-
-  double bparam[6]; // total parameters
-  double lparam[6]; // local parameters
-  for (int i = 0; i < 6; i++)
-    bparam[i] = 0;
-
-  while (sumSteps < length) {
-    double stepMax = length - sumSteps;
-
-    // Find next boundary (or max step to end point)
-    TGeoNode* nextNode = gGeoManager->FindNextBoundaryAndStep(stepMax, false);
-    if (!nextNode)
-      break;
-    double snext = gGeoManager->GetStep();
-    // Handle numerical zero-step
-    if (snext < tolerance) {
-      gGeoManager->Step(minStep);
-      snext = gGeoManager->GetStep();
-      if (snext < tolerance)
-        break; // protection in case still zero
-    }
-
-    TGeoMedium* med = currNode->GetVolume()->GetMedium();
-    if (!med) {
-      sumSteps += snext;
-      continue;
-    }
-    TGeoMaterial* mat = med->GetMaterial();
-    if (!mat) {
-      sumSteps += snext;
-      continue;
-    }
-    lparam[0] = mat->GetDensity();
-    lparam[1] = mat->GetRadLen();
-    lparam[2] = mat->GetA();
-    lparam[3] = mat->GetZ();
-    lparam[4] = length;
-    lparam[5] = lparam[3] / lparam[2];
-    if (mat->IsMixture()) {
-      TGeoMixture* mixture = (TGeoMixture*)mat;
-      lparam[5] = 0;
-      double sum = 0;
-      for (int iel = 0; iel < mixture->GetNelements(); iel++) {
-        sum += mixture->GetWmixt()[iel];
-        lparam[5] += mixture->GetZmixt()[iel] * mixture->GetWmixt()[iel] / mixture->GetAmixt()[iel];
-      }
-      lparam[5] /= sum;
-    }
-    bparam[0] += snext * lparam[0];
-    bparam[1] += snext / lparam[1];
-    bparam[2] += snext * lparam[2];
-    bparam[3] += snext * lparam[3];
-    bparam[5] += snext * lparam[5];
-    sumSteps += snext;
-    mparam[6] += 1.;
-    currNode = nextNode;
-  }
-  mparam[0] = bparam[0] / sumSteps;
-  mparam[1] = bparam[1];
-  mparam[2] = bparam[2] / sumSteps;
-  mparam[3] = bparam[3] / sumSteps;
-  mparam[4] = sumSteps;
-  mparam[5] = bparam[5] / sumSteps;
-}
-
-int NA6PFastTrackFitter::propagateToZ(NA6PTrack* trc, double zTo) const
-{
-  double zCurr = trc->getZLab();
-  int dir = (zTo - zCurr) > 0 ? 1 : -1;
-  return propagateToZ(trc, zCurr, zTo, dir);
-}
-
-int NA6PFastTrackFitter::propagateToZOuter(NA6PTrack* trc, double zTo) const
-{
-  double zCurr = trc->getZLabOuter();
-  int dir = (zTo - zCurr) > 0 ? 1 : -1;
-  return propagateToZOuter(trc, zCurr, zTo, dir);
-}
-
-int NA6PFastTrackFitter::propagateToZImpl(NA6PTrack* trc, double zFrom, double zTo, int dir, bool outer) const
-{
-  double maxStepForProp = 1;
-  // Validate track state
-  if (trc->getTrackExtParam().getAlpha() < 0) {
-    return -1;
-  }
-
-  double currentZ = outer ? trc->getZLabOuter() : trc->getZLab();
-  if (std::abs(currentZ - zFrom) > 1.e-4) {
-    LOGP(fatal, "Track is not in the expected z position: {} vs {}", zFrom, currentZ);
-    return -1;
-  }
-
-  if (dir * (zTo - zFrom) < 0) {
-    LOGP(fatal, "Wrong coordinates: Dir:{} Zstart:{} Zend:{}", dir, zFrom, zTo);
-    return -1;
-  }
-
-  const double totalDeltaZ = zTo - zFrom;
-  const double stepSize = dir * mMaxStepForMaterialRecording; // signed step
-  const int nSteps = std::max(1, static_cast<int>(std::abs(totalDeltaZ) / mMaxStepForMaterialRecording));
-
-  double zCurrent = zFrom;
-  for (int iStep = 0; iStep < nSteps; iStep++) {
-    double zNext = (iStep == nSteps - 1) ? zTo : zCurrent + stepSize;
-
-    // Get starting position for this step
-    double start[3];
-    if (outer) {
-      trc->getXYZOuter(start);
-    } else {
-      trc->getXYZ(start);
-    }
-
-    // Create temporary track and propagate without material to get endpoint
-    NA6PTrack tmpTrc = *trc;
-    if (!tmpTrc.propagateToZBxByBz(zNext, 1., 0., 0., outer)) {
-      return 0;
-    }
-
-    double end[3];
-    if (outer) {
-      tmpTrc.getXYZOuter(end);
-    } else {
-      tmpTrc.getXYZ(end);
-    }
-
-    // Calculate material budget along this step
-    double mparam[7] = {0.};
-    if (mCorrectForMaterial) {
-      getMeanMaterialBudgetFromGeom(start, end, mparam);
-    }
-
-    double density = mparam[0];
-    double xrho = density * mparam[4]; // density * length
-    double x2x0 = mparam[1];             // X/X0
-    double atomicZ = mparam[3];
-    double zOverA = mparam[5];
-
-    double corrELoss = 1.0;    
-    // Propagate with material corrections
-    if (!trc->propagateToZBxByBz(zNext, 1., x2x0, -dir * xrho * corrELoss, outer, density, atomicZ, zOverA)) {
-      return 0;
-    }
-    zCurrent = zNext;
-  }
-
-  return 1;
-}
-
-int NA6PFastTrackFitter::propagateToZ(NA6PTrack* trc, double zFrom, double zTo, int dir) const
-{
-  return propagateToZImpl(trc, zFrom, zTo, dir, false);
-}
-
-int NA6PFastTrackFitter::propagateToZOuter(NA6PTrack* trc, double zFrom, double zTo, int dir) const
-{
-  return propagateToZImpl(trc, zFrom, zTo, dir, true);
-}
-
-bool NA6PFastTrackFitter::updateTrack(NA6PTrack* trc, const NA6PBaseCluster* cl) const
-{
-  // update track with measured cluster
-  // propagate to cluster
-  // Note: we are working in the tracking frame: Lab X,Y,Z  <->  Tracking -Z,Y,X
-  double meas[2] = {cl->getYTF(), cl->getZTF()}; // ideal cluster coordinate, tracking (AliExtTrParam frame)
-  double measErr2[3] = {cl->getSigYY(), cl->getSigYZ(), cl->getSigZZ()};
-
-  double chi2 = trc->getTrackExtParam().getPredictedChi2(meas, measErr2);
-  if (chi2 > mMaxChi2Cl)
-    return false; // chi2 is too large
-
-  if (!trc->update(meas, measErr2)) {
-    return false;
-  }
-  trc->addCluster(cl, cl->getClusterIndex(), chi2);
-  //
-  return true;
-}
-
-bool NA6PFastTrackFitter::constrainTrackToVertex(NA6PTrack* trc, const NA6PVertex& pv) const
-{
-
-  if (!trc)
-    return false;
-
-  if (!propagateToZ(trc, pv.getZ()))
-    return false;
-
-  // create a pseudocluster for the vertex
-  // use -1 for layer to distinguish it from detector hits
+  // create a pseudocluster for the vertex, use -1 for layer to distinguish it from detector hits
   NA6PBaseCluster vClu(pv.getX(), pv.getY(), pv.getZ(), 1, -1);
-  // project covariance matrix elements using track direction
-  double pxyz[3];
-  trc->getPXYZ(pxyz);
-  if (std::abs(pxyz[2]) < 1e-6)
+  auto [tx, ty] = t.getSlopesXY(); // project covariance matrix elements using track direction
+  auto sxx = pv.getSigmaX2() + (tx * tx * pv.getSigmaZ2()) - (2.0f * tx * pv.getSigmaXZ());
+  auto syy = pv.getSigmaY2() + (ty * ty * pv.getSigmaZ2()) - (2.0f * ty * pv.getSigmaYZ());
+  auto sxy = pv.getSigmaXY() + (tx * ty * pv.getSigmaZ2()) - (tx * pv.getSigmaYZ()) - (ty * pv.getSigmaXZ());
+  vClu.setErr(sxx, sxy, syy);
+  auto chi2 = t.getPredictedChi2(vClu);
+  if (chi2 > mMaxChi2Cl || !t.update(vClu)) {
+    trc.setStatusConstrained(false);
     return false;
-  float tx = static_cast<float>(pxyz[0] / pxyz[2]);
-  float ty = static_cast<float>(pxyz[1] / pxyz[2]);
-  float sYY = pv.getSigmaX2() + (tx * tx * pv.getSigmaZ2()) - (2.0f * tx * pv.getSigmaXZ());
-  float sZZ = pv.getSigmaY2() + (ty * ty * pv.getSigmaZ2()) - (2.0f * ty * pv.getSigmaYZ());
-  float sYZ = pv.getSigmaXY() + (tx * ty * pv.getSigmaZ2()) - (tx * pv.getSigmaYZ()) - (ty * pv.getSigmaXZ());
-  vClu.setErr(sYY, sYZ, sZZ);
-  // update the track with the pseudo cluster
-  return updateTrack(trc, &vClu);
+  }
+  trc.setVertexConstrainedParam(t);
+  trc.setStatusConstrained(true);
+  return true;
 }
 
 int NA6PFastTrackFitter::getLayersForSeed(std::array<int, 3>& layForSeed) const
@@ -374,20 +85,24 @@ int NA6PFastTrackFitter::getLayersForSeed(std::array<int, 3>& layForSeed) const
 
   int layWithClus[kMaxLayers];
   int nLayWithClus = 0;
-  for (int i = 0; i < mNLayers; ++i)
-    if (mClusters[i])
+  for (int i = 0; i < mNLayers; ++i) {
+    if (mClusters[i]) {
       layWithClus[nLayWithClus++] = i;
+    }
+  }
   if (nLayWithClus < 2) {
     LOGP(error, "Array with clusters has less than 2 clusters {}", nLayWithClus);
     return 0;
   }
   // select layers for seed determination
   if (mSeedOption == kInnermostAsSeed) {
-    for (int i = 0; i < 3 && i < nLayWithClus; ++i)
+    for (int i = 0; i < 3 && i < nLayWithClus; ++i) {
       layForSeed[i] = layWithClus[i];
+    }
   } else if (mSeedOption == kOutermostAsSeed) {
-    for (int i = 0; i < 3 && i < nLayWithClus; ++i)
+    for (int i = 0; i < 3 && i < nLayWithClus; ++i) {
       layForSeed[i] = layWithClus[nLayWithClus - 1 - i];
+    }
   } else { // kInMidOutAsSeed
     layForSeed[0] = layWithClus[0];
     layForSeed[2] = layWithClus[nLayWithClus - 1];
@@ -401,8 +116,9 @@ int NA6PFastTrackFitter::getLayersForSeed(std::array<int, 3>& layForSeed) const
     int bestDist = 999;
     for (int i = 0; i < nLayWithClus; ++i) {
       int lay = layWithClus[i];
-      if (lay == layForSeed[0] || lay == layForSeed[2])
+      if (lay == layForSeed[0] || lay == layForSeed[2]) {
         continue;
+      }
       int dist = std::abs(lay - mid);
       if (dist < bestDist) {
         bestDist = dist;
@@ -410,14 +126,17 @@ int NA6PFastTrackFitter::getLayersForSeed(std::array<int, 3>& layForSeed) const
       }
     }
     layForSeed[1] = best;
-    if (best == -1)
+    if (best == -1) {
       LOGP(warning, "Cannot find middle layer between {} and {}", layForSeed[0], layForSeed[2]);
+    }
   }
   // count layers
   int nSeedLayers = 0;
-  for (int i = 0; i < 3; ++i)
-    if (layForSeed[i] >= 0)
+  for (int i = 0; i < 3; ++i) {
+    if (layForSeed[i] >= 0) {
       ++nSeedLayers;
+    }
+  }
   return nSeedLayers;
 }
 
@@ -427,31 +146,26 @@ int NA6PFastTrackFitter::sortLayersForSeed(std::array<int, 3>& layForSeed, int d
   // dir = 1 -> forward (innermost first)
   // dir = -1 -> backward (outermost first)
   // Returns the number of valid layers after sorting (2 or 3)
-
   int tmpArr[3];
   int valid = 0;
-  for (int i = 0; i < 3; ++i)
-    if (layForSeed[i] >= 0 && layForSeed[i] < mNLayers)
+  for (int i = 0; i < 3; ++i) {
+    if (layForSeed[i] >= 0 && layForSeed[i] < mNLayers) {
       tmpArr[valid++] = layForSeed[i];
-
+    }
+  }
   if (valid < 2) {
     LOGP(error, "Less than 2 clusters found in different layers. Seed cannot be computed");
     return 0;
   }
-
-  if (dir > 0)
-    std::sort(tmpArr, tmpArr + valid);
-  else
-    std::sort(tmpArr, tmpArr + valid, std::greater<int>());
-
-  for (int i = 0; i < 3; ++i)
+  dir > 0 ? std::sort(tmpArr, tmpArr + valid) : std::sort(tmpArr, tmpArr + valid, std::greater<int>());
+  for (int i = 0; i < 3; ++i) {
     layForSeed[i] = (i < valid) ? tmpArr[i] : -1;
+  }
   return valid;
 }
 
 void NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed)
 {
-
   int nClus = getNumberOfClusters();
   if (nClus < 2) {
     LOGP(error, "Cannot compute seed with {} clusters", nClus);
@@ -460,32 +174,32 @@ void NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed)
   if (nClus == 2 && mSeedPoints == kThreePointSeed) {
     LOGP(error, "Cannot compute seed with the 3-cluster option and only {} clusters -> resort to 2-point seed", nClus);
   }
-
+  auto prop = Propagator::Instance();
   int nSeedLayers = sortLayersForSeed(layForSeed, dir);
-  double bxyz[3] = {0.0, 0.0, 0.0};
   int jLay = layForSeed[0];
   if (jLay < 0 || !mClusters[jLay]) {
     LOGP(error, "First seed layer invalid");
     return;
   }
-  mSeedPos[0] = mClusters[jLay]->getXLab();
-  mSeedPos[1] = mClusters[jLay]->getYLab();
-  mSeedPos[2] = mClusters[jLay]->getZLab();
-  TGeoGlobalMagField::Instance()->Field(mSeedPos, bxyz);
-  bool useTwoPoint = (mSeedPoints == kTwoPointSeed) || (nClus == 2) || (nSeedLayers == 2) || (std::abs(bxyz[1]) < kAlmostZero);
+  mSeedPos[0] = mClusters[jLay]->getX();
+  mSeedPos[1] = mClusters[jLay]->getY();
+  mSeedPos[2] = mClusters[jLay]->getZ();
+  float by = prop->getBy(mSeedPos);
+  bool useTwoPoint = (mSeedPoints == kTwoPointSeed) || (nClus == 2) || (nSeedLayers == 2) || (std::abs(by) < NA6PTrackPar::kSmallBend);
   int kLay = layForSeed[1];
   if (kLay < 0 || !mClusters[kLay]) {
     LOGP(error, "Second seed layer invalid");
     return;
   }
-  double ux = mClusters[jLay]->getXLab() - mClusters[kLay]->getXLab();
-  double uy = mClusters[jLay]->getYLab() - mClusters[kLay]->getYLab();
-  double uz = mClusters[jLay]->getZLab() - mClusters[kLay]->getZLab();
-  double norm = std::sqrt(ux * ux + uy * uy + uz * uz);
-  if (norm > kAlmostZero) {
+  float ux = mClusters[jLay]->getX() - mClusters[kLay]->getX();
+  float uy = mClusters[jLay]->getY() - mClusters[kLay]->getY();
+  float uz = mClusters[jLay]->getZ() - mClusters[kLay]->getZ();
+  float norm = std::sqrt(ux * ux + uy * uy + uz * uz);
+  if (norm > phys_const::kAlmost0F) {
     // Enforce track direction along +z
-    if (uz < 0)
+    if (uz < 0) {
       norm = -norm;
+    }
     ux /= norm;
     uy /= norm;
     uz /= norm;
@@ -511,67 +225,57 @@ void NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed)
   auto* clJ = mClusters[jLay];
   auto* clK = mClusters[kLay];
   auto* clL = mClusters[lLay];
-  double x1 = clJ->getXLab();
-  double z1 = clJ->getZLab();
-  double x2 = clK->getXLab();
-  double z2 = clK->getZLab();
-  double x3 = clL->getXLab();
-  double z3 = clL->getZLab();
+  float x1 = clJ->getX();
+  float z1 = clJ->getZ();
+  float x2 = clK->getX();
+  float z2 = clK->getZ();
+  float x3 = clL->getX();
+  float z3 = clL->getZ();
   if (mOptionForSeedB == kBatMidPoint) {
     // get magnetic field in the middle point
-    double midPoint[3] = {clK->getXLab(), clK->getYLab(), clK->getZLab()};
-    TGeoGlobalMagField::Instance()->Field(midPoint, bxyz);
-  } else if (mOptionForSeedB == kMaximumB) {
-    // use maximum magnetic field among the 3 hits
-    double firstPoint[3] = {clJ->getXLab(), clJ->getYLab(), clJ->getZLab()};
-    double midPoint[3] = {clK->getXLab(), clK->getYLab(), clK->getZLab()};
-    double lastPoint[3] = {clL->getXLab(), clL->getYLab(), clL->getZLab()};
-    TGeoGlobalMagField::Instance()->Field(firstPoint, bxyz);
-    float b1 = bxyz[1];
-    TGeoGlobalMagField::Instance()->Field(midPoint, bxyz);
-    float b2 = bxyz[1];
-    TGeoGlobalMagField::Instance()->Field(lastPoint, bxyz);
-    float b3 = bxyz[1];
-    bxyz[1] = std::max({b1, b2, b3});
-  } else {
-    // integral of field
-    double firstPoint[3] = {clJ->getXLab(), clJ->getYLab(), clJ->getZLab()};
-    double midPoint[3] = {clK->getXLab(), clK->getYLab(), clK->getZLab()};
-    double lastPoint[3] = {clL->getXLab(), clL->getYLab(), clL->getZLab()};
-    double step[3];
-    double nextPoint[3];
+    float midPoint[3] = {clK->getX(), clK->getY(), clK->getZ()};
+    by = prop->getBy(midPoint);
+  } else if (mOptionForSeedB == kMaximumB) { // use maximum magnetic field among the 3 hits
+    by = std::max({prop->getBy(clJ->getXYZ()), prop->getBy(clK->getXYZ()), prop->getBy(clL->getXYZ())});
+  } else { // integral of field
+    const auto& firstPoint = clJ->getXYZ();
+    const auto& midPoint = clK->getXYZ();
+    const auto& lastPoint = clL->getXYZ();
+    std::array<float, 3> step, nextPoint;
     int nSteps = 10;
-    for (int jc = 0; jc < 3; jc++)
+    for (int jc = 0; jc < 3; jc++) {
       step[jc] = (midPoint[jc] - firstPoint[jc]) / (float)nSteps;
-    double stepL = std::sqrt(step[0] * step[0] + step[1] * step[1] + step[2] * step[2]);
+    }
+    float stepL = std::sqrt(step[0] * step[0] + step[1] * step[1] + step[2] * step[2]);
     float aveField = 0.f;
     float totLength = 0.f;
     for (int js = 0; js <= nSteps; js++) {
-      for (int jc = 0; jc < 3; jc++)
+      for (int jc = 0; jc < 3; jc++) {
         nextPoint[jc] = firstPoint[jc] + js * step[jc];
-      TGeoGlobalMagField::Instance()->Field(nextPoint, bxyz);
-      aveField += bxyz[1] * stepL;
+      }
+      aveField += prop->getBy(nextPoint) * stepL;
       totLength += stepL;
     }
-    for (int jc = 0; jc < 3; jc++)
-      step[jc] = (lastPoint[jc] - midPoint[jc]) / (float)nSteps;
+    for (int jc = 0; jc < 3; jc++) {
+      step[jc] = (lastPoint[jc] - midPoint[jc]) / nSteps;
+    }
     stepL = std::sqrt(step[0] * step[0] + step[1] * step[1] + step[2] * step[2]);
     for (int js = 0; js <= nSteps; js++) {
-      for (int jc = 0; jc < 3; jc++)
+      for (int jc = 0; jc < 3; jc++) {
         nextPoint[jc] = midPoint[jc] + js * step[jc];
-      TGeoGlobalMagField::Instance()->Field(nextPoint, bxyz);
-      aveField += bxyz[1] * stepL;
+      }
+      aveField += prop->getBy(nextPoint) * stepL;
       totLength += stepL;
     }
-    bxyz[1] = aveField / totLength;
+    by = aveField / totLength;
   }
   // circle fit: compute center (cx, cz) and radius
-  double determ = 2.0 * (x1 * (z2 - z3) + x2 * (z3 - z1) + x3 * (z1 - z2));
-  double cx = 0.0, cz = 0.0, radius = 1e6;
-  if (std::abs(determ) > kAlmostZero) {
-    double a1 = x1 * x1 + z1 * z1;
-    double a2 = x2 * x2 + z2 * z2;
-    double a3 = x3 * x3 + z3 * z3;
+  float determ = 2.0 * (x1 * (z2 - z3) + x2 * (z3 - z1) + x3 * (z1 - z2));
+  float cx = 0.0, cz = 0.0, radius = 1e6;
+  if (std::abs(determ) > phys_const::kAlmost0F) {
+    float a1 = x1 * x1 + z1 * z1;
+    float a2 = x2 * x2 + z2 * z2;
+    float a3 = x3 * x3 + z3 * z3;
     cx = (a1 * (z2 - z3) + a2 * (z3 - z1) + a3 * (z1 - z2)) / determ;
     cz = (a1 * (x3 - x2) + a2 * (x1 - x3) + a3 * (x2 - x1)) / determ;
     radius = std::sqrt((x1 - cx) * (x1 - cx) + (z1 - cz) * (z1 - cz));
@@ -585,21 +289,23 @@ void NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed)
     mIsSeedSet = true;
     return;
   }
-  double pxz = 3.e-4 * std::abs(mCharge * bxyz[1]) * radius; // radius is in cm, By in kG, pxz GeV/c
-  double nt = std::sqrt(ux * ux + uz * uz);
-  if (nt < kAlmostZero)
+  float pxz = 3.e-4 * std::abs(mCharge * by) * radius; // radius is in cm, By in kG, pxz GeV/c
+  float nt = std::sqrt(ux * ux + uz * uz);
+  if (nt < phys_const::kAlmost0F)
     nt = 1.0;
   mSeedMom[0] = pxz * ux / nt;
   mSeedMom[1] = pxz * uy / nt;
   mSeedMom[2] = pxz * uz / nt;
-  double crossy = (x2 - x1) * (z3 - z2) - (z2 - z1) * (x3 - x2);
-  int qSign = (crossy * bxyz[1] > 0) ? +1 : -1;
+  float crossy = (x2 - x1) * (z3 - z2) - (z2 - z1) * (x3 - x2);
+  int qSign = (crossy * by > 0) ? +1 : -1;
   // Ensure charge sign consistent with curvature direction in B-field
-  if (mCharge * qSign < 0)
+  if (mCharge * qSign < 0) {
     mCharge = -mCharge;
+  }
   if (mSeedMom[2] < 0) { // enforce positive pz
-    for (int j = 0; j < 3; ++j)
+    for (int j = 0; j < 3; ++j) {
       mSeedMom[j] = -mSeedMom[j];
+    }
   }
   mIsSeedSet = true;
   return;
@@ -612,10 +318,12 @@ void NA6PFastTrackFitter::computeSeed(int dir)
 
   std::array<int, 3> layForSeed = {-1, -1, -1};
   int origSeedOption = mSeedOption;
-  if (dir == 1 && mSeedOption == kOutermostAsSeed)
+  if (dir == 1 && mSeedOption == kOutermostAsSeed) {
     mSeedOption = kInnermostAsSeed;
-  if (dir == -1 && mSeedOption == kInnermostAsSeed)
+  }
+  if (dir == -1 && mSeedOption == kInnermostAsSeed) {
     mSeedOption = kOutermostAsSeed;
+  }
   int nSeedLayers = getLayersForSeed(layForSeed);
   if (nSeedLayers < 2) {
     LOGP(error, "Cannot compute seed with {} seeding layers", nSeedLayers);
@@ -636,91 +344,55 @@ void NA6PFastTrackFitter::printSeed() const
     LOGP(info, "Seed not set");
 }
 
-bool NA6PFastTrackFitter::fitTrackPoints(NA6PTrack& trackToFit, int dir, const NA6PTrack* seed)
+bool NA6PFastTrackFitter::fitTrackPoints(NA6PTrack& trackToFit, int dir, const NA6PTrackParCov* seed)
 {
-
   int nClus = getNumberOfClusters();
   if (nClus < 2) {
     LOGP(error, "Cannot fit track with only {} clusters\n", nClus);
     return false;
   }
+  bool isGoodFit = true;
+  auto prop = Propagator::Instance();
   trackToFit.reset();
   if (seed) {
     // Seed provided as a track from previous pass
-    trackToFit.setParam(seed->getTrackExtParam());
-    seed->getXYZ(mSeedPos);
-    seed->getPXYZ(mSeedMom);
+    ((NA6PTrackParCov&)trackToFit) = *seed;
+    mSeedPos = seed->getXYZ();  // RSTODO why do we need this?
+    mSeedMom = seed->getPXYZ(); // RSTODO use seed as opt.linRef !!!!
     mIsSeedSet = true;
   } else {
-    if (!mIsSeedSet) {
-      // Set seed from clusters in the outer (inner) layers if not set from outside
-      if (dir > 0)
-        computeSeedInner();
-      else
-        computeSeedOuter();
+    if (!mIsSeedSet) { // Set seed from clusters in the outer (inner) layers if not set from outside
+      dir > 0 ? computeSeedInner() : computeSeedOuter();
     }
-    if (mIsSeedSet)
-      trackToFit.init(mSeedPos, mSeedMom, mCharge);
-    else
+    if (mIsSeedSet) {
+      trackToFit.init(mSeedPos, mSeedMom, mCharge); // RSTODO why? the seed was already assigned
+    } else {
       LOGP(warn, "Track seed not computed properly, will run the fit w/o seed");
+    }
   }
-  trackToFit.setMass(mMass);
+  trackToFit.setPID(mPID);
   trackToFit.resetCovariance(-1);
-  // construct bit mask
-  uint clusterMask = 0;
-  for (int jLay = 0; jLay < mNLayers; ++jLay) {
-    if (mClusters[jLay])
-      clusterMask |= (1 << jLay);
-  }
-
-  double zCurr = -999.;
-  double zNext = zCurr;
-  bool isGoodFit = true;
-  bool propToNext = true;
-
-  // Layer iteration setup
-  int startLay = (dir > 0) ? 0 : mNLayers - 1;
-  int endLay = (dir > 0) ? mNLayers : -1;
-  int stepLay = (dir > 0) ? 1 : -1;
-
+  int startLay = (dir > 0) ? 0 : mNLayers - 1, endLay = (dir > 0) ? mNLayers : -1, stepLay = (dir > 0) ? 1 : -1;
+  int nClFit = 0;
   for (int jLay = startLay; jLay != endLay; jLay += stepLay) {
-    // update track with point in current layer
     if (mClusters[jLay]) {
-      if (!updateTrack(&trackToFit, mClusters[jLay])) {
-        isGoodFit = false;
-        break;
+      if (nClFit == 0) { // 1st cluster, just assign track to its position
+        trackToFit.setXYZ(mClusters[jLay]->getXYZ());
       } else {
-        zCurr = mClusters[jLay]->getZLab();
-        bool isInnermostHit = (clusterMask & ((1 << jLay) - 1)) == 0;
-        bool isOutermostHit = (clusterMask >> (jLay + 1)) == 0;
-        bool lastClu = false;
-        if (dir > 0)
-          lastClu = (jLay == mNLayers - 1) || isOutermostHit;
-        else
-          lastClu = (jLay == 0) || isInnermostHit;
-
-        if (lastClu) {
-          if (dir < 0 && mPropagateToPrimVert && mIsPrimVertSet)
-            zNext = mPrimVertZ;
-          else
-            propToNext = false;
-        } else {
-          if (mClusters[jLay + stepLay])
-            zNext = mClusters[jLay + stepLay]->getZLab();
-          else
-            continue;
+        if (!prop->propagateToZ(trackToFit, mClusters[jLay]->getZ(), mPropOpt)) {
+          isGoodFit = false;
+          break;
         }
       }
-    }
-    // propagate to next layer
-    if (zCurr > 0 && propToNext) {
-      if (propagateToZ(&trackToFit, zCurr, zNext, dir) != 1) {
+      if (!trackToFit.updateTrack(*mClusters[jLay], mMaxChi2Cl)) {
         isGoodFit = false;
         break;
       }
+      nClFit++;
     }
-    zCurr = zNext;
   }
-
+  if (isGoodFit && dir < 0 && mPropagateToPrimVert && mIsPrimVertSet && !prop->propagateToZ(trackToFit, mPrimVertZ, mPropOpt)) {
+    isGoodFit = false;
+  }
   return isGoodFit;
 }
