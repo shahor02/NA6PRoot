@@ -37,8 +37,7 @@ class NA6PMuonSpecReconstruction : public NA6PReconstruction
 {
  public:
   NA6PMuonSpecReconstruction();
-  NA6PMuonSpecReconstruction(const char* recparfile, const char* geofile = "geometry.root", const char* geoname = "NA6P");
-  ~NA6PMuonSpecReconstruction() override = default;
+  ~NA6PMuonSpecReconstruction() override;
 
   bool initTracker();
   // methods to steer cluster reconstruction
@@ -50,7 +49,7 @@ class NA6PMuonSpecReconstruction : public NA6PReconstruction
   void setClusterSpaceResolutionX(double clures) { mCluResX = clures; }
   void setClusterSpaceResolutionY(double clures) { mCluResY = clures; }
   void hitsToRecPoints(const std::vector<NA6PMuonSpecModularHit>& hits);
-  NA6PTrackerCA* getTracker() const { return mMSTracker; }
+  NA6PTrackerCA* getTracker() const { return mMSTracker.get(); }
 
   // methods to steer tracking
   void setClusters(std::vector<NA6PMuonSpecCluster>& clusters);
@@ -70,7 +69,7 @@ class NA6PMuonSpecReconstruction : public NA6PReconstruction
   std::vector<NA6PTrack> mTracks, *hTrackPtr = &mTracks;              // vector of tracks
   TFile* mTrackFile = nullptr;                                        // file with tracks
   TTree* mTrackTree = nullptr;                                        // tree of tracks
-  NA6PTrackerCA* mMSTracker = nullptr;                                // tracker
+  std::unique_ptr<NA6PTrackerCA> mMSTracker;                          // tracker
 
   ClassDefNV(NA6PMuonSpecReconstruction, 1);
 };

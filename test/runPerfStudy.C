@@ -1,4 +1,4 @@
-#if !defined(__CINT__) || defined(__MAKECINT__)
+#if !defined(__CLING__) || defined(__ROOTCLING__)
 #include <TTree.h>
 #include <TFile.h>
 #include <TParticle.h>
@@ -6,16 +6,15 @@
 #include "NA6PVerTelCluster.h"
 #include "NA6PMuonSpecCluster.h"
 #include "NA6PMuonSpecModularHit.h"
-#include "MagneticField.h"
+#include "Propagator.h"
+#include "NA6PMatch.h"
 #include "NA6PTrack.h"
-#include "NA6PFastTrackFitter.h"
 #include "NA6PTreeStreamRedirector.h"
 #include "HistoManager.h"
 #include <TDatabasePDG.h>
 #include <TParticlePDG.h>
 #include <TLorentzVector.h>
 #include <TCanvas.h>
-#include <TGeoGlobalMagField.h>
 #include <TPad.h>
 #include <TStyle.h>
 #include <TF1.h>
@@ -47,7 +46,6 @@ struct MCTrackInfo {
   int bestMSTrack = -1;
   int bestMatch = -1;
   int parent = -1;
-
   std::vector<int> vtClID;
   std::vector<int> msClID;
   std::array<float, 3> momMS{}, posMS{};
@@ -62,7 +60,7 @@ const char* parName[5] = {"X", "Y", "Tx", "Ty", "q/Pxz"};
 const float parMaxDiff[5] = {0.02, 0.02, 0.005, 0.005, 0.1};
 const float maxMassDiff = 0.4;
 
-const float hrangeParBias[5][2] = {{-0.015f, 0.015f},{-0.015f, 0.015f},{-1e-3f, 1e-3f},{-1e-3f, 1e-3f},{-1e-3f, 1e-3f}};
+const float hrangeParBias[5][2] = {{-0.015f, 0.015f}, {-0.015f, 0.015f}, {-1e-3f, 1e-3f}, {-1e-3f, 1e-3f}, {-1e-3f, 1e-3f}};
 const float hrangeParSigm[5][2] = {{0.f, 0.006}, {0.0f, 0.006f}, {0.f, 0.003f}, {0.f, 0.003f}, {0., 0.02}};
 
 const float hrangeEff[4][2] = {{0.8f, 1.f}, {0.2f, 1.f}, {0.2f, 1.f}, {0.2, 1.f}};
@@ -78,7 +76,6 @@ na6p::HistoManager* hm = nullptr;
 
 std::unordered_map<int, MCTrackInfo> mcTruth;
 std::unique_ptr<NA6PTreeStreamRedirector> outPerf;
-std::unique_ptr<NA6PFastTrackFitter> propFitter;
 
 TTree *mcTree = nullptr, *vtClTree = nullptr, *vtTrTree = nullptr, *msClTree = nullptr, *msTrTree = nullptr, *matchTree = nullptr;
 TTree* msHitsTree = nullptr;
@@ -87,7 +84,7 @@ std::vector<NA6PVerTelCluster>* vtClVec = nullptr;
 std::vector<NA6PTrack>* vtTrVec = nullptr;
 std::vector<NA6PMuonSpecCluster>* msClVec = nullptr;
 std::vector<NA6PTrack>* msTrVec = nullptr;
-std::vector<NA6PTrack>* matchVec = nullptr;
+std::vector<NA6PMatch>* matchVec = nullptr;
 std::vector<NA6PMuonSpecModularHit>* msHitsVec = nullptr;
 Long64_t nEntries = 0;
 
@@ -100,66 +97,8 @@ void checkVTTracking();
 void createOutput(bool checkVTTracks, bool checkMSTracks, bool checkMatches, bool checkDimu);
 void bookHistos(bool checkVTTracks, bool checkMSTracks, bool checkMatches, bool checkDimu);
 void finalizeHistos(na6p::HistoManager* hman);
-void drawHistos(na6p::HistoManager* hman, bool same = false, bool reproc = false);
+void drawHistos(na6p::HistoManager* hman, int copy = 0, bool reproc = false);
 void createPDF(const char* outName = "perfrep.pdf");
-
-struct PerfTrackPar {
-  double z = -99999.;
-  double par[5] = {0., 0., 0., 0., 0.}; // x, y, tx=px/pXZ, ty=py/pXZ, q/pXZ
-  bool valid = false;
-};
-
-PerfTrackPar makePerfTrackPar(const double* xyz, const double* pxyz, int charge)
-{
-  PerfTrackPar p;
-  p.z = xyz[2];
-  p.par[0] = xyz[0];
-  p.par[1] = xyz[1];
-  const double pXZ = std::hypot(pxyz[0], pxyz[2]);
-  if (pXZ > 0.) {
-    p.par[2] = pxyz[0] / pXZ;
-    p.par[3] = pxyz[1] / pXZ;
-    p.par[4] = charge / pXZ;
-    p.valid = true;
-  }
-  return p;
-}
-
-PerfTrackPar makePerfTrackPar(const NA6PTrack& tr)
-{
-  double xyz[3], pxyz[3];
-  tr.getXYZ(xyz);
-  tr.getPXYZ(pxyz);
-  return makePerfTrackPar(xyz, pxyz, tr.getCharge() < 0 ? -1 : 1);
-}
-
-double getPerfP(const PerfTrackPar& p)
-{
-  return p.valid && p.par[4] != 0. ? std::sqrt(1. + p.par[3] * p.par[3]) / std::abs(p.par[4]) : 0.;
-}
-
-double getPerfRapidity(const PerfTrackPar& p, double mass = 0.105658369)
-{
-  if (!p.valid || p.par[4] == 0.) {
-    return 0.;
-  }
-  const double pxz = 1. / std::abs(p.par[4]);
-  const double cosPsi = std::sqrt(std::max(0., (1. - p.par[2]) * (1. + p.par[2])));
-  const double pz = pxz * cosPsi;
-  const double mom = pxz * std::sqrt(1. + p.par[3] * p.par[3]);
-  const double en = std::hypot(mom, mass);
-  return en > pz ? 0.5 * std::log((en + pz) / (en - pz)) : 0.;
-}
-
-bool propagateTrackToZ(NA6PTrack& tr, double z, int pdg = 13)
-{
-  if (!propFitter) {
-    return false;
-  }
-  propFitter->setParticleHypothesis(pdg);
-  return propFitter->propagateToZ(&tr, z) == 1;
-}
-
 
 void runPerfStudy(int firstEv = 0,
                   int lastEv = 99999,
@@ -170,16 +109,9 @@ void runPerfStudy(int firstEv = 0,
                   const char* dirSimu = ".",
                   const char* dirRec = ".")
 {
-  auto magField = new MagneticField();
-  magField->loadField();
-  magField->setAsGlobalField();
-
-  propFitter = std::make_unique<NA6PFastTrackFitter>();
-  propFitter->enableMaterialCorrections();
-  if (!propFitter->loadGeometry(Form("%s/geometry.root", dirSimu))) {
+  if (!Propagator::loadField() || !Propagator::loadGeometry(Form("%s/geometry.root", dirSimu))) {
     return;
   }
-
   setupInputs(checkVTTracks, checkMSTracks, checkMatches, dirSimu, dirRec);
   bookHistos(checkVTTracks, checkMSTracks, checkMatches, checkDimu);
   if (lastEv < 1) {
@@ -207,7 +139,6 @@ void runPerfStudy(int firstEv = 0,
 
   outPerf->Close();
   outPerf.reset();
-  propFitter.reset();
   finalizeHistos(hm);
   hm->write();
   drawHistos(hm);
@@ -270,17 +201,17 @@ void bookHistos(bool checkVTTracks, bool checkMSTracks, bool checkMatches, bool 
     hm->addHisto(hrcMT, offset + 12);
     auto hrcMTeff = new TH1F("matcheffDimuMS_rapidity", "Matching eff. Dimu vs rapidity;rapidity;eff.", nbinsAxis[1], cutAxisMin[2][1], cutAxisMax[2][1]);
     hm->addHisto(hrcMTeff, offset + 13);
-    auto hrcMTpur = new TH1F("matchpurDimuMS_rapidity", "Matching purity. Dimu vs rapidity;rapidity;purity", nbinsAxis[1], cutAxisMin[2][1], cutAxisMax[2][1]);
+    auto hrcMTpur = new TH1F("matchpurDimuMS_rapidity", "Mathing purity. Dimu vs rapidity;rapidity;purity", nbinsAxis[1], cutAxisMin[2][1], cutAxisMax[2][1]);
     hm->addHisto(hrcMTpur, offset + 14);
 
-    auto massResMS = new TH1F("massresDimuMS", "MS reconstructed mass res;#DeltaM", nBinsMassRes, -maxMassDiff, maxMassDiff);
+    auto massResMS = new TH1F("massresDimuMS", "MS reconstructed mass res;M_{rec}-M_{gen}", nBinsMassRes, -maxMassDiff, maxMassDiff);
     hm->addHisto(massResMS, offset + 100);
-    auto massResCorrMS = new TH1F("massresCorrDimuMS", "MS correctly reconstructed mass res;#DeltaM", nBinsMassRes, -maxMassDiff, maxMassDiff);
+    auto massResCorrMS = new TH1F("massresCorrDimuMS", "MS correctly reconstructed mass res;M_{rec}-M_{gen}", nBinsMassRes, -maxMassDiff, maxMassDiff);
     hm->addHisto(massResCorrMS, offset + 101);
 
-    auto massResMatch = new TH1F("massresDimuMatch", "Matched mass res;#DeltaM", nBinsMassRes, -maxMassDiff, maxMassDiff);
+    auto massResMatch = new TH1F("massresDimuMatch", "Matched mass res;M_{rec}-M_{gen}", nBinsMassRes, -maxMassDiff, maxMassDiff);
     hm->addHisto(massResMatch, offset + 110);
-    auto massResCorrMatch = new TH1F("massresCorrDimuMatch", "Correctly matched mass res;#DeltaM", nBinsMassRes, -maxMassDiff, maxMassDiff);
+    auto massResCorrMatch = new TH1F("massresCorrDimuMatch", "Correctly matched mass res;M_{rec}-M_{gen}", nBinsMassRes, -maxMassDiff, maxMassDiff);
     hm->addHisto(massResCorrMatch, offset + 111);
   }
   hm->sumw2();
@@ -320,13 +251,16 @@ void finalizeHistos(na6p::HistoManager* hman)
       }
     }
   }
+  // dimuons
   {
     int offset = HMOffsets[3];
     if (hman->getHisto(offset + 0)) {
-      hman->getHisto(offset + 3)->Divide(hman->getHisto(offset + 1), hman->getHisto(offset + 0), 1., 1., "B");
-      hman->getHisto(offset + 4)->Divide(hman->getHisto(offset + 2), hman->getHisto(offset + 1), 1., 1., "B");
-      hman->getHisto(offset + 13)->Divide(hman->getHisto(offset + 11), hman->getHisto(offset + 10), 1., 1., "B");
-      hman->getHisto(offset + 14)->Divide(hman->getHisto(offset + 12), hman->getHisto(offset + 11), 1., 1., "B");
+      hman->getHisto(offset + 3)->Divide(hman->getHisto(offset + 1), hman->getHisto(offset + 0), 1., 1., "B"); // eff dimu MS
+      hman->getHisto(offset + 4)->Divide(hman->getHisto(offset + 2), hman->getHisto(offset + 1), 1., 1., "B"); // purity dimu MS
+
+      hman->getHisto(offset + 13)->Divide(hman->getHisto(offset + 11), hman->getHisto(offset + 10), 1., 1., "B"); // eff dimu Match
+      hman->getHisto(offset + 14)->Divide(hman->getHisto(offset + 12), hman->getHisto(offset + 11), 1., 1., "B"); // purity dimu Match
+
       if (hman->getHisto(offset + 100)->GetEntries() > 50) {
         hman->getHisto(offset + 100)->Fit(gs.get(), "q", "");
       }
@@ -348,12 +282,13 @@ TCanvas* cnvKin[3][2] = {{0, 0}, {0, 0}, {0, 0}};
 TCanvas* cnvDimuEff = nullptr;
 TCanvas* cnvDimuRes = nullptr;
 
-void drawHistos(na6p::HistoManager* hman, bool same, bool reproc)
+void drawHistos(na6p::HistoManager* hman, int copy, bool reproc)
 {
-  auto drawHistoA = [same](TH1* h, float mn=1e6, float mx=-1e6, float mrgH=0.15, float mrgL=0.15) {
+  auto drawHistoA = [copy, hman](int id, float mn = 1e6, float mx = -1e6, float mrgH = 0.15, float mrgL = 0.15) {
+    auto h = hman->getHisto(id);
     gPad->SetBottomMargin(0.15);
     gPad->SetLeftMargin(0.15);
-    h->Draw(same ? "same" : "");
+    h->Draw(copy > 0 ? "same" : "");
     h->GetXaxis()->SetLabelSize(0.04);
     h->GetYaxis()->SetLabelSize(0.04);
     h->GetXaxis()->SetTitleSize(0.05);
@@ -361,36 +296,41 @@ void drawHistos(na6p::HistoManager* hman, bool same, bool reproc)
     gPad->SetGrid();
     gPad->Modified();
     if (mn > mx) {
-      na6p::HistoManager::getHistosMinMaxRange(gPad, mn, mx);
+      na6p::HistoManager::getHistosMinMaxRange(gPad, mn, mx); // estimate min max since the external one was not provided
     }
     na6p::HistoManager::setHistosMinMaxRange(gPad, mn, mx, mrgH, mrgL);
     auto stpad = na6p::HistoManager::getStatPad(h);
     if (stpad) {
-      na6p::HistoManager::setStatPad(h, 0.7, 0.99, same ? 0.62 : 0.77, same ? 0.77 : 0.92);
+      na6p::HistoManager::setStatPad(h, 0.7, 0.99, 0.77 - 0.15 * copy, 0.92 - 0.15 * copy);
     }
   };
 
   gStyle->SetTitleW(0.5);
   gStyle->SetOptStat(0);
+
   if (reproc) {
     finalizeHistos(hman);
   }
 
+  const char* opt = copy == 0 ? "" : "same";
   for (int itp = 0; itp < 3; itp++) {
     int offset = HMOffsets[itp];
     if (!hman->getHisto(offset + 0 * 100 + 0)) {
       continue;
     }
+    //--------------- Eff
     if (!cnvEff[itp]) {
       cnvEff[itp] = new TCanvas(Form("cnv%s", prefHisto[itp]), Form("cnv%s", prefHisto[itp]), 600, 800);
       cnvEff[itp]->Divide(2, 2);
     }
     for (int iax = 0; iax < 2; iax++) {
       cnvEff[itp]->cd(1 + 2 * iax);
-      drawHistoA(hman->getHisto(offset + iax * 100 + 3), hrangeEff[itp][0], hrangeEff[itp][1]);
+      drawHistoA(offset + iax * 100 + 3, hrangeEff[itp][0], hrangeEff[itp][1]);
       cnvEff[itp]->cd(2 + 2 * iax);
-      drawHistoA(hman->getHisto(offset + iax * 100 + 4), hrangePurity[itp][0], hrangePurity[itp][1]);
+      drawHistoA(offset + iax * 100 + 4, hrangePurity[itp][0], hrangePurity[itp][1]);
     }
+    //--------------- Res
+
     for (int iax = 0; iax < 2; iax++) {
       if (!cnvKin[itp][iax]) {
         cnvKin[itp][iax] = new TCanvas(Form("cnv%s%s", prefHisto[itp], prefAxisS[iax]), Form("cnv%s%s", prefHisto[itp], prefAxisS[iax]), 600, 800);
@@ -399,9 +339,9 @@ void drawHistos(na6p::HistoManager* hman, bool same, bool reproc)
       for (int ip = 0; ip < 5; ip++) {
         int hid = offset + iax * 100 + 500 + ip * 10;
         cnvKin[itp][iax]->cd(1 + ip * 2);
-        drawHistoA(hman->getHisto(hid + 1), hrangeParBias[ip][0], hrangeParBias[ip][1]);
+        drawHistoA(hid + 1, hrangeParBias[ip][0], hrangeParBias[ip][1]);
         cnvKin[itp][iax]->cd(2 + ip * 2);
-        drawHistoA(hman->getHisto(hid + 2), hrangeParSigm[ip][0], hrangeParSigm[ip][1], 0.15f, 0.f);
+        drawHistoA(hid + 2, hrangeParSigm[ip][0], hrangeParSigm[ip][1], 0.15f, 0.f);
       }
     }
   }
@@ -413,9 +353,9 @@ void drawHistos(na6p::HistoManager* hman, bool same, bool reproc)
     }
     for (int i = 0; i < 2; i++) {
       cnvDimuEff->cd(1 + i * 2);
-      drawHistoA(hman->getHisto(offset + i * 10 + 3), hrangeEff[3][0], hrangeEff[3][1]);
+      drawHistoA(offset + i * 10 + 3, hrangeEff[3][0], hrangeEff[3][1]);
       cnvDimuEff->cd(1 + i * 2 + 1);
-      drawHistoA(hman->getHisto(offset + i * 10 + 4), hrangePurity[3][0], hrangePurity[3][1]);
+      drawHistoA(offset + i * 10 + 4, hrangePurity[3][0], hrangePurity[3][1]);
     }
     if (!cnvDimuRes) {
       cnvDimuRes = new TCanvas("cnvDimuRes", "cnvDimuRes", 600, 800);
@@ -423,46 +363,45 @@ void drawHistos(na6p::HistoManager* hman, bool same, bool reproc)
     }
     for (int i = 0; i < 2; i++) {
       cnvDimuRes->cd(1 + i * 2);
-      drawHistoA(hman->getHisto(offset + 100 + i * 10 + 0), 1.f, -1.f, 0.15, 0);
+      drawHistoA(offset + 100 + i * 10 + 0, 1.f, -1.f, 0.15, 0);
+
       cnvDimuRes->cd(1 + i * 2 + 1);
-      drawHistoA(hman->getHisto(offset + 100 + i * 10 + 1), 1.f, -1.f, 0.15, 0);
+      drawHistoA(offset + 100 + i * 10 + 1, 1.f, -1.f, 0.15, 0);
     }
   }
 }
 
 void createOutput(bool checkVTTracks, bool checkMSTracks, bool checkMatches, bool checkDimu)
 {
-  PerfTrackPar dummy;
+  NA6PTrackParCov dummy;
+  dummy.invalidate();
+  auto prop = Propagator::Instance();
   for (auto& mcInfoPair : mcTruth) {
     const auto& mcTrackInfo = mcInfoPair.second;
     if (mcTrackInfo.status != MCTrackInfo::Accept || !(mcTrackInfo.isReconstructableVT() || mcTrackInfo.isReconstructableMS()))
       continue;
 
     const auto& partMC = (*mcArr)[mcInfoPair.first];
-    // convert to common NA6P state [x, y, tx, ty, q/pXZ]
-    double mom[3] = {partMC.Px(), partMC.Py(), partMC.Pz()}, pos[3] = {partMC.Vx(), partMC.Vy(), partMC.Vz()};
-    PerfTrackPar trMC = makePerfTrackPar(pos, mom, mcTrackInfo.charge);
-    double pInvMC = getPerfP(trMC) > 0. ? 1. / getPerfP(trMC) : 0.;
-    double rapidityMC = partMC.Y();
+    // convert to TrackParam
+    float mom[3] = {(float)partMC.Px(), (float)partMC.Py(), (float)partMC.Pz()}, pos[3] = {(float)partMC.Vx(), (float)partMC.Vy(), (float)partMC.Vz()};
+    NA6PTrackPar trMC(pos, mom, mcTrackInfo.charge);
+    float pInvMC = 1.f / trMC.getP(), rapidityMC = trMC.getRapidity();
 
     if (checkVTTracks && mcTrackInfo.isReconstructableVT()) { // output generated info at the vertex
       hm->getHisto(HMOffsets[0] + 0 * 100 + 0)->Fill(pInvMC); // reconstructable
       hm->getHisto(HMOffsets[0] + 1 * 100 + 0)->Fill(rapidityMC);
-      PerfTrackPar trCopy;
+      NA6PTrackParCov trCopy;
       int nVTHits = 0, nClones = 0, partID = -1;
       float chi2 = -1.f;
       if (mcTrackInfo.bestVTTrack >= 0) {
         const auto& vtTr = (*vtTrVec)[mcTrackInfo.bestVTTrack];
-        NA6PTrack vtCopy = vtTr;
-        trCopy = makePerfTrackPar(vtCopy);
+        trCopy = vtTr;
         nVTHits = vtTr.getNHits();
         nClones = mcTrackInfo.nVTTracks;
         partID = vtTr.getParticleID();
         chi2 = vtTr.getChi2();
-        if (!propagateTrackToZ(vtCopy, pos[2], partMC.GetPdgCode())) {
-          trCopy = dummy;
-        } else {
-          trCopy = makePerfTrackPar(vtCopy);
+        if (!prop->propagateToZ(trCopy, pos[2])) {
+          trCopy.invalidate();
         }
         hm->getHisto(HMOffsets[0] + 0 * 100 + 1)->Fill(pInvMC); // reconstructed
         hm->getHisto(HMOffsets[0] + 1 * 100 + 1)->Fill(rapidityMC);
@@ -471,26 +410,24 @@ void createOutput(bool checkVTTracks, bool checkMSTracks, bool checkMatches, boo
           hm->getHisto(HMOffsets[0] + 0 * 100 + 2)->Fill(pInvMC); // reconstructed correctly
           hm->getHisto(HMOffsets[0] + 1 * 100 + 2)->Fill(rapidityMC);
         }
-        if (trCopy.valid) { // resolutions
+        if (trCopy.isValid()) { // resolutions
           for (int ip = 0; ip < 5; ip++) {
-            hm->getHisto2F(HMOffsets[0] + 0 * 100 + 500 + ip * 10)->Fill(pInvMC, trCopy.par[ip] - trMC.par[ip]);
-            hm->getHisto2F(HMOffsets[0] + 1 * 100 + 500 + ip * 10)->Fill(rapidityMC, trCopy.par[ip] - trMC.par[ip]);
+            hm->getHisto2F(HMOffsets[0] + 0 * 100 + 500 + ip * 10)->Fill(pInvMC, trCopy.getParam(ip) - trMC.getParam(ip));     // reconstructed
+            hm->getHisto2F(HMOffsets[0] + 1 * 100 + 500 + ip * 10)->Fill(rapidityMC, trCopy.getParam(ip) - trMC.getParam(ip)); // reconstructed
           }
         }
       } else {
         trCopy = dummy;
       }
-      (*outPerf) << "perfVT" << "evID=" << int(mcTree->GetReadEntry()) << "mcTrID=" << mcInfoPair.first << "pdg=" << partMC.GetPdgCode()
-                 << "mcZ=" << trMC.z << "mcPar[5]=" << trMC.par << "nvtLr=" << mcTrackInfo.nvtLr << "nmsLr=" << mcTrackInfo.nmsLr
-                 << "vtZ=" << trCopy.z << "vtPar[5]=" << trCopy.par << "nVTCl=" << nVTHits << "chi2vt=" << chi2 << "nClones=" << nClones << "mcID=" << partID << "\n";
+      (*outPerf) << "perfVT" << "evID=" << int(mcTree->GetReadEntry()) << "mcTrID=" << mcInfoPair.first << "pdg=" << partMC.GetPdgCode() << "mcTr=" << trMC
+                 << "nvtLr=" << mcTrackInfo.nvtLr << "nmsLr=" << mcTrackInfo.nmsLr
+                 << "vtTr=" << trCopy << "nVTCl=" << nVTHits << "chi2vt=" << chi2 << "nClones=" << nClones << "mcID=" << partID << "\n";
     }
     //-----------------------
 
     if (checkMSTracks && mcTrackInfo.isReconstructableMS()) { // output generated info at the vertex
-      PerfTrackPar trCopy;
-      double posMS[3] = {mcTrackInfo.posMS[0], mcTrackInfo.posMS[1], mcTrackInfo.posMS[2]};
-      double momMS[3] = {mcTrackInfo.momMS[0], mcTrackInfo.momMS[1], mcTrackInfo.momMS[2]};
-      PerfTrackPar msMCTr = makePerfTrackPar(posMS, momMS, mcTrackInfo.charge);
+      NA6PTrackParCov trCopy;
+      NA6PTrackPar msMCTr(mcTrackInfo.posMS, mcTrackInfo.momMS, mcTrackInfo.charge);
       hm->getHisto(HMOffsets[1] + 0 * 100 + 0)->Fill(pInvMC); // reconstructable
       hm->getHisto(HMOffsets[1] + 1 * 100 + 0)->Fill(rapidityMC);
 
@@ -498,16 +435,13 @@ void createOutput(bool checkVTTracks, bool checkMSTracks, bool checkMatches, boo
       float chi2 = -1.f;
       if (mcTrackInfo.bestMSTrack >= 0) {
         const auto& msTr = (*msTrVec)[mcTrackInfo.bestMSTrack];
-        NA6PTrack msCopy = msTr;
-        trCopy = makePerfTrackPar(msCopy);
+        trCopy = msTr;
         nMSHits = msTr.getNHits();
         nClones = mcTrackInfo.nMSTracks;
         partID = msTr.getParticleID();
         chi2 = msTr.getChi2();
-        if (!propagateTrackToZ(msCopy, msMCTr.z, partMC.GetPdgCode())) {
-          trCopy = dummy;
-        } else {
-          trCopy = makePerfTrackPar(msCopy);
+        if (!prop->propagateToZ(trCopy, msMCTr.getZ())) {
+          trCopy.invalidate();
         }
         hm->getHisto(HMOffsets[1] + 0 * 100 + 1)->Fill(pInvMC); // reconstructed
         hm->getHisto(HMOffsets[1] + 1 * 100 + 1)->Fill(rapidityMC);
@@ -516,38 +450,35 @@ void createOutput(bool checkVTTracks, bool checkMSTracks, bool checkMatches, boo
           hm->getHisto(HMOffsets[1] + 0 * 100 + 2)->Fill(pInvMC); // reconstructed correctly
           hm->getHisto(HMOffsets[1] + 1 * 100 + 2)->Fill(rapidityMC);
         }
-        if (trCopy.valid) { // resolutions
+        if (trCopy.isValid()) { // resolutions
           for (int ip = 0; ip < 5; ip++) {
-            hm->getHisto2F(HMOffsets[1] + 0 * 100 + 500 + ip * 10)->Fill(pInvMC, trCopy.par[ip] - msMCTr.par[ip]);
-            hm->getHisto2F(HMOffsets[1] + 1 * 100 + 500 + ip * 10)->Fill(rapidityMC, trCopy.par[ip] - msMCTr.par[ip]);
+            hm->getHisto2F(HMOffsets[1] + 0 * 100 + 500 + ip * 10)->Fill(pInvMC, trCopy.getParam(ip) - msMCTr.getParam(ip));     // reconstructed
+            hm->getHisto2F(HMOffsets[1] + 1 * 100 + 500 + ip * 10)->Fill(rapidityMC, trCopy.getParam(ip) - msMCTr.getParam(ip)); // reconstructed
           }
         }
       } else {
         trCopy = dummy;
       }
       (*outPerf) << "perfMS" << "evID=" << int(mcTree->GetReadEntry()) << "mcTrID=" << mcInfoPair.first << "pdg=" << partMC.GetPdgCode()
-                 << "mcZMS0=" << msMCTr.z << "mcParMS0[5]=" << msMCTr.par << "nvtLr=" << mcTrackInfo.nvtLr << "nmsLr=" << mcTrackInfo.nmsLr
-                 << "msZ=" << trCopy.z << "msPar[5]=" << trCopy.par << "nMSCl=" << nMSHits << "chi2ms=" << chi2 << "nClones=" << nClones << "mcID=" << partID << "\n";
+                 << "mcTrMS0=" << msMCTr << "nvtLr=" << mcTrackInfo.nvtLr << "nmsLr=" << mcTrackInfo.nmsLr
+                 << "msTr=" << trCopy << "nMSCl=" << nMSHits << "chi2ms=" << chi2 << "nClones=" << nClones << "mcID=" << partID << "\n";
     }
     //-----------------------
     if (checkMatches && mcTrackInfo.isReconstructableVT() && mcTrackInfo.isReconstructableMS()) { // output generated info at the vertex
-      PerfTrackPar trCopy;
+      NA6PTrackParCov trCopy;
       int nClones = 0, partID = -1;
       float chi2refit = -1.f, chi2match = -1.f;
       hm->getHisto(HMOffsets[2] + 0 * 100 + 0)->Fill(pInvMC); // matchable
       hm->getHisto(HMOffsets[2] + 1 * 100 + 0)->Fill(rapidityMC);
       if (mcTrackInfo.bestMatch >= 0) {
         const auto& mtcTr = (*matchVec)[mcTrackInfo.bestMatch];
-        NA6PTrack mtcCopy = mtcTr;
-        trCopy = makePerfTrackPar(mtcCopy);
+        trCopy = mtcTr;
         nClones = mcTrackInfo.nMatches;
         partID = mtcTr.getParticleID();
-        chi2refit = mtcTr.getChi2();
-        chi2match = mtcTr.getMatchChi2();
-        if (!propagateTrackToZ(mtcCopy, pos[2], partMC.GetPdgCode())) {
-          trCopy = dummy;
-        } else {
-          trCopy = makePerfTrackPar(mtcCopy);
+        chi2refit = mtcTr.getChi2Refit();
+        chi2match = mtcTr.getChi2Match();
+        if (!prop->propagateToZ(trCopy, pos[2])) {
+          trCopy.invalidate();
         }
         hm->getHisto(HMOffsets[2] + 0 * 100 + 1)->Fill(pInvMC); // matched
         hm->getHisto(HMOffsets[2] + 1 * 100 + 1)->Fill(rapidityMC);
@@ -556,18 +487,17 @@ void createOutput(bool checkVTTracks, bool checkMSTracks, bool checkMatches, boo
           hm->getHisto(HMOffsets[2] + 0 * 100 + 2)->Fill(pInvMC); // matched correctly
           hm->getHisto(HMOffsets[2] + 1 * 100 + 2)->Fill(rapidityMC);
         }
-        if (trCopy.valid) { // resolutions
+        if (trCopy.isValid()) { // resolutions
           for (int ip = 0; ip < 5; ip++) {
-            hm->getHisto2F(HMOffsets[2] + 0 * 100 + 500 + ip * 10)->Fill(pInvMC, trCopy.par[ip] - trMC.par[ip]);
-            hm->getHisto2F(HMOffsets[2] + 1 * 100 + 500 + ip * 10)->Fill(rapidityMC, trCopy.par[ip] - trMC.par[ip]);
+            hm->getHisto2F(HMOffsets[2] + 0 * 100 + 500 + ip * 10)->Fill(pInvMC, trCopy.getParam(ip) - trMC.getParam(ip));
+            hm->getHisto2F(HMOffsets[2] + 1 * 100 + 500 + ip * 10)->Fill(rapidityMC, trCopy.getParam(ip) - trMC.getParam(ip));
           }
         }
       } else {
         trCopy = dummy;
       }
-      (*outPerf) << "perfMatch" << "evID=" << int(mcTree->GetReadEntry()) << "mcTrID=" << mcInfoPair.first << "pdg=" << partMC.GetPdgCode()
-                 << "mcZ=" << trMC.z << "mcPar[5]=" << trMC.par << "mtcZ=" << trCopy.z << "mtcPar[5]=" << trCopy.par
-                 << "chi2refit=" << chi2refit << "chi2match=" << chi2match << "nClones=" << nClones << "mcID=" << partID << "\n";
+      (*outPerf) << "perfMatch" << "evID=" << int(mcTree->GetReadEntry()) << "mcTrID=" << mcInfoPair.first << "pdg=" << partMC.GetPdgCode() << "mcTr=" << trMC
+                 << "mtcTr=" << trCopy << "chi2refit=" << chi2refit << "chi2match=" << chi2match << "nClones=" << nClones << "mcID=" << partID << "\n";
     }
     //-----------------------
   }
@@ -583,32 +513,33 @@ void createOutput(bool checkVTTracks, bool checkMSTracks, bool checkMatches, boo
         continue;
       }
       const auto& partMC0 = (*mcArr)[it0->first];
+      TLorentzVector muG0;
+      float mom0[3] = {(float)partMC0.Px(), (float)partMC0.Py(), (float)partMC0.Pz()}, pos0[3] = {(float)partMC0.Vx(), (float)partMC0.Vy(), (float)partMC0.Vz()};
+      NA6PTrackPar muG0Tr(pos0, mom0, mcTrackInfo0.charge);
+      muG0Tr.setPID(PID::Muon);
+      muG0.SetXYZM(partMC0.Px(), partMC0.Py(), partMC0.Pz(), 0.105658369);
+      TLorentzVector muMS0, muMatch0;
+      int muMSRec0ID = dummyID, muMatchRec0ID = dummyID;
       if (std::abs(partMC0.GetPdgCode()) != 13 || mcTrackInfo0.parent < 0) {
         it0++;
         continue;
       }
-      TLorentzVector muG0;
-      muG0.SetXYZM(partMC0.Px(), partMC0.Py(), partMC0.Pz(), 0.105658369);
-      TLorentzVector muMS0, muMatch0;
-      int muMSRec0ID = dummyID, muMatchRec0ID = dummyID;
+      NA6PTrackPar muMSRec0Par;
       if (mcTrackInfo0.bestMSTrack >= 0) {
-        NA6PTrack muMSRec0Tr = (*msTrVec)[mcTrackInfo0.bestMSTrack];
-        if (propagateTrackToZ(muMSRec0Tr, partMC0.Vz(), partMC0.GetPdgCode())) {
-          double pxyz[3];
-          muMSRec0Tr.getPXYZ(pxyz);
-          muMS0.SetXYZM(pxyz[0], pxyz[1], pxyz[2], 0.105658369);
+        muMSRec0Par = (*msTrVec)[mcTrackInfo0.bestMSTrack];
+        if (prop->propagateToZ(muMSRec0Par, partMC0.Vz())) {
+          muMS0.SetXYZM(muMSRec0Par.getPx(), muMSRec0Par.getPy(), muMSRec0Par.getPz(), 0.105658369);
           muMSRec0ID = (*msTrVec)[mcTrackInfo0.bestMSTrack].getParticleID();
         }
       }
       bool matchable0 = false;
+      NA6PTrackPar muMatchRec0Par;
       if (mcTrackInfo0.isReconstructableVT()) {
         matchable0 = true;
         if (mcTrackInfo0.bestMatch >= 0) {
-          NA6PTrack muMatchRec0Tr = (*matchVec)[mcTrackInfo0.bestMatch];
-          if (propagateTrackToZ(muMatchRec0Tr, partMC0.Vz(), partMC0.GetPdgCode())) {
-            double pxyz[3];
-            muMatchRec0Tr.getPXYZ(pxyz);
-            muMatch0.SetXYZM(pxyz[0], pxyz[1], pxyz[2], 0.105658369);
+          muMatchRec0Par = (*matchVec)[mcTrackInfo0.bestMatch];
+          if (prop->propagateToZ(muMatchRec0Par, partMC0.Vz())) {
+            muMatch0.SetXYZM(muMatchRec0Par.getPx(), muMatchRec0Par.getPy(), muMatchRec0Par.getPz(), 0.105658369);
             muMatchRec0ID = (*matchVec)[mcTrackInfo0.bestMatch].getParticleID();
           }
         }
@@ -628,27 +559,28 @@ void createOutput(bool checkVTTracks, bool checkMSTracks, bool checkMatches, boo
           continue;
         }
         TLorentzVector muG1;
+        float mom1[3] = {(float)partMC1.Px(), (float)partMC1.Py(), (float)partMC1.Pz()}, pos1[3] = {(float)partMC1.Vx(), (float)partMC1.Vy(), (float)partMC1.Vz()};
+        NA6PTrackPar muG1Tr(pos1, mom1, mcTrackInfo1.charge);
+        muG1Tr.setPID(PID::Muon);
         muG1.SetXYZM(partMC1.Px(), partMC1.Py(), partMC1.Pz(), 0.105658369);
         TLorentzVector muMS1, muMatch1;
         int muMSRec1ID = dummyID, muMatchRec1ID = dummyID;
+        NA6PTrackPar muMSRec1Par;
         if (mcTrackInfo1.bestMSTrack >= 0) {
-          NA6PTrack muMSRec1Tr = (*msTrVec)[mcTrackInfo1.bestMSTrack];
-          if (propagateTrackToZ(muMSRec1Tr, partMC1.Vz(), partMC1.GetPdgCode())) {
-            double pxyz[3];
-            muMSRec1Tr.getPXYZ(pxyz);
-            muMS1.SetXYZM(pxyz[0], pxyz[1], pxyz[2], 0.105658369);
+          muMSRec1Par = (*msTrVec)[mcTrackInfo1.bestMSTrack];
+          if (prop->propagateToZ(muMSRec1Par, partMC1.Vz())) {
+            muMS1.SetXYZM(muMSRec1Par.getPx(), muMSRec1Par.getPy(), muMSRec1Par.getPz(), 0.105658369);
             muMSRec1ID = (*msTrVec)[mcTrackInfo1.bestMSTrack].getParticleID();
           }
         }
         bool matchable1 = false;
+        NA6PTrackPar muMatchRec1Par;
         if (mcTrackInfo1.isReconstructableVT()) {
           matchable1 = true;
           if (mcTrackInfo1.bestMatch >= 0) {
-            NA6PTrack muMatchRec1Tr = (*matchVec)[mcTrackInfo1.bestMatch];
-            if (propagateTrackToZ(muMatchRec1Tr, partMC1.Vz(), partMC1.GetPdgCode())) {
-              double pxyz[3];
-              muMatchRec1Tr.getPXYZ(pxyz);
-              muMatch1.SetXYZM(pxyz[0], pxyz[1], pxyz[2], 0.105658369);
+            muMatchRec1Par = (*matchVec)[mcTrackInfo1.bestMatch];
+            if (prop->propagateToZ(muMatchRec1Par, partMC1.Vz())) {
+              muMatch1.SetXYZM(muMatchRec1Par.getPx(), muMatchRec1Par.getPy(), muMatchRec1Par.getPz(), 0.105658369);
               muMatchRec1ID = (*matchVec)[mcTrackInfo1.bestMatch].getParticleID();
             }
           }
@@ -664,7 +596,7 @@ void createOutput(bool checkVTTracks, bool checkMSTracks, bool checkMatches, boo
           muParentMatchRec = muMatch0;
           muParentMatchRec += muMatch1;
         }
-
+        //------------------- fill
         int offset = HMOffsets[3];
         auto dimuRapidityMC = muParentG.Rapidity(), dimuMMC = muParentG.M();
         hm->getHisto(offset + 0)->Fill(dimuRapidityMC);
@@ -690,9 +622,16 @@ void createOutput(bool checkVTTracks, bool checkMSTracks, bool checkMatches, boo
         }
 
         (*outPerf) << "perfDimu" << "evID=" << int(mcTree->GetReadEntry()) << "genDimu=" << muParentG << "matchable=" << (matchable0 && matchable1)
-                   << "genMu0ID=" << it0->first << "genMu1ID=" << it1->first
                    << "recDimuMS=" << muParentMSRec << "recMuMS0ID=" << muMSRec0ID << "recMuMS1ID=" << muMSRec1ID
-                   << "recDimuMatch=" << muParentMatchRec << "recMatch0ID=" << muMatchRec0ID << "recMatch1ID=" << muMatchRec1ID << "\n";
+                   << "recDimuMatch=" << muParentMatchRec << "recMatch0ID=" << muMatchRec0ID << "recMatch1ID=" << muMatchRec1ID
+                   << "genMu0=" << muG0 << "genMu1=" << muG1 << "genMu0ID=" << it0->first << "genMu1ID=" << it1->first
+                   << "recMuMS0=" << muMS0 << "recMuMS1=" << muMS1
+                   << "recMuMatch0=" << muMatch0 << "recMuMatch1=" << muMatch1
+                   << "matchable0=" << matchable0 << "matchable1=" << matchable1
+                   << "genMu0Par=" << muG0Tr << "genMu1Par=" << muG1Tr
+                   << "recMuMS0Par=" << muMSRec0Par << "recMuMS1Par=" << muMSRec1Par
+                   << "recMuMatch0Par=" << muMatchRec0Par << "recMuMatch1Par=" << muMatchRec1Par
+                   << "\n";
       }
       it0++;
     }
@@ -752,7 +691,7 @@ void checkMatching()
       mcInfo.bestMatch = itr;
     } else {
       const auto& trPrev = (*matchVec)[mcInfo.bestMatch];
-      if (trPrev.getMatchChi2() > tr.getMatchChi2()) {
+      if (trPrev.getChi2Match() > tr.getChi2Match()) {
         mcInfo.bestMatch = itr;
       }
     }
@@ -761,39 +700,39 @@ void checkMatching()
 
 void setupInputs(bool checkVTTracks, bool checkMSTracks, bool checkMatches, const char* dirSimu, const char* dirRec)
 {
-  auto fetchTree = [&](const char* dir, const char* fname, const char* tname, TTree*& tree) {
-    auto f = TFile::Open(Form("%s/%s", dir, fname));
+  // kine file needed to get the primary vertex position (temporary)
+  auto fetchTree = [&](const char* fname, const char* tname, TTree*& tree) {
+    auto f = TFile::Open(Form("%s/%s", dirSimu, fname));
     if (!f || f->IsZombie() || !(tree = (TTree*)f->Get(tname))) {
-      ::Error("runPerfStudy", "Cannot open %s/%s:%s", dir, fname, tname);
       exit(1);
     }
     nEntries = nEntries > 0 ? std::min(tree->GetEntries(), nEntries) : tree->GetEntries();
   };
 
-  fetchTree(dirSimu, "MCKine.root", "mckine", mcTree);
+  fetchTree(Form("%s/MCKine.root", dirSimu), "mckine", mcTree);
   mcTree->SetBranchAddress("tracks", &mcArr);
 
   if (checkVTTracks || checkMatches) {
-    fetchTree(dirRec, "ClustersVerTel.root", "clustersVerTel", vtClTree);
+    fetchTree(Form("%s/ClustersVerTel.root", dirSimu), "clustersVerTel", vtClTree);
     vtClTree->SetBranchAddress("VerTel", &vtClVec);
 
-    fetchTree(dirRec, "TracksVerTel.root", "tracksVerTel", vtTrTree);
+    fetchTree(Form("%s/TracksVerTel.root", dirSimu), "tracksVerTel", vtTrTree);
     vtTrTree->SetBranchAddress("VerTel", &vtTrVec);
   }
 
   if (checkMSTracks || checkMatches) {
-    fetchTree(dirRec, "ClustersMuonSpec.root", "clustersMuonSpec", msClTree);
+    fetchTree(Form("%s/ClustersMuonSpec.root", dirSimu), "clustersMuonSpec", msClTree);
     msClTree->SetBranchAddress("MuonSpec", &msClVec);
 
-    fetchTree(dirRec, "TracksMuonSpec.root", "tracksMuonSpec", msTrTree);
+    fetchTree(Form("%s/TracksMuonSpec.root", dirSimu), "tracksMuonSpec", msTrTree);
     msTrTree->SetBranchAddress("MuonSpec", &msTrVec);
 
-    fetchTree(dirSimu, "HitsMuonSpecModular.root", "hitsMuonSpecModular", msHitsTree);
+    fetchTree(Form("%s/HitsMuonSpecModular.root", dirSimu), "hitsMuonSpecModular", msHitsTree);
     msHitsTree->SetBranchAddress("MuonSpecModular", &msHitsVec);
   }
 
   if (checkMatches) {
-    fetchTree(dirRec, "TracksMatching.root", "tracksMatching", matchTree);
+    fetchTree(Form("%s/TracksMatching.root", dirSimu), "tracksMatching", matchTree);
     matchTree->SetBranchAddress("Matching", &matchVec);
   }
 }
@@ -838,7 +777,7 @@ void buildReconstuctableMCInfo()
           break;
         }
         // all checks passed
-        // RS	printf("Accept track:%d/ev:%d from Z=%.3f time %.3f\n", partID, int(mcTree->GetReadEntry()), part.Vz(), part.T());
+        // RS printf("Accept track:%d/ev:%d from Z=%.3f time %.3f\n", partID, int(mcTree->GetReadEntry()), part.Vz(), part.T());
         ent.status = MCTrackInfo::Accept;
         ent.charge = ppdg->Charge() / 3;
         ent.parent = part.GetFirstMother();
@@ -899,7 +838,6 @@ void buildReconstuctableMCInfo()
     }
   }
 }
-
 
 void createPDF(const char* outName)
 {

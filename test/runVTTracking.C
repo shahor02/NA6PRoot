@@ -5,6 +5,7 @@
 #include <TStopwatch.h>
 #include "NA6PVerTelCluster.h"
 #include "NA6PVerTelReconstruction.h"
+#include "Propagator.h"
 #endif
 
 void runVTTracking(int firstEv = 0,
@@ -24,9 +25,13 @@ void runVTTracking(int firstEv = 0,
   std::vector<NA6PVerTelCluster> vtClus, *vtClusPtr = &vtClus;
   tc->SetBranchAddress("VerTel", &vtClusPtr);
 
+  if (!Propagator::loadField() || !Propagator::loadGeometry(Form("%s/geometry.root", dirSimu))) {
+    return;
+  }
+
+  // if needed, configure the recoparams like
+  // NA6PRecoParam::setValue("reco.vtMaxChi2ndfTracksCA[0]", std::to_string(5.));
   NA6PVerTelReconstruction* vtrec = new NA6PVerTelReconstruction();
-  //  vtrec->setRecoParamFile("test.ini");
-  vtrec->setGeometryFile(Form("%s/geometry.root", dirSimu));
   vtrec->initTracker();
 
   int nEv = tc->GetEntries();

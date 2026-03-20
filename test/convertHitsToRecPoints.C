@@ -11,6 +11,7 @@
 #include "ConfigurableParam.h"
 #include <fairlogger/Logger.h>
 #include "NA6PVerTelReconstruction.h"
+#include "NA6PMuonSpecModularHit.h"
 #include "NA6PMuonSpecReconstruction.h"
 #endif
 

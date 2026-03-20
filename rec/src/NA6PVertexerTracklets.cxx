@@ -11,29 +11,15 @@
 #include "NA6PLayoutParam.h"
 #include "NA6PVertexerTracklets.h"
 
-ClassImp(NA6PVertexerTracklets)
-
-  NA6PVertexerTracklets::NA6PVertexerTracklets()
+NA6PVertexerTracklets::NA6PVertexerTracklets()
 {
-  configurePeakFinding(mZMin, mZMax, mNBinsForPeakFind);
+  mRecoParam = &NA6PRecoParam::Instance();
   initTargets();
 }
 
-void NA6PVertexerTracklets::configureFromRecoParam(const std::string& filename)
+void NA6PVertexerTracklets::configureFromRecoParam()
 {
-  if (filename != "") {
-    na6p::conf::ConfigurableParamHelper<NA6PRecoParam>::updateFromFile(filename);
-  }
-  const auto& param = NA6PRecoParam::Instance();
-  mNLayersVT = param.vtNLayers;
-  mLayerToStart = param.vertexerLayerToStart;
-  mMaxDeltaThetaTracklet = param.vertexerMaxDeltaThetaTracklet;
-  mMaxDeltaPhiTracklet = param.vertexerMaxDeltaPhiTracklet;
-  mMaxDeltaTanLamInOut = param.vertexerMaxDeltaTanLamInOut;
-  mMaxDeltaPhiInOut = param.vertexerMaxDeltaPhiInOut;
-  mMaxDeltaPxPzInOut = param.vertexerMaxDeltaPxPzInOut;
-  mMaxDeltaPyPzInOut = param.vertexerMaxDeltaPyPzInOut;
-  const std::string& rtyp = param.vertexerRecoType;
+  const std::string& rtyp = mRecoParam->vertexerRecoType;
   if (rtyp == "YZ")
     mRecoType = kYZ;
   else if (rtyp == "RZ")
@@ -44,8 +30,7 @@ void NA6PVertexerTracklets::configureFromRecoParam(const std::string& filename)
     mRecoType = kXZ;
   else
     LOGP(error, "Wrong option {} for reco type: won't apply this setting", rtyp.c_str());
-  mMaxDCAxy = param.vertexerMaxDCAxy;
-  const std::string& pmet = param.vertexerPeakMethod;
+  const std::string& pmet = mRecoParam->vertexerPeakMethod;
   if (pmet == "Pairs")
     mMethod = kPairs;
   else if (pmet == "KDE")
@@ -54,7 +39,7 @@ void NA6PVertexerTracklets::configureFromRecoParam(const std::string& filename)
     mMethod = kHistoPeak;
   else
     LOGP(error, "Wrong option {} for method: won't apply this setting", pmet.c_str());
-  const std::string& mopt = param.vertexerWeightedMeanOption;
+  const std::string& mopt = mRecoParam->vertexerWeightedMeanOption;
   if (mopt == "NoWeight")
     mWeightedMeanOption = kNoWeight;
   else if (mopt == "TanL")
@@ -63,28 +48,15 @@ void NA6PVertexerTracklets::configureFromRecoParam(const std::string& filename)
     mWeightedMeanOption = kSigma;
   else
     LOGP(error, "Wrong option {} for weights: won't apply this setting", mopt.c_str());
-  mZMin = param.vertexerZMin;
-  mZMax = param.vertexerZMax;
-  mZWindowWidth = param.vertexerZWindowWidth;
-  mNBinsForPeakFind = param.vertexerNBinsForPeakFind;
-  configurePeakFinding(mZMin, mZMax, mNBinsForPeakFind);
-  mPeakWidthBins = param.vertexerPeakWidthBins;
-  mMinCountsInPeak = param.vertexerMinCountsInPeak;
-  const std::string& kopt = param.vertexerKDEOption;
+  configurePeakFinding();
+  const std::string& kopt = mRecoParam->vertexerKDEOption;
   if (kopt == "Standard")
     mKDEOption = kStandardKDE;
   else if (kopt == "Adaptive")
     mKDEOption = kAdaptiveKDE;
   else
     LOGP(error, "Wrong option {} for KDE: won't apply this setting", kopt.c_str());
-  mNGridKDE = param.vertexerNGridKDE;
-  mKDEBandwidth = param.vertexerKDEBandwidth;
-  mMaxPairDCA = param.vertexerMaxPairDCA;
-  mMaxPairVertRadius = param.vertexerMaxPairVertRadius;
-  mMinCandidateDistanceZ = param.vertexerMinCandidateDistanceZ;
-  mMinCandidateDistance3D = param.vertexerMinCandidateDistance3D;
-  mAllowSingleConstribClusters = param.vertexerAllowSingleConstribClusters;
-  const std::string& popt = param.vertexerMultiVertexMode;
+  const std::string& popt = mRecoParam->vertexerMultiVertexMode;
   if (popt == "Off")
     mMultiVertexMode = kMultiVertOff;
   else if (popt == "Iterative")
@@ -104,39 +76,39 @@ void NA6PVertexerTracklets::printConfiguration() const
   static const char* multiVertexNames[] = {"Off", "Iterative", "AllInOne"};
 
   std::cout << "Tracklet building selections:\n";
-  std::cout << "  MaxDeltaThetaTracklet = " << mMaxDeltaThetaTracklet << " rad\n";
-  std::cout << "  MaxDeltaPhiTracklet = " << mMaxDeltaPhiTracklet << " rad\n";
+  std::cout << "  MaxDeltaThetaTracklet = " << mRecoParam->vertexerMaxDeltaThetaTracklet << " rad\n";
+  std::cout << "  MaxDeltaPhiTracklet = " << mRecoParam->vertexerMaxDeltaPhiTracklet << " rad\n";
   std::cout << "Tracklet validation selections:\n";
-  std::cout << "  MaxDeltaTanLamInOut = " << mMaxDeltaTanLamInOut << "\n";
-  std::cout << "  MaxDeltaPhiInOut = " << mMaxDeltaPhiInOut << " rad\n";
-  std::cout << "  MaxDeltaPxPzInOut = " << mMaxDeltaPxPzInOut << "\n";
-  std::cout << "  MaxDeltaPyPzInOut = " << mMaxDeltaPyPzInOut << "\n";
+  std::cout << "  MaxDeltaTanLamInOut = " << mRecoParam->vertexerMaxDeltaTanLamInOut << "\n";
+  std::cout << "  MaxDeltaPhiInOut = " << mRecoParam->vertexerMaxDeltaPhiInOut << " rad\n";
+  std::cout << "  MaxDeltaPxPzInOut = " << mRecoParam->vertexerMaxDeltaPxPzInOut << "\n";
+  std::cout << "  MaxDeltaPyPzInOut = " << mRecoParam->vertexerMaxDeltaPyPzInOut << "\n";
   std::cout << "Reconstruction options:\n";
   std::cout << "  RecoType = " << recoTypeNames[mRecoType] << "\n";
-  std::cout << "  MaxDCAxy = " << mMaxDCAxy << " cm\n";
+  std::cout << "  MaxDCAxy = " << mRecoParam->vertexerMaxDCAxy << " cm\n";
   std::cout << "  Method For peak finding = " << methodNames[mMethod] << "\n";
-  std::cout << "  ZMin = " << mZMin << " cm\n";
-  std::cout << "  ZMax = " << mZMax << " cm\n";
-  std::cout << "  ZWindowWidth = " << mZWindowWidth << " cm\n";
+  std::cout << "  ZMin = " << mRecoParam->vertexerZMin << " cm\n";
+  std::cout << "  ZMax = " << mRecoParam->vertexerZMax << " cm\n";
+  std::cout << "  ZWindowWidth = " << mRecoParam->vertexerZWindowWidth << " cm\n";
   std::cout << "  WeightedMeanOption = " << weightedMeanNames[mWeightedMeanOption] << "\n";
   if (mMethod == kHistoPeak) {
     std::cout << "Z-peak parameters:\n";
-    std::cout << "  NBinsForPeakFind = " << mNBinsForPeakFind << "\n";
+    std::cout << "  NBinsForPeakFind = " << mRecoParam->vertexerNBinsForPeakFind << "\n";
     std::cout << "  BinWidth = " << mZBinWidth << " cm\n";
-    std::cout << "  PeakWidthBins = " << mPeakWidthBins << "\n";
-    std::cout << "  MinCountsInPeak = " << mMinCountsInPeak << "\n";
+    std::cout << "  PeakWidthBins = " << mRecoParam->vertexerPeakWidthBins << "\n";
+    std::cout << "  MinCountsInPeak = " << mRecoParam->vertexerMinCountsInPeak << "\n";
   } else if (mMethod == kKDE) {
     std::cout << "KDE parameters:\n";
     std::cout << "  KDEOption = " << kdeOptionNames[mKDEOption] << "\n";
-    std::cout << "  NGridKDE = " << mNGridKDE << "\n";
-    std::cout << "  KDEBandwidth = " << mKDEBandwidth << " cm\n";
+    std::cout << "  NGridKDE = " << mRecoParam->vertexerNGridKDE << "\n";
+    std::cout << "  KDEBandwidth = " << mRecoParam->vertexerKDEBandwidth << " cm\n";
   } else if (mMethod == kPairs) {
     std::cout << "Tracklet-pairs parameters:\n";
-    std::cout << "  MaxPairDCA = " << mMaxPairDCA << "\n";
-    std::cout << "  MaxPairVertRadius = " << mMaxPairVertRadius << "\n";
-    std::cout << "  MinCandidateDistanceZ = " << mMinCandidateDistanceZ << "\n";
-    std::cout << "  MinCandidateDistance3D = " << mMinCandidateDistance3D << "\n";
-    std::cout << "  AllowSingleConstribClusters = " << mAllowSingleConstribClusters << "\n";
+    std::cout << "  MaxPairDCA = " << mRecoParam->vertexerMaxPairDCA << "\n";
+    std::cout << "  MaxPairVertRadius = " << mRecoParam->vertexerMaxPairVertRadius << "\n";
+    std::cout << "  MinCandidateDistanceZ = " << mRecoParam->vertexerMinCandidateDistanceZ << "\n";
+    std::cout << "  MinCandidateDistance3D = " << mRecoParam->vertexerMinCandidateDistance3D << "\n";
+    std::cout << "  AllowSingleConstribClusters = " << mRecoParam->vertexerAllowSingleConstribClusters << "\n";
   }
   std::cout << "MultiVertexMode = " << multiVertexNames[mMultiVertexMode] << "\n";
   std::cout << "===================================\n";
@@ -187,10 +159,9 @@ bool NA6PVertexerTracklets::isVertexInTarget(float zRecoVert, float tolerance)
 {
   bool inTarget = false;
   for (int jt = 0; jt < mNTargets; ++jt) {
-    float ztarg = mZPosTarg[jt];
-    float dztarg = mZThickTarg[jt];
-    float zmin = mZPosTarg[jt] - 0.5 * mZThickTarg[jt] - tolerance;
-    float zmax = mZPosTarg[jt] + 0.5 * mZThickTarg[jt] + tolerance;
+    float d = 0.5 * mZThickTarg[jt] + tolerance;
+    float zmin = mZPosTarg[jt] - d;
+    float zmax = mZPosTarg[jt] + d;
     if (zRecoVert > zmin && zRecoVert < zmax) {
       inTarget = true;
       break;
@@ -206,19 +177,19 @@ void NA6PVertexerTracklets::sortClustersByLayerAndEta(std::vector<NA6PVerTelClus
                                                       std::vector<int>& lastIndex)
 {
   // count hits per layer
-  std::vector<int> count(mNLayersVT, 0);
+  std::vector<int> count(mRecoParam->vtNLayers, 0);
   for (const auto& clu : cluArr) {
     int jLay = clu.getLayer();
-    if (jLay >= 0 && jLay < mNLayersVT) {
+    if (jLay >= 0 && jLay < mRecoParam->vtNLayers) {
       count[jLay]++;
     }
   }
   // starting offset for each layer
-  firstIndex.resize(mNLayersVT);
-  lastIndex.resize(mNLayersVT);
+  firstIndex.resize(mRecoParam->vtNLayers);
+  lastIndex.resize(mRecoParam->vtNLayers);
   firstIndex[0] = 0;
   lastIndex[0] = count[0];
-  for (int jLay = 1; jLay < mNLayersVT; jLay++) {
+  for (int jLay = 1; jLay < mRecoParam->vtNLayers; jLay++) {
     firstIndex[jLay] = firstIndex[jLay - 1] + count[jLay - 1];
     lastIndex[jLay] = firstIndex[jLay] + count[jLay];
   }
@@ -227,7 +198,7 @@ void NA6PVertexerTracklets::sortClustersByLayerAndEta(std::vector<NA6PVerTelClus
   std::vector<NA6PVerTelCluster> reordered(cluArr.size());
   for (const auto& clu : cluArr) {
     int jLay = clu.getLayer();
-    if (jLay >= 0 && jLay < mNLayersVT)
+    if (jLay >= 0 && jLay < mRecoParam->vtNLayers)
       reordered[countReord[jLay]++] = clu;
   }
   cluArr = std::move(reordered);
@@ -236,7 +207,7 @@ void NA6PVertexerTracklets::sortClustersByLayerAndEta(std::vector<NA6PVerTelClus
   const float pvy = 0.;
   const float pvz = (mNTargets == 0) ? 0.0f : 0.5f * (mZPosTarg[0] + mZPosTarg[mNTargets - 1]);
 
-  for (int jLay = 0; jLay < mNLayersVT; jLay++) {
+  for (int jLay = 0; jLay < mRecoParam->vtNLayers; jLay++) {
     auto first = cluArr.begin() + firstIndex[jLay];
     auto last = cluArr.begin() + lastIndex[jLay];
     std::sort(first, last, [pvx, pvy, pvz](const NA6PVerTelCluster& a, const NA6PVerTelCluster& b) {
@@ -260,19 +231,19 @@ void NA6PVertexerTracklets::sortTrackletsByLayerAndIndex(std::vector<TrackletFor
                                                          std::vector<int>& lastIndex)
 {
   // count clusters per layer
-  std::vector<int> count(mNLayersVT - 1, 0);
+  std::vector<int> count(mRecoParam->vtNLayers - 1, 0);
   for (const auto& trkl : tracklets) {
     int jLay = trkl.startingLayer;
-    if (jLay >= 0 && jLay < mNLayersVT - 1) {
+    if (jLay >= 0 && jLay < mRecoParam->vtNLayers - 1) {
       count[jLay]++;
     }
   }
   // starting offset for each layer
-  firstIndex.resize(mNLayersVT - 1);
-  lastIndex.resize(mNLayersVT - 1);
+  firstIndex.resize(mRecoParam->vtNLayers - 1);
+  lastIndex.resize(mRecoParam->vtNLayers - 1);
   firstIndex[0] = 0;
   lastIndex[0] = count[0];
-  for (int jLay = 1; jLay < mNLayersVT - 1; jLay++) {
+  for (int jLay = 1; jLay < mRecoParam->vtNLayers - 1; jLay++) {
     firstIndex[jLay] = firstIndex[jLay - 1] + count[jLay - 1];
     lastIndex[jLay] = firstIndex[jLay] + count[jLay];
   }
@@ -281,12 +252,12 @@ void NA6PVertexerTracklets::sortTrackletsByLayerAndIndex(std::vector<TrackletFor
   std::vector<TrackletForVertex> reordered(tracklets.size());
   for (const auto& trkl : tracklets) {
     int jLay = trkl.startingLayer;
-    if (jLay >= 0 && jLay < mNLayersVT - 1)
+    if (jLay >= 0 && jLay < mRecoParam->vtNLayers - 1)
       reordered[countReord[jLay]++] = trkl;
   }
   tracklets = std::move(reordered);
   // sort by cluster index within each layer
-  for (int jLay = 0; jLay < mNLayersVT - 1; jLay++) {
+  for (int jLay = 0; jLay < mRecoParam->vtNLayers - 1; jLay++) {
     auto first = tracklets.begin() + firstIndex[jLay];
     auto last = tracklets.begin() + lastIndex[jLay];
     std::sort(first, last, [](const TrackletForVertex& a, const TrackletForVertex& b) {
@@ -308,7 +279,7 @@ void NA6PVertexerTracklets::computeLayerTracklets(const std::vector<NA6PVerTelCl
   const float pvy = 0.;
   const float pvz = (mNTargets == 0) ? 0.0f : 0.5f * (mZPosTarg[0] + mZPosTarg[mNTargets - 1]);
 
-  for (int iLayer = mLayerToStart; iLayer < mLayerToStart + 2; ++iLayer) {
+  for (int iLayer = mRecoParam->vertexerLayerToStart; iLayer < mRecoParam->vertexerLayerToStart + 2; ++iLayer) {
     auto layerBegin = cluArr.begin() + firstIndex[iLayer + 1];
     auto layerEnd = cluArr.begin() + lastIndex[iLayer + 1];
     for (int jClu1 = firstIndex[iLayer]; jClu1 < lastIndex[iLayer]; ++jClu1) {
@@ -319,8 +290,8 @@ void NA6PVertexerTracklets::computeLayerTracklets(const std::vector<NA6PVerTelCl
       double r1 = std::sqrt(x1 * x1 + y1 * y1);
       double theta1 = std::atan2(z1, r1);
       double phi1 = std::atan2(y1, x1);
-      double tanth2Min = std::max(0., std::tan(theta1 - 1.2 * mMaxDeltaThetaTracklet)); // 1.2 is a safety margin
-      double tanth2Max = std::tan(std::min(M_PI / 2.001, theta1 + 1.2 * mMaxDeltaThetaTracklet));
+      double tanth2Min = std::max(0., std::tan(theta1 - 1.2 * mRecoParam->vertexerMaxDeltaThetaTracklet)); // 1.2 is a safety margin
+      double tanth2Max = std::tan(std::min(M_PI / 2.001, theta1 + 1.2 * mRecoParam->vertexerMaxDeltaThetaTracklet));
       auto lower = std::partition_point(layerBegin, layerEnd,
                                         [pvx, pvy, pvz, tanth2Min](const NA6PVerTelCluster& clu) {
                                           double x = clu.getX() - pvx;
@@ -355,7 +326,7 @@ void NA6PVertexerTracklets::computeLayerTracklets(const std::vector<NA6PVerTelCl
           dphi -= 2 * M_PI;
         else if (dphi < -M_PI)
           dphi += 2 * M_PI;
-        if (std::abs(theta2 - theta1) < mMaxDeltaThetaTracklet && std::abs(dphi) < mMaxDeltaPhiTracklet) {
+        if (std::abs(theta2 - theta1) < mRecoParam->vertexerMaxDeltaThetaTracklet && std::abs(dphi) < mRecoParam->vertexerMaxDeltaPhiTracklet) {
           float phi = std::atan2(y2 - y1, x2 - x1);
           float tanL = (z2 - z1) / (r2 - r1);
           float pxpz = (x2 - x1) / (z2 - z1);
@@ -379,7 +350,7 @@ void NA6PVertexerTracklets::selectTracklets(const std::vector<TrackletForVertex>
 {
 
   selTracklets.clear();
-  int iLayer = mLayerToStart;
+  int iLayer = mRecoParam->vertexerLayerToStart;
   auto layer1Begin = tracklets.begin() + firstIndex[iLayer + 1];
   auto layer1End = tracklets.begin() + lastIndex[iLayer + 1];
   for (int jTrkl0 = firstIndex[iLayer]; jTrkl0 < lastIndex[iLayer]; ++jTrkl0) {
@@ -403,7 +374,7 @@ void NA6PVertexerTracklets::selectTracklets(const std::vector<TrackletForVertex>
         dphi += 2 * M_PI;
       float deltapxpz = std::abs(trkl12.pxpz - trkl01.pxpz);
       float deltapypz = std::abs(trkl12.pypz - trkl01.pypz);
-      if (deltapypz < mMaxDeltaPyPzInOut && deltapxpz < mMaxDeltaPxPzInOut && deltaTanLambda < mMaxDeltaTanLamInOut && std::abs(dphi) < mMaxDeltaPhiInOut) {
+      if (deltapypz < mRecoParam->vertexerMaxDeltaPyPzInOut && deltapxpz < mRecoParam->vertexerMaxDeltaPxPzInOut && deltaTanLambda < mRecoParam->vertexerMaxDeltaTanLamInOut && std::abs(dphi) < mRecoParam->vertexerMaxDeltaPhiInOut) {
         selTracklets.push_back(trkl01);
         break;
       }
@@ -489,7 +460,7 @@ void NA6PVertexerTracklets::computeIntersections(const std::vector<TrackletForVe
         float xi = x0 + tBeam * dx;
         float yi = y0 + tBeam * dy;
         float ri2 = xi * xi + yi * yi;
-        if (ri2 > mMaxDCAxy * mMaxDCAxy)
+        if (ri2 > mRecoParam->vertexerMaxDCAxy * mRecoParam->vertexerMaxDCAxy)
           continue;
         zi = z0 + tBeam * dz;
         float sigmaDCA = sigmayClu0 * std::sqrt(2.0) * (1.0 + std::abs(tBeam));
@@ -501,7 +472,7 @@ void NA6PVertexerTracklets::computeIntersections(const std::vector<TrackletForVe
         continue;
     }
 
-    if (zi >= mZMin && zi < mZMax)
+    if (zi >= mRecoParam->vertexerZMin && zi < mRecoParam->vertexerZMax)
       zIntersec.emplace_back(zi, sigmazi, trkl.tanL, trkl.firstClusterIndex, trkl.secondClusterIndex);
   }
 }
@@ -514,25 +485,25 @@ bool NA6PVertexerTracklets::findVertexHistoPeak(std::vector<TracklIntersection>&
   std::fill(mHistIntersec.begin(), mHistIntersec.end(), 0.0);
   for (const auto& zInt : zIntersec) {
     float zi = zInt.zeta;
-    if (zi >= mZMin && zi < mZMax) {
-      int bin = int((zi - mZMin) / mZBinWidth);
+    if (zi >= mRecoParam->vertexerZMin && zi < mRecoParam->vertexerZMax) {
+      int bin = int((zi - mRecoParam->vertexerZMin) / mZBinWidth);
       mHistIntersec[bin]++;
     }
   }
   // find peak (case of multiple peaks with same height is treated)
   int maxHeight = 0;
-  for (int jBin = 0; jBin < mNBinsForPeakFind; ++jBin) {
+  for (int jBin = 0; jBin < mRecoParam->vertexerNBinsForPeakFind; ++jBin) {
     if (mHistIntersec[jBin] > maxHeight)
       maxHeight = mHistIntersec[jBin];
   }
-  if (maxHeight == 0 || maxHeight < mMinCountsInPeak)
+  if (maxHeight == 0 || maxHeight < mRecoParam->vertexerMinCountsInPeak)
     return false;
 
   std::vector<std::pair<int, int>> peaks;
-  for (int jBin = 0; jBin < mNBinsForPeakFind; ++jBin) {
+  for (int jBin = 0; jBin < mRecoParam->vertexerNBinsForPeakFind; ++jBin) {
     if (mHistIntersec[jBin] == maxHeight) {
-      int lowBin = std::max(jBin - mPeakWidthBins, 0);
-      int highBin = std::min(jBin + mPeakWidthBins, mNBinsForPeakFind - 1);
+      int lowBin = std::max(jBin - mRecoParam->vertexerPeakWidthBins, 0);
+      int highBin = std::min(jBin + mRecoParam->vertexerPeakWidthBins, mRecoParam->vertexerNBinsForPeakFind - 1);
       float integral = 0;
       for (int jPeak = lowBin; jPeak <= highBin; ++jPeak)
         integral += mHistIntersec[jPeak];
@@ -567,9 +538,9 @@ bool NA6PVertexerTracklets::findVertexHistoPeak(std::vector<TracklIntersection>&
   bool peakFound = false;
   if (jMainPeak >= 0 && (nPeaks == 1 || (nPeaks > 1 && nPeaksSameIntegral == 1))) {
     // compute the z position for the peak
-    zPeak = mZMin + (peaks[jMainPeak].first + 0.5) * mZBinWidth;
-    zWinMin = zPeak - mZWindowWidth;
-    zWinMax = zPeak + mZWindowWidth;
+    zPeak = mRecoParam->vertexerZMin + (peaks[jMainPeak].first + 0.5) * mZBinWidth;
+    zWinMin = zPeak - mRecoParam->vertexerZWindowWidth;
+    zWinMax = zPeak + mRecoParam->vertexerZWindowWidth;
     peakFound = true;
   } else {
     //  merge adjacent peaks
@@ -586,7 +557,7 @@ bool NA6PVertexerTracklets::findVertexHistoPeak(std::vector<TracklIntersection>&
     for (int jPk = 1; jPk < nPeaks; ++jPk) {
       int prev = peaks[jPk - 1].first;
       int curr = peaks[jPk].first;
-      if (std::abs(curr - prev) < mPeakWidthBins) {
+      if (std::abs(curr - prev) < mRecoParam->vertexerPeakWidthBins) {
         cur.integral += peaks[jPk].second;
         cur.lastBin = curr;
       } else {
@@ -610,19 +581,19 @@ bool NA6PVertexerTracklets::findVertexHistoPeak(std::vector<TracklIntersection>&
       }
     }
     if (!ambiguous) {
-      float zFirst = mZMin + (clusters[jLargestClu].firstBin + 0.5) * mZBinWidth;
-      float zLast = mZMin + (clusters[jLargestClu].lastBin + 0.5) * mZBinWidth;
+      float zFirst = mRecoParam->vertexerZMin + (clusters[jLargestClu].firstBin + 0.5) * mZBinWidth;
+      float zLast = mRecoParam->vertexerZMin + (clusters[jLargestClu].lastBin + 0.5) * mZBinWidth;
       zPeak = 0.5 * (zFirst + zLast);
-      zWinMin = zFirst - mZWindowWidth;
-      zWinMax = zLast + mZWindowWidth;
+      zWinMin = zFirst - mRecoParam->vertexerZWindowWidth;
+      zWinMax = zLast + mRecoParam->vertexerZWindowWidth;
       peakFound = true;
     }
   }
   if (!peakFound) {
     // resort to use the lowest z peak
-    zPeak = mZMin + (peaks[0].first + 0.5) * mZBinWidth;
-    zWinMin = zPeak - mZWindowWidth;
-    zWinMax = zPeak + mZWindowWidth;
+    zPeak = mRecoParam->vertexerZMin + (peaks[0].first + 0.5) * mZBinWidth;
+    zWinMin = zPeak - mRecoParam->vertexerZWindowWidth;
+    zWinMax = zPeak + mRecoParam->vertexerZWindowWidth;
   }
   std::sort(zIntersec.begin(), zIntersec.end(),
             [](const TracklIntersection& a, const TracklIntersection& b) {
@@ -659,8 +630,8 @@ bool NA6PVertexerTracklets::findVertexHistoPeak(std::vector<TracklIntersection>&
     zMean = (sumW > 0) ? sumZW / sumW : 0.0;
   }
   // second average with better centered window
-  zWinMin = zMean - mZWindowWidth;
-  zWinMax = zMean + mZWindowWidth;
+  zWinMin = zMean - mRecoParam->vertexerZWindowWidth;
+  zWinMax = zMean + mRecoParam->vertexerZWindowWidth;
   lower = std::lower_bound(zIntersec.begin(), zIntersec.end(), zWinMin,
                            [](const TracklIntersection& a, float value) {
                              return a.zeta < value;
@@ -709,22 +680,22 @@ bool NA6PVertexerTracklets::findVertexKDE(const std::vector<TracklIntersection>&
     return false;
 
   // Prepare grid
-  std::vector<float> gridZ(mNGridKDE);
-  float dz = (mZMax - mZMin) / (mNGridKDE - 1);
-  for (int jg = 0; jg < mNGridKDE; ++jg)
-    gridZ[jg] = mZMin + jg * dz;
+  std::vector<float> gridZ(mRecoParam->vertexerNGridKDE);
+  float dz = (mRecoParam->vertexerZMax - mRecoParam->vertexerZMin) / (mRecoParam->vertexerNGridKDE - 1);
+  for (int jg = 0; jg < mRecoParam->vertexerNGridKDE; ++jg)
+    gridZ[jg] = mRecoParam->vertexerZMin + jg * dz;
   // Evaluate KDE at each grid point
-  std::vector<float> fkde(mNGridKDE, 0.0);
-  for (int jg = 0; jg < mNGridKDE; ++jg) {
+  std::vector<float> fkde(mRecoParam->vertexerNGridKDE, 0.0);
+  for (int jg = 0; jg < mRecoParam->vertexerNGridKDE; ++jg) {
     float z = gridZ[jg];
     float sum = 0.0;
     float sumW = 0.0;
     float sumGW = 0.0;
     for (const auto& zInt : zIntersec) {
       float zi = zInt.zeta;
-      float sigma = mKDEBandwidth;
+      float sigma = mRecoParam->vertexerKDEBandwidth;
       if (mKDEOption == kAdaptiveKDE)
-        sigma = std::sqrt(mKDEBandwidth * mKDEBandwidth + zInt.sigmazeta * zInt.sigmazeta);
+        sigma = std::sqrt(mRecoParam->vertexerKDEBandwidth * mRecoParam->vertexerKDEBandwidth + zInt.sigmazeta * zInt.sigmazeta);
       float u = (z - zi) / sigma;
       float g = gaussKernel(u);
       float w = 1.0 / (1.0 + zInt.tanl * zInt.tanl);
@@ -743,7 +714,7 @@ bool NA6PVertexerTracklets::findVertexKDE(const std::vector<TracklIntersection>&
   // Find global maximum on the grid
   float fMax = -1.0;
   int jMax = -1;
-  for (int jg = 0; jg < mNGridKDE; ++jg) {
+  for (int jg = 0; jg < mRecoParam->vertexerNGridKDE; ++jg) {
     if (fkde[jg] > fMax) {
       fMax = fkde[jg];
       jMax = jg;
@@ -753,7 +724,7 @@ bool NA6PVertexerTracklets::findVertexKDE(const std::vector<TracklIntersection>&
     return false;
   // Quadratic interpolation for sub-grid precision
   float zPeak = gridZ[jMax];
-  if (jMax > 0 && jMax < mNGridKDE - 1) {
+  if (jMax > 0 && jMax < mRecoParam->vertexerNGridKDE - 1) {
     float f0 = fkde[jMax - 1];
     float f1 = fkde[jMax];
     float f2 = fkde[jMax + 1];
@@ -770,12 +741,12 @@ bool NA6PVertexerTracklets::findVertexKDE(const std::vector<TracklIntersection>&
     if (zi > zPeak - 0.5 * mZBinWidth && zi < zPeak + 0.5 * mZBinWidth)
       ++nInPeak;
   }
-  if (nInPeak < mMinCountsInPeak)
+  if (nInPeak < mRecoParam->vertexerMinCountsInPeak)
     return false;
 
   // count contributors and mark used hits
-  float zWinMin = zPeak - mZWindowWidth;
-  float zWinMax = zPeak + mZWindowWidth;
+  float zWinMin = zPeak - mRecoParam->vertexerZWindowWidth;
+  float zWinMax = zPeak + mRecoParam->vertexerZWindowWidth;
   int nContrib = 0;
   for (const auto& zInt : zIntersec) {
     float zi = zInt.zeta;
@@ -803,55 +774,58 @@ bool NA6PVertexerTracklets::compute3DVertices(const std::vector<TrackletForVerte
   trackletLines.reserve(nTracklets);
   // Build lines from tracklets
   for (auto& trkl : selTracklets) {
-    auto clu0 = cluArr[trkl.firstClusterIndex];
-    auto clu1 = cluArr[trkl.secondClusterIndex];
-    float p0[3] = {clu0.getX(), clu0.getY(), clu0.getZ()};
-    float p1[3] = {clu1.getX(), clu1.getY(), clu1.getZ()};
-    trackletLines.emplace_back(NA6PLine(p0, p1));
+    trackletLines.emplace_back(cluArr[trkl.firstClusterIndex].getXYZ(), cluArr[trkl.secondClusterIndex].getXYZ());
   }
   // Mark tracklets containing clusters already used in previous vertices
   std::vector<bool> isTrackletUsed(nTracklets, false);
   int usable = 0;
   for (int jTr = 0; jTr < nTracklets; ++jTr) {
-    auto trkl = selTracklets[jTr];
-    if (mIsClusterUsed[trkl.firstClusterIndex] || mIsClusterUsed[trkl.secondClusterIndex])
+    const auto& trkl = selTracklets[jTr];
+    if (mIsClusterUsed[trkl.firstClusterIndex] || mIsClusterUsed[trkl.secondClusterIndex]) {
       isTrackletUsed[jTr] = true;
-    else
+    } else {
       usable++;
+    }
   }
   LOGP(info, "Usable tracklets = {}", usable);
-  if (usable == 0)
+  if (usable == 0) {
     return false;
+  }
+  auto minCandidateDistance3DSq = mRecoParam->vertexerMinCandidateDistance3D * mRecoParam->vertexerMinCandidateDistance3D;
+
   // Build candidate vertices by pairing tracklets and growing seeds
   std::vector<ClusterLines> candVertices;
   for (int jTr1 = 0; jTr1 < nTracklets; ++jTr1) {
-    if (isTrackletUsed[jTr1])
+    if (isTrackletUsed[jTr1]) {
       continue;
+    }
     const NA6PLine& line1 = trackletLines[jTr1];
     for (int jTr2 = jTr1 + 1; jTr2 < nTracklets; ++jTr2) {
-      if (isTrackletUsed[jTr2])
+      if (isTrackletUsed[jTr2]) {
         continue;
+      }
       const NA6PLine& line2 = trackletLines[jTr2];
-      float dca = NA6PLine::getDCA(line1, line2);
-      if (dca < mMaxPairDCA) {
+      auto dca = line1.getDCA(line2);
+      if (dca < mRecoParam->vertexerMaxPairDCA) {
         // Seed vertex
         candVertices.emplace_back(jTr1, line1, jTr2, line2);
-        std::array<float, 3> tmpVertex = candVertices.back().getVertex();
+        auto tmpVertex = candVertices.back().getVertex();
         float rad2 = tmpVertex[0] * tmpVertex[0] + tmpVertex[1] * tmpVertex[1];
         // Reject seed if outside allowed region
-        if (rad2 > mMaxPairVertRadius * mMaxPairVertRadius || tmpVertex[2] < mZMin || tmpVertex[2] > mZMax) {
+        if (rad2 > mRecoParam->vertexerMaxPairVertRadius * mRecoParam->vertexerMaxPairVertRadius || tmpVertex[2] < mRecoParam->vertexerZMin || tmpVertex[2] > mRecoParam->vertexerZMax) {
           candVertices.pop_back();
-          break;
+          continue; // RSFIX: check if this is correct to avoid premature loop termination
         }
         // grow the candidate vertex by attaching tracklets compatible with the evolving vertex position
         // Tracklets used in candidates are excluded from further seeding
         isTrackletUsed[jTr1] = true;
         isTrackletUsed[jTr2] = true;
         for (int jTr3 = 0; jTr3 < nTracklets; ++jTr3) {
-          if (isTrackletUsed[jTr3])
+          if (isTrackletUsed[jTr3]) {
             continue;
+          }
           const NA6PLine& line3 = trackletLines[jTr3];
-          if (NA6PLine::getDistanceFromPoint(line3, tmpVertex) < mMaxPairDCA) {
+          if (line3.getDistanceFromPoint(tmpVertex) < mRecoParam->vertexerMaxPairDCA) {
             candVertices.back().add(jTr3, line3);
             isTrackletUsed[jTr3] = true;
             tmpVertex = candVertices.back().getVertex();
@@ -863,20 +837,18 @@ bool NA6PVertexerTracklets::compute3DVertices(const std::vector<TrackletForVerte
       }
     }
   }
-  if (mAllowSingleConstribClusters || nTracklets == 1) {
-    float pb0[3] = {mBeamX, mBeamY, -50.f};
-    float pb1[3] = {mBeamX, mBeamY, 50.f};
+  if (mRecoParam->vertexerAllowSingleConstribClusters || nTracklets == 1) {
+    const std::array<float, 3> pb0{mBeamX, mBeamY, -50.f}, pb1{mBeamX, mBeamY, 50.f};
     NA6PLine beamLine(pb0, pb1);
     for (int jTr = 0; jTr < nTracklets; ++jTr) {
       if (!isTrackletUsed[jTr]) {
         const NA6PLine& line = trackletLines[jTr];
-        float dca = NA6PLine::getDCA(line, beamLine);
-        if (dca < mMaxPairDCA) {
+        if (line.getDCA(beamLine) < mRecoParam->vertexerMaxPairDCA) {
           candVertices.emplace_back(jTr, line, -1, beamLine);
-          std::array<float, 3> tmpVertex = candVertices.back().getVertex();
+          const auto& tmpVertex = candVertices.back().getVertex();
           float rad2 = tmpVertex[0] * tmpVertex[0] + tmpVertex[1] * tmpVertex[1];
           // Reject seed if outside allowed region
-          if (rad2 > mMaxPairVertRadius * mMaxPairVertRadius || tmpVertex[2] < mZMin || tmpVertex[2] > mZMax) {
+          if (rad2 > mRecoParam->vertexerMaxPairVertRadius * mRecoParam->vertexerMaxPairVertRadius || tmpVertex[2] < mRecoParam->vertexerZMin || tmpVertex[2] > mRecoParam->vertexerZMax) {
             candVertices.pop_back();
           }
         }
@@ -894,7 +866,7 @@ bool NA6PVertexerTracklets::compute3DVertices(const std::vector<TrackletForVerte
     LOGP(info, "Clusters of Tracklets before grouping");
     int usedTracklets = 0;
     for (int jCand = 0; jCand < nCandVertices; ++jCand) {
-      std::array<float, 3> vertex1 = candVertices[jCand].getVertex();
+      const auto& vertex1 = candVertices[jCand].getVertex();
       LOGP(info, "Candidate {}  ncontrib = {}   pos = {} {} {}", jCand, candVertices[jCand].getSize(), vertex1[0], vertex1[1], vertex1[2]);
       usedTracklets += candVertices[jCand].getSize();
     }
@@ -902,23 +874,21 @@ bool NA6PVertexerTracklets::compute3DVertices(const std::vector<TrackletForVerte
   }
   // merge nearby clusters
   for (int jCand1 = 0; jCand1 < nCandVertices; ++jCand1) {
-    std::array<float, 3> vertex1 = candVertices[jCand1].getVertex();
+    auto vertex1 = candVertices[jCand1].getVertex();
     for (int jCand2 = jCand1 + 1; jCand2 < nCandVertices; ++jCand2) {
-      std::array<float, 3> vertex2 = candVertices[jCand2].getVertex();
-      if (std::abs(vertex1[2] - vertex2[2]) < mMinCandidateDistanceZ) {
-        float distance = (vertex1[0] - vertex2[0]) * (vertex1[0] - vertex2[0]) +
-                         (vertex1[1] - vertex2[1]) * (vertex1[1] - vertex2[1]) +
-                         (vertex1[2] - vertex2[2]) * (vertex1[2] - vertex2[2]);
-        if (distance < mMinCandidateDistance3D) {
+      const auto& vertex2 = candVertices[jCand2].getVertex();
+      if (std::abs(vertex1[2] - vertex2[2]) < mRecoParam->vertexerMinCandidateDistanceZ) {
+        float dist2 = NA6PLine::getNorm2(NA6PLine::getDiff(vertex1, vertex2));
+        if (dist2 < minCandidateDistance3DSq) {
           for (auto label : candVertices[jCand2].getLabels()) {
             const NA6PLine& line = trackletLines[label];
             candVertices[jCand1].add(label, line);
           }
           vertex1 = candVertices[jCand1].getVertex();
+          candVertices.erase(candVertices.begin() + jCand2);
+          --jCand2;
+          --nCandVertices;
         }
-        candVertices.erase(candVertices.begin() + jCand2);
-        --jCand2;
-        --nCandVertices;
       }
     }
   }
@@ -930,19 +900,19 @@ bool NA6PVertexerTracklets::compute3DVertices(const std::vector<TrackletForVerte
     LOGP(info, "Clusters of Tracklets after grouping");
     int usedTracklets = 0;
     for (int jCand = 0; jCand < nCandVertices; ++jCand) {
-      std::array<float, 3> vertex1 = candVertices[jCand].getVertex();
+      const auto& vertex1 = candVertices[jCand].getVertex();
       LOGP(info, "Candidate {}  ncontrib = {}   pos = {} {} {} width = {}", jCand, candVertices[jCand].getSize(), vertex1[0], vertex1[1], vertex1[2], candVertices[jCand].getAvgDistance2());
       usedTracklets += candVertices[jCand].getSize();
     }
     LOGP(info, "Number of used tracklets = {}", usedTracklets);
   }
   int contribLargestVert = candVertices[0].getSize();
-  if (contribLargestVert < mMinCountsInPeak)
+  if (contribLargestVert < mRecoParam->vertexerMinCountsInPeak)
     return false;
   if (mMultiVertexMode == kAllVerticesInOneGo) {
     // store all vertices
     for (int jCand = 0; jCand < nCandVertices; ++jCand) {
-      std::array<float, 3> pos = candVertices[jCand].getVertex();
+      const auto& pos = candVertices[jCand].getVertex();
       int nContrib = candVertices[jCand].getSize();
       NA6PVertex vert(pos, nContrib);
       vert.setVertexType(NA6PVertex::kTrackletPrimaryVertex3D);
@@ -952,7 +922,7 @@ bool NA6PVertexerTracklets::compute3DVertices(const std::vector<TrackletForVerte
   } else {
     if (!candVertices.empty()) {
       // store the main (highest multiplicity vertex)
-      std::array<float, 3> pos = candVertices[0].getVertex();
+      const auto& pos = candVertices[0].getVertex();
       int nContrib = candVertices[0].getSize();
       NA6PVertex vert(pos, nContrib);
       vert.setVertexType(NA6PVertex::kTrackletPrimaryVertex3D);
@@ -1077,8 +1047,7 @@ void NA6PVertexerTracklets::printStats(const std::vector<TrackletForVertex>& can
 
 //_______________________________________________________________________
 
-ClusterLines::ClusterLines(int firstLabel, const NA6PLine& firstLine, int secondLabel, const NA6PLine& secondLine,
-                           const bool weight)
+ClusterLines::ClusterLines(int firstLabel, const NA6PLine& firstLine, int secondLabel, const NA6PLine& secondLine)
 {
 
   lineLabels.push_back(firstLabel);
@@ -1172,13 +1141,13 @@ ClusterLines::ClusterLines(int firstLabel, const NA6PLine& firstLine, int second
   std::transform(lineCluRMS2.begin(), lineCluRMS2.end(), tmpRMS2Line2.begin(), lineCluRMS2.begin(), [&](const float a, const float b) { return a + (b - a) / lineLabels.size(); });
 
   // AvgDistance2
-  float dist1 = NA6PLine::getDistanceFromPoint(firstLine, lineCluVertex);
-  float dist2 = NA6PLine::getDistanceFromPoint(secondLine, lineCluVertex);
+  float dist1 = firstLine.getDistanceFromPoint(lineCluVertex);
+  float dist2 = secondLine.getDistanceFromPoint(lineCluVertex);
   lineCluAvgDistance2 = dist1 * dist1;
   lineCluAvgDistance2 += (dist2 * dist2 - lineCluAvgDistance2) / lineLabels.size();
 }
 
-void ClusterLines::add(int lineLabel, const NA6PLine& line, bool weight)
+void ClusterLines::add(int lineLabel, const NA6PLine& line)
 {
   lineLabels.push_back(lineLabel);
   std::array<float, 3> covariance{1., 1., 1.};
@@ -1217,7 +1186,7 @@ void ClusterLines::add(int lineLabel, const NA6PLine& line, bool weight)
                        determinant;
 
   computeClusterCentroid();
-  float dist = NA6PLine::getDistanceFromPoint(line, lineCluVertex);
+  float dist = line.getDistanceFromPoint(lineCluVertex);
   lineCluAvgDistance2 += (dist * dist - lineCluAvgDistance2) / lineLabels.size();
 }
 

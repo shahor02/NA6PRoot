@@ -165,7 +165,7 @@ void NA6PGenParam::generate()
         en = std::sqrt(mt2 + pZ * pZ);
       } catch (std::exception const& e) {
         LOGP(info, "Exception at trial {} of generating particle PDG={}, VTrans={}, vLong={}, error: {}", ntrial, mPDGCode, vTrans, vLong, e.what());
-        if (ntrial++ > param.maxTrailsPerParticle) {
+        if (ntrial++ > param.maxTrialsPerParticle) {
           LOGP(fatal, "Failed to generate track PDG:{} after max allowed {} trials, check generator", mPDGCode, ntrial);
         }
         continue;

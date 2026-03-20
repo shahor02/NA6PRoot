@@ -19,6 +19,35 @@
 #include "NA6PMuonSpecReconstruction.h"
 #include "NA6PMatching.h"
 
+class TreeFromFile
+{
+ public:
+  TreeFromFile(const char* fileName, const char* treeName)
+  {
+    file = TFile::Open(fileName);
+    if (!file || file->IsZombie()) {
+      LOGP(fatal, "Failed to open file {:p}", fileName);
+    }
+    tree = (TTree*)file->Get(treeName);
+    if (!tree) {
+      LOGP(fatal, "Failed to get tree {:p} from file {:p}", treeName, fileName);
+    }
+  }
+
+  ~TreeFromFile()
+  {
+    delete tree;
+    file->Close();
+    delete file;
+  }
+  TTree* getTree() { return tree; }
+  TFile* getFile() { return file; }
+
+ private:
+  TFile* file = nullptr;
+  TTree* tree = nullptr;
+};
+
 double getPrimaryVertexZ(TTree* mcTree, std::vector<TParticle>* mcArr, int eventID)
 {
   if (!mcTree || !mcArr) {
@@ -49,10 +78,10 @@ int main(int argc, char** argv)
     auto add_option = opt_general.add_options();
     add_option("help,h", "Print this help message");
     add_option("verbosity,v", bpo::value<int>()->default_value(0), "verbosity level [0 = no output]");
-    add_option("configKeyValues", bpo::value<std::string>()->default_value(""), "comma-separated configKeyValues");
     add_option("load-ini", bpo::value<std::string>()->default_value(""), "load configurables from ini file (if defined), overridden by configKeyValues");
-    add_option("load-recoparam", bpo::value<std::string>()->default_value(""), "load reco parameters from ini file (if defined), overridden by configKeyValues");
+    add_option("configKeyValues", bpo::value<std::string>()->default_value(""), "comma-separated configKeyValues");
     add_option("disable-write-ini", bpo::value<bool>()->default_value(false)->implicit_value(true), "do not write reco parameters ini file");
+    add_option("geometry,g", bpo::value<std::string>()->default_value("geometry.root"), "geometry file name");
     add_option("firstevent,f", bpo::value<int32_t>()->default_value(0), "first event");
     add_option("lastevent,l", bpo::value<int32_t>()->default_value(-1), "last event");
     add_option("doHitsToRecPoints,cl", bpo::value<bool>()->default_value(true), "run hits->clusters");
@@ -80,14 +109,10 @@ int main(int argc, char** argv)
   }
 
   auto flini = vm["load-ini"].as<std::string>();
-  na6p::conf::ConfigurableParam::updateFromString(vm["configKeyValues"].as<std::string>());
   if (!flini.empty()) {
     na6p::conf::ConfigurableParam::updateFromFile(flini, "", true);
   }
-  auto flrp = vm["load-recoparam"].as<std::string>();
-  if (!flrp.empty()) {
-    na6p::conf::ConfigurableParam::updateFromFile(flrp, "", true);
-  }
+  na6p::conf::ConfigurableParam::updateFromString(vm["configKeyValues"].as<std::string>()); // highest priority
   LOGP(info, "Printing all configs");
   na6p::conf::ConfigurableParam::printAllKeyValuePairs();
 
@@ -100,155 +125,79 @@ int main(int argc, char** argv)
   int firstEv = vm["firstevent"].as<int32_t>();
   int lastEv = vm["lastevent"].as<int32_t>();
 
-  auto magField = new MagneticField();
-  magField->loadField();
-  magField->setAsGlobalField();
+  if (!Propagator::loadField() || !Propagator::loadGeometry(vm["geometry"].as<std::string>())) {
+    return -1;
+  }
 
-  NA6PVerTelReconstruction* vtrec = new NA6PVerTelReconstruction();
-  vtrec->setGeometryFile("geometry.root");
-  NA6PMuonSpecReconstruction* msrec = new NA6PMuonSpecReconstruction();
-  NA6PMatching* matching = new NA6PMatching();
+  std::unique_ptr<NA6PVerTelReconstruction> vtrec = std::make_unique<NA6PVerTelReconstruction>();
+  std::unique_ptr<NA6PMuonSpecReconstruction> msrec = std::make_unique<NA6PMuonSpecReconstruction>();
+  std::unique_ptr<NA6PMatching> matching = std::make_unique<NA6PMatching>();
 
   if (doHitsToRecPoints) {
-    TFile* fhVT = TFile::Open("HitsVerTel.root");
-    if (!fhVT || fhVT->IsZombie()) {
-      LOGP(error, "Cannot open HitsVerTel.root");
-      if (fhVT)
-        delete fhVT;
-      return -1;
-    }
-    TTree* thVT = (TTree*)fhVT->Get("hitsVerTel");
-    if (!thVT) {
-      LOGP(error, "Cannot find tree 'hitsVerTel' in HitsVerTel.root");
-      fhVT->Close();
-      delete fhVT;
-      return -1;
-    }
-    std::vector<NA6PVerTelHit> vtHits, *vtHitsPtr = &vtHits;
-    thVT->SetBranchAddress("VerTel", &vtHitsPtr);
-    int nEvVT = thVT->GetEntriesFast();
+    { // VTHist
+      TreeFromFile tfVT("HitsVerTel.root", "hitsVerTel");
+      std::vector<NA6PVerTelHit> vtHits, *vtHitsPtr = &vtHits;
+      tfVT.getTree()->SetBranchAddress("VerTel", &vtHitsPtr);
+      int nEvVT = tfVT.getTree()->GetEntriesFast();
 
-    vtrec->createClustersOutput();
-    for (int jEv = 0; jEv < nEvVT; jEv++) {
-      thVT->GetEvent(jEv);
-      int nHits = vtHits.size();
-      LOGP(info, "VerTel Event {} nHits= {}", jEv, nHits);
-      vtrec->clearClusters();
-      vtrec->hitsToRecPoints(vtHits);
-      vtrec->writeClusters();
+      vtrec->createClustersOutput();
+      for (int jEv = 0; jEv < nEvVT; jEv++) {
+        tfVT.getTree()->GetEvent(jEv);
+        int nHits = vtHits.size();
+        LOGP(info, "VerTel Event {} nHits= {}", jEv, nHits);
+        vtrec->clearClusters();
+        vtrec->hitsToRecPoints(vtHits);
+        vtrec->writeClusters();
+      }
+      vtrec->closeClustersOutput();
     }
-    vtrec->closeClustersOutput();
-    fhVT->Close();
-    delete fhVT;
+    { // Muon Spectrometer hits -> clusters
+      TreeFromFile tfMS("HitsMuonSpecModular.root", "hitsMuonSpecModular");
+      std::vector<NA6PMuonSpecModularHit> msHits, *msHitsPtr = &msHits;
+      tfMS.getTree()->SetBranchAddress("MuonSpecModular", &msHitsPtr);
+      int nEvMS = tfMS.getTree()->GetEntriesFast();
 
-    // Muon Spectrometer hits -> clusters
-    TFile* fhMS = TFile::Open("HitsMuonSpecModular.root");
-    if (!fhMS || fhMS->IsZombie()) {
-      LOGP(error, "Cannot open HitsMuonSpecModular.root");
-      if (fhMS)
-        delete fhMS;
-      return -1;
+      msrec->createClustersOutput();
+      for (int jEv = 0; jEv < nEvMS; jEv++) {
+        tfMS.getTree()->GetEvent(jEv);
+        int nHits = msHits.size();
+        LOGP(info, "MuonSpec Event {} nHits= {}", jEv, nHits);
+        msrec->clearClusters();
+        msrec->hitsToRecPoints(msHits);
+        msrec->writeClusters();
+      }
+      msrec->closeClustersOutput();
     }
-    TTree* thMS = (TTree*)fhMS->Get("hitsMuonSpecModular");
-    if (!thMS) {
-      LOGP(error, "Cannot find tree 'hitsMuonSpecModular' in HitsMuonSpecModular.root");
-      fhMS->Close();
-      delete fhMS;
-      return -1;
-    }
-    std::vector<NA6PMuonSpecModularHit> msHits, *msHitsPtr = &msHits;
-    thMS->SetBranchAddress("MuonSpecModular", &msHitsPtr);
-    int nEvMS = thMS->GetEntriesFast();
-
-    msrec->createClustersOutput();
-    for (int jEv = 0; jEv < nEvMS; jEv++) {
-      thMS->GetEvent(jEv);
-      int nHits = msHits.size();
-      LOGP(info, "MuonSpec Event {} nHits= {}", jEv, nHits);
-      msrec->clearClusters();
-      msrec->hitsToRecPoints(msHits);
-      msrec->writeClusters();
-    }
-    msrec->closeClustersOutput();
-    fhMS->Close();
-    delete fhMS;
   } else {
     LOGP(info, "Hits -> Recpoints disabled from input options");
   }
-
   const bool needsMCKine = doTrackletVertex || doVTTracking || doMSTracking || doMatching;
-  TFile* fk = nullptr;
-  TTree* mcTree = nullptr;
+  std::unique_ptr<TreeFromFile> tfKine;
   std::vector<TParticle>* mcArr = nullptr;
   if (needsMCKine) {
-    fk = TFile::Open("MCKine.root");
-    if (!fk || fk->IsZombie()) {
-      LOGP(error, "Cannot open MCKine.root");
-      if (fk)
-        delete fk;
-      return -1;
-    }
-    mcTree = (TTree*)fk->Get("mckine");
-    if (!mcTree) {
-      LOGP(error, "Cannot find tree 'mckine' in MCKine.root");
-      fk->Close();
-      delete fk;
-      return -1;
-    }
-    mcTree->SetBranchAddress("tracks", &mcArr);
+    tfKine = std::make_unique<TreeFromFile>("MCKine.root", "mckine");
+    tfKine->getTree()->SetBranchAddress("tracks", &mcArr);
   }
 
-  TFile* fcVT = nullptr;
-  TTree* tcVT = nullptr;
+  std::unique_ptr<TreeFromFile> tfCVT, tfCMS;
   std::vector<NA6PVerTelCluster> vtClus, *vtClusPtr = &vtClus;
-
   if (doTrackletVertex || doVTTracking) {
-    fcVT = TFile::Open("ClustersVerTel.root");
-    if (!fcVT || fcVT->IsZombie()) {
-      LOGP(error, "Cannot open ClustersVerTel.root");
-      if (fcVT)
-        delete fcVT;
-      return -1;
-    }
-    tcVT = (TTree*)fcVT->Get("clustersVerTel");
-    if (!tcVT) {
-      LOGP(error, "Cannot find tree 'clustersVerTel' in ClustersVerTel.root");
-      fcVT->Close();
-      delete fcVT;
-      return -1;
-    }
-    tcVT->SetBranchAddress("VerTel", &vtClusPtr);
+    tfCVT = std::make_unique<TreeFromFile>("ClustersVerTel.root", "clustersVerTel");
+    tfCVT->getTree()->SetBranchAddress("VerTel", &vtClusPtr);
   }
-
-  TFile* fcMS = nullptr;
-  TTree* tcMS = nullptr;
   std::vector<NA6PMuonSpecCluster> msClus, *msClusPtr = &msClus;
-
   if (doMSTracking) {
-    fcMS = TFile::Open("ClustersMuonSpec.root");
-    if (!fcMS || fcMS->IsZombie()) {
-      LOGP(error, "Cannot open ClustersMuonSpec.root");
-      if (fcMS)
-        delete fcMS;
-      return -1;
-    }
-    tcMS = (TTree*)fcMS->Get("clustersMuonSpec");
-    if (!tcMS) {
-      LOGP(error, "Cannot find tree 'clustersMuonSpec' in ClustersMuonSpec.root");
-      fcMS->Close();
-      delete fcMS;
-      return -1;
-    }
-    tcMS->SetBranchAddress("MuonSpec", &msClusPtr);
+    tfCMS = std::make_unique<TreeFromFile>("ClustersMuonSpec.root", "clustersMuonSpec");
+    tfCMS->getTree()->SetBranchAddress("MuonSpec", &msClusPtr);
   }
 
   if (doTrackletVertex || doVTTracking || doMSTracking) {
     int nEv = -1;
-    if (tcVT) {
-      nEv = tcVT->GetEntries();
+    if (tfCVT && tfCVT->getTree()) {
+      nEv = tfCVT->getTree()->GetEntries();
     }
-    if (tcMS) {
-      int nEvMS = tcMS->GetEntries();
+    if (tfCMS && tfCMS->getTree()) {
+      int nEvMS = tfCMS->getTree()->GetEntries();
       nEv = (nEv < 0) ? nEvMS : std::min(nEv, nEvMS);
     }
     if (nEv < 0) {
@@ -266,20 +215,20 @@ int main(int argc, char** argv)
       vtrec->initTracker();
     if (doMSTracking)
       msrec->initTracker();
-    
+
     TStopwatch timer;
     timer.Start();
 
     NA6PVertex pvert;
     for (int jEv = firstEv; jEv < lastEv; jEv++) {
       LOGP(info, "Process event {}", jEv);
-      const double zvert = getPrimaryVertexZ(mcTree, mcArr, jEv);
+      const double zvert = getPrimaryVertexZ(tfKine->getTree(), mcArr, jEv);
       pvert.setXYZ(0.f, 0.f, zvert);
 
       if (doTrackletVertex || doVTTracking) {
         LOGP(info, "VT reconstruction");
         vtrec->clearEvent();
-        tcVT->GetEvent(jEv);
+        tfCVT->getTree()->GetEvent(jEv);
         vtrec->setPrimaryVertex(&pvert);
         vtrec->setClusters(vtClus);
         if (doTrackletVertex)
@@ -291,7 +240,7 @@ int main(int argc, char** argv)
       if (doMSTracking) {
         LOGP(info, "MS reconstruction");
         msrec->clearEvent();
-        tcMS->GetEvent(jEv);
+        tfCMS->getTree()->GetEvent(jEv);
         msrec->setPrimaryVertex(&pvert);
         msrec->setClusters(msClus);
         msrec->runTracking();
@@ -315,76 +264,24 @@ int main(int argc, char** argv)
   if (doMatching) {
     matching->initMatching();
 
-    TFile* ft = TFile::Open("TracksVerTel.root");
-    if (!ft || ft->IsZombie()) {
-      LOGP(error, "Cannot open TracksVerTel.root");
-      if (ft)
-        delete ft;
-      return -1;
-    }
-    TTree* tt = (TTree*)ft->Get("tracksVerTel");
-    if (!tt) {
-      LOGP(error, "Cannot find tree 'tracksVerTel' in TracksVerTel.root");
-      ft->Close();
-      delete ft;
-      return -1;
-    }
+    TreeFromFile tfTVT("TracksVerTel.root", "tracksVerTel");
     std::vector<NA6PTrack> vtTracks, *vtTracksPtr = &vtTracks;
-    tt->SetBranchAddress("VerTel", &vtTracksPtr);
+    tfTVT.getTree()->SetBranchAddress("VerTel", &vtTracksPtr);
 
-    TFile* fm = TFile::Open("TracksMuonSpec.root");
-    if (!fm || fm->IsZombie()) {
-      LOGP(error, "Cannot open TracksMuonSpec.root");
-      if (fm)
-        delete fm;
-      return -1;
-    }
-    TTree* tm = (TTree*)fm->Get("tracksMuonSpec");
-    if (!tm) {
-      LOGP(error, "Cannot find tree 'tracksMuonSpec' in TracksMuonSpec.root");
-      fm->Close();
-      delete fm;
-      return -1;
-    }
+    TreeFromFile tfTMS("TracksMuonSpec.root", "tracksMuonSpec");
     std::vector<NA6PTrack> msTracks, *msTracksPtr = &msTracks;
-    tm->SetBranchAddress("MuonSpec", &msTracksPtr);
+    tfTMS.getTree()->SetBranchAddress("MuonSpec", &msTracksPtr);
 
-    TFile* fvc = TFile::Open("ClustersVerTel.root");
-    if (!fvc || fvc->IsZombie()) {
-      LOGP(error, "Cannot open ClustersVerTel.root");
-      if (fvc)
-        delete fvc;
-      return -1;
-    }
-    TTree* tvertelc = (TTree*)fvc->Get("clustersVerTel");
-    if (!tvertelc) {
-      LOGP(error, "Cannot find tree 'clustersVerTel' in ClustersVerTel.root");
-      fvc->Close();
-      delete fvc;
-      return -1;
-    }
+    TreeFromFile tfCVT("ClustersVerTel.root", "clustersVerTel");
     std::vector<NA6PVerTelCluster> vtClusMatch, *vtClusMatchPtr = &vtClusMatch;
-    tvertelc->SetBranchAddress("VerTel", &vtClusMatchPtr);
+    tfCVT.getTree()->SetBranchAddress("VerTel", &vtClusMatchPtr);
 
-    TFile* fmc = TFile::Open("ClustersMuonSpec.root");
-    if (!fmc || fmc->IsZombie()) {
-      LOGP(error, "Cannot open ClustersMuonSpec.root");
-      if (fmc)
-        delete fmc;
-      return -1;
-    }
-    TTree* tmuonspec = (TTree*)fmc->Get("clustersMuonSpec");
-    if (!tmuonspec) {
-      LOGP(error, "Cannot find tree 'clustersMuonSpec' in ClustersMuonSpec.root");
-      fmc->Close();
-      delete fmc;
-      return -1;
-    }
+    TreeFromFile tfCMS("ClustersMuonSpec.root", "clustersMuonSpec");
     std::vector<NA6PMuonSpecCluster> msClusMatch, *msClusMatchPtr = &msClusMatch;
-    tmuonspec->SetBranchAddress("MuonSpec", &msClusMatchPtr);
+    tfCMS.getTree()->SetBranchAddress("MuonSpec", &msClusMatchPtr);
 
-    int nEvVT = tt->GetEntries();
-    int nEvMS = tm->GetEntries();
+    int nEvVT = tfTVT.getTree()->GetEntries();
+    int nEvMS = tfTMS.getTree()->GetEntries();
     int nEv = std::min(nEvVT, nEvMS);
     if (lastEv > nEv || lastEv < 0)
       lastEv = nEv;
@@ -397,13 +294,13 @@ int main(int argc, char** argv)
     NA6PVertex pvert;
     for (int jEv = firstEv; jEv < lastEv; jEv++) {
       LOGP(info, "Process event {}", jEv);
-      const double zvert = getPrimaryVertexZ(mcTree, mcArr, jEv);
+      const double zvert = getPrimaryVertexZ(tfKine->getTree(), mcArr, jEv);
       pvert.setXYZ(0.f, 0.f, zvert);
 
-      tvertelc->GetEvent(jEv);
-      tmuonspec->GetEvent(jEv);
-      tt->GetEvent(jEv);
-      tm->GetEvent(jEv);
+      tfCVT.getTree()->GetEvent(jEv);
+      tfCMS.getTree()->GetEvent(jEv);
+      tfTVT.getTree()->GetEvent(jEv);
+      tfTMS.getTree()->GetEvent(jEv);
 
       matching->setPrimaryVertex(&pvert);
       matching->setVerTelClusters(vtClusMatch);
@@ -419,28 +316,6 @@ int main(int argc, char** argv)
     LOGP(info, "------ Matching time ------");
     timer.Print();
     LOGP(info, "------------------------------");
-
-    ft->Close();
-    delete ft;
-    fm->Close();
-    delete fm;
-    fvc->Close();
-    delete fvc;
-    fmc->Close();
-    delete fmc;
-  }
-
-  if (fcVT) {
-    fcVT->Close();
-    delete fcVT;
-  }
-  if (fcMS) {
-    fcMS->Close();
-    delete fcMS;
-  }
-  if (fk) {
-    fk->Close();
-    delete fk;
   }
 
   if (!vm["disable-write-ini"].as<bool>()) {
@@ -456,8 +331,5 @@ int main(int argc, char** argv)
     }
   }
 
-  delete vtrec;
-  delete msrec;
-  delete matching;
   return 0;
 }

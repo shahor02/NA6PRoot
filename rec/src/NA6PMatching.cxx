@@ -11,55 +11,36 @@
 #include <TMatrixD.h>
 #include <TVectorD.h>
 
-ClassImp(NA6PMatching)
-
-  NA6PMatching::NA6PMatching() : NA6PReconstruction("Matching")
+NA6PMatching::NA6PMatching(bool init) : NA6PReconstruction("Matching")
 {
+#ifdef _CHI2_TUNING_MODE_
+  dbgStream = std::make_unique<NA6PTreeStreamRedirector>("matching_dbg.root");
+#endif
+  if (init) {
+    initMatching();
+  }
 }
 
-NA6PMatching::NA6PMatching(const char* recparfile,
-                           const char* geofile,
-                           const char* geoname) : NA6PReconstruction("Matching")
+NA6PMatching::~NA6PMatching()
 {
-  mGeoFilName = geofile;
-  mGeoObjName = geoname;
-  mRecoParFilName = recparfile;
-  initMatching();
+#ifdef _CHI2_TUNING_MODE_
+  if (dbgStream) {
+    dbgStream->Close();
+  }
+#endif
 }
 
 bool NA6PMatching::initMatching()
 {
-  NA6PReconstruction::init(mGeoFilName.c_str(), mGeoObjName.c_str());
-  mTrackFitter = new NA6PFastTrackFitter();
-  mTrackFitter->loadGeometry(mGeoFilName.c_str(), mGeoObjName.c_str());
+  mRecoParam = &NA6PRecoParam::Instance();
+  mTrackFitter = std::make_unique<NA6PFastTrackFitter>();
   mTrackFitter->enableMaterialCorrections();
   mTrackFitter->setPropagateToPrimaryVertex(false);
-  mTrackFitter->setNLayers(11);
-  mTrackFitter->setParticleHypothesis(13); // muon mass hypothesis
-  mTrackFitter->setUseIntegralBForSeed();
-  configureFromRecoParam(mRecoParFilName);
+  mTrackFitter->setMaxPropagationStep(mRecoParam->maxPropagationStep);
+
   createTracksOutput();
+  mNDOF = Propagator::Instance()->getNDOFTrack();
   return true;
-}
-
-void NA6PMatching::configureFromRecoParam(const std::string& filename)
-{
-  if (filename != "") {
-    na6p::conf::ConfigurableParamHelper<NA6PRecoParam>::updateFromFile(filename);
-  }
-  const auto& param = NA6PRecoParam::Instance();
-
-  if (param.mtIsZMatchingSet)
-    setZMatching(param.mtZMatching);
-  setMCMatching(param.mtMCMatching);
-  setMinVTHits(param.mtMinVTHits);
-  setMinMSHits(param.mtMinMSHits);
-  setMinTrackP(param.mtMinTrackP);
-  setMaxChi2Match(param.mtMaxChi2Match);
-  setMaxChi2Refit(param.mtMaxChi2Refit);
-  setPMatchWindow(param.mtPMatchWindow);
-  setPropagateTracksToPrimaryVertex(param.mtPropagateMatchedTracksToPV);
-  setDoOutwardInwardFit(param.mtDoOutwardInwardFit);
 }
 
 void NA6PMatching::createTracksOutput()
@@ -118,47 +99,16 @@ void NA6PMatching::setVerTelClusters(std::vector<NA6PVerTelCluster>& clusters)
   }
 }
 
-void NA6PMatching::sortVTTracksByP(std::vector<NA6PTrack>& tracks)
+void NA6PMatching::propToZMatching(std::vector<NA6PTrack>& tracks, float z, bool outer)
 {
-  std::sort(tracks.begin(), tracks.end(),
-            [](const NA6PTrack& a, const NA6PTrack& b) {
-              return a.getP() > b.getP();
-            });
-}
-
-double NA6PMatching::computeChi2(const double* par1, const double* cov1,
-                                 const double* par2, const double* cov2)
-{
-  TVectorD delta(5);
-  for (int i = 0; i < 5; ++i) {
-    delta[i] = par1[i] - par2[i];
-  }
-
-  TMatrixDSym V(5);
-  int idx = 0;
-  for (int i = 0; i < 5; ++i) {
-    for (int j = 0; j <= i; ++j) {
-      V(i, j) = cov1[idx] + cov2[idx];
-      ++idx;
-    }
-  }
-
-  TMatrixDSym Vinv = V.Invert();
-  if (!V.IsValid())
-    return 1e9;
-
-  return Vinv.Similarity(delta);
-}
-
-void NA6PMatching::propToZMatching(std::vector<NA6PTrack>& tracks, double z, bool outer)
-{
+  // RSTODO consider propagation track copies. Or better, define outer ITS and inward MS tracks at the reference Z
   for (auto& track : tracks) {
-    if (abs(track.getZLabOuter() - z) < 1e-6)
-      continue;
-    if (outer) {
-      mTrackFitter->propagateToZOuter(&track, z);
-    } else
-      mTrackFitter->propagateToZ(&track, z);
+    NA6PTrackParCov& trc = outer ? track.getOuterParam() : track;
+    if (trc.isValid() && std::abs(trc.getZ() - z) > 1e-4) {
+      if (!Propagator::Instance()->propagateToZ(trc, z, mTrackFitter->getPropOpt())) {
+        trc.invalidate();
+      }
+    }
   }
 };
 
@@ -167,50 +117,63 @@ void NA6PMatching::addClustersToFitter(const NA6PTrack& trk, const auto* clusPtr
   uint32_t cmap = trk.getClusterMap();
   for (int lr = 0; lr < NA6PTrack::kMaxLr; ++lr) {
     if (cmap & (1u << lr)) {
-      mTrackFitter->addCluster(lr, (*clusPtr)[trk.getClusterIndex(lr)]);
+      mTrackFitter->addCluster((*clusPtr)[trk.getClusterIndex(lr)]);
     }
   }
 }
 
-std::tuple<int, bool, double> NA6PMatching::findBestChi2Match(
-  const NA6PTrack& msTrack,
-  const std::vector<size_t>& validVerTelIndices)
+void NA6PMatching::buildMatchingCandidates(int iMS)
 {
-  const auto msPar = msTrack.getTrackExtParam().getParameter();
-  const auto msCov = msTrack.getTrackExtParam().getCovariance();
-  const int msCharge = msTrack.getCharge();
-  const float msP = msTrack.getP();
-  const int msPartId = msTrack.getParticleID();
+  // find at most mMaxMatchesPerTrack best matches for given MS track
+  const auto& msTrack = (*hMuonSpecTrackPtr)[mSelIDMS[iMS]];
+  const float curv = msTrack.getQ2Pxz();
+  const float err = std::sqrt(msTrack.getSigmaQ2Pxz2() + mRecoParam->mtPrelDiffMargin2[4]) * mRecoParam->mtPrelCurveNSigma;
+  auto lower = std::partition_point(mSelIDVT.begin(), mSelIDVT.end(), [&](size_t id) { return (*hVerTelTrackPtr)[id].getOuterParam().getQ2Pxz() < curv - err; });
+  auto upper = std::partition_point(lower, mSelIDVT.end(), [&](size_t id) { return (*hVerTelTrackPtr)[id].getOuterParam().getQ2Pxz() < curv + err; });
 
-  auto lower = std::partition_point(validVerTelIndices.begin(), validVerTelIndices.end(),
-                                    [&](size_t vIdx) { return (*hVerTelTrackPtr)[vIdx].getPOuter() > msP + mPMatchWindow; });
-
-  auto upper = std::partition_point(lower, validVerTelIndices.end(),
-                                    [&](size_t vIdx) { return (*hVerTelTrackPtr)[vIdx].getPOuter() >= msP - mPMatchWindow; });
-
-  float bestChi2 = mMaxChi2Match;
-  int bestIdx = -1;
-  bool isTrueMatch = false;
-
+  float chi2Worst = -999.f;
+  int idWorst = -1, nCand = 0;
   for (auto it = lower; it != upper; ++it) {
-    size_t vIdx = *it;
-    const auto& vtTrack = (*hVerTelTrackPtr)[vIdx];
-
-    if (vtTrack.getCharge() * msCharge < 0)
-      continue;
-
-    const auto vtPar = vtTrack.getOuterParam().getParameter();
-    const auto vtCov = vtTrack.getOuterParam().getCovariance();
-    const double chi2 = computeChi2(msPar, msCov, vtPar, vtCov);
-
-    if (chi2 < bestChi2) {
-      bestChi2 = chi2;
-      bestIdx = vIdx;
-      isTrueMatch = (msPartId > 0 && vtTrack.getParticleID() == msPartId);
+    const auto& vtTrackOut = (*hVerTelTrackPtr)[*it].getOuterParam();
+    // crude check in diagonals only
+    float chi2Crude = 0.f, chi2Match = 0.f;
+    std::array<float, 5> nsig2 = {};
+    for (int i = 0; i < mNDOF; i++) {
+      auto dif = msTrack.getParam(i) - vtTrackOut.getParam(i);
+      nsig2[i] = dif * dif / (msTrack.getCovMatElem(i, i) + vtTrackOut.getCovMatElem(i, i) + mRecoParam->mtPrelDiffMargin2[i]);
+      if (nsig2[i] > mRecoParam->mtNSigma2Crude[i]) {
+        chi2Crude = mRecoParam->mtMaxChi2Crude + 1.f;
+        break;
+      }
+      chi2Crude += nsig2[i];
     }
+    if (chi2Crude > mRecoParam->mtMaxChi2Crude) { // full chi2 calculation
+      continue;
+    }
+    chi2Match = msTrack.getPredictedChi2(vtTrackOut);
+    if (chi2Match < mRecoParam->mtMaxChi2Match) {
+      if (chi2Match > chi2Worst) {
+        chi2Worst = chi2Match;
+        idWorst = mMatchRecords.size();
+      }
+      if (nCand < mRecoParam->mtMaxMatchesPerTrack) {
+        mMatchRecords.emplace_back(MatchRecord{.vtID = int(std::distance(mSelIDVT.begin(), it)), .msID = iMS, .chi2Match = chi2Match});
+        nCand++;
+      } else if (idWorst >= (int)mMatchRecords.size()) { // substitute the old worst match
+        mMatchRecords[idWorst] = MatchRecord{.vtID = int(std::distance(mSelIDVT.begin(), it)), .msID = iMS, .chi2Match = chi2Match};
+      }
+    }
+#ifdef _CHI2_TUNING_MODE_
+    std::vector<float> nsigcrude2(5);
+    for (int i = 0; i < 5; i++) {
+      nsigcrude2[i] = nsig2[i];
+    }
+    (*dbgStream) << "match" << "vtTrack=" << vtTrackOut << "msTrack=" << ((NA6PTrackParCov&)msTrack)
+                 << "nsig2crude=" << nsigcrude2 << "chi2Match=" << chi2Match << "chi2Crude=" << chi2Crude
+                 << "vtPartID=" << (*hVerTelTrackPtr)[*it].getParticleID() << "msPartID=" << msTrack.getParticleID()
+                 << "\n";
+#endif
   }
-
-  return {bestIdx, isTrueMatch, bestChi2};
 }
 
 std::unordered_map<int, int> NA6PMatching::buildMCMatchingIndex()
@@ -221,9 +184,9 @@ std::unordered_map<int, int> NA6PMatching::buildMCMatchingIndex()
   for (size_t i = 0; i < hVerTelTrackPtr->size(); ++i) {
     const auto& vt = (*hVerTelTrackPtr)[i];
     int pid = vt.getParticleID();
-    if (pid <= 0 || vt.getNHits() < mMinVTHits)
+    if (pid <= 0 || vt.getNHits() < mRecoParam->mtMinVTHits) {
       continue;
-
+    }
     // Prefer track with more hits if there are duplicates with same particle ID
     auto it = vtByPid.find(pid);
     if (it == vtByPid.end() || vt.getNHits() > (*hVerTelTrackPtr)[it->second].getNHits()) {
@@ -233,67 +196,73 @@ std::unordered_map<int, int> NA6PMatching::buildMCMatchingIndex()
   return vtByPid;
 }
 
-std::vector<size_t> NA6PMatching::prefilterVerTelTracks()
+void NA6PMatching::prefilterTracks()
 {
-  std::vector<size_t> validIndices;
-  validIndices.reserve(hVerTelTrackPtr->size());
-  sortVTTracksByP(*hVerTelTrackPtr);
-
-  for (size_t vIdx = 0; vIdx < hVerTelTrackPtr->size(); ++vIdx) {
-    const auto& track = (*hVerTelTrackPtr)[vIdx];
-    if (track.getNHits() >= mMinVTHits && track.getP() >= mMinTrackP) {
-      validIndices.push_back(vIdx);
+  // the optimal is to work with measured parameters whose errors are normal
+  // apply selections
+  for (int i = 0; i < (int)hVerTelTrackPtr->size(); ++i) {
+    const auto& track = (*hVerTelTrackPtr)[i];
+    if (track.getOuterParam().isValid() && track.getNHits() >= mRecoParam->mtMinVTHits) {
+      mSelIDVT.push_back(i);
     }
   }
-  return validIndices;
+  for (int i = 0; i < (int)hMuonSpecTrackPtr->size(); ++i) {
+    const auto& track = (*hMuonSpecTrackPtr)[i];
+    if (track.getNHits() >= mRecoParam->mtMinMSHits) {
+      mSelIDMS.push_back(i);
+    }
+  }
+  // sort in increasing curvature
+  std::sort(mSelIDVT.begin(), mSelIDVT.end(), [&](const int i, const int j) { return (*hVerTelTrackPtr)[i].getOuterParam().getQ2Pxz() < (*hVerTelTrackPtr)[j].getOuterParam().getQ2Pxz(); });
+  std::sort(mSelIDMS.begin(), mSelIDMS.end(), [&](const int i, const int j) { return (*hMuonSpecTrackPtr)[i].getQ2Pxz() < (*hMuonSpecTrackPtr)[j].getQ2Pxz(); });
 }
 
-bool NA6PMatching::fitAndStoreMatchedTrack(const NA6PTrack& vtTrk,
-                                           const NA6PTrack& msTrk,
-                                           int particleId,
-                                           double matchChi2)
+bool NA6PMatching::fitAndStoreMatchedTrack(const NA6PTrack& vtTrk, const NA6PTrack& msTrk, float chi2Match)
 {
   mTrackFitter->cleanupAndStartFit();
-
   addClustersToFitter(vtTrk, hVerTelClusPtr);
   addClustersToFitter(msTrk, hMuonSpecClusPtr);
 
-  NA6PTrack matchedTrack;
-  NA6PTrack seed;
-  NA6PTrack* seedPtr = nullptr;
-
-  if (mDoOutwardInwardFit) {
-
-    NA6PTrack vtSeed = vtTrk;
-
-  const float zFirstVTCluster =
-      (*hVerTelClusPtr)[vtTrk.getClusterIndex(0)].getZLab();
-
-    if (vtSeed.getZLab() != zFirstVTCluster) {
-      mTrackFitter->propagateToZ(&vtSeed, zFirstVTCluster);
-    }
-
-    if (!mTrackFitter->fitTrackPointsOutward(seed, &vtSeed)) {
-      LOGP(warn, "Fit of matched track failed, skipping");
+  auto& matchedTrack = mMatchedTracks.emplace_back();
+  mTrackFitter->setMaxChi2Cl(mRecoParam->mtMaxChi2TrCl); // RSTODO make this general init
+  int ndf = std::max(1, mTrackFitter->getNumberOfClusters() * 2 - mNDOF);
+  float chi2Out = -1.f, chi2Inw = -1.f;
+  if (mRecoParam->mtDoOutwardInwardFit) {
+    ((NA6PTrackParCov&)matchedTrack) = vtTrk;
+    matchedTrack.setPID(PID::Muon);
+    chi2Out = mTrackFitter->fitSeedOutward(matchedTrack, true, mRecoParam->mtUseLinRefOut);
+    if (chi2Out < 0 || chi2Out >= mRecoParam->mtMaxChi2NormRefit * ndf) {
+      LOGP(warn, "Forward fit of matched track failed, skipping (MCTrut: VTID:{} MSID:{} ", vtTrk.getParticleID(), msTrk.getParticleID());
+      mMatchedTracks.pop_back();
       return false;
     }
-
-    seedPtr = &seed;
+  } else {
+    ((NA6PTrackParCov&)matchedTrack) = msTrk.getOuterParam();
+    matchedTrack.setPID(PID::Muon);
   }
-
-  if (!mTrackFitter->fitTrackPointsInward(matchedTrack, seedPtr)) {
-    LOGP(warn, "Refit of matched track failed, skipping");
+  chi2Inw = mTrackFitter->fitSeedInward(matchedTrack, true, mRecoParam->mtUseLinRefInw);
+  if (chi2Inw < 0 || chi2Inw >= mRecoParam->mtMaxChi2NormRefit * ndf) {
+    LOGP(warn, "Inward fit of matched track failed, skipping (MCTrut: VTID:{} MSID:{} ", vtTrk.getParticleID(), msTrk.getParticleID());
+    mMatchedTracks.pop_back();
     return false;
   }
-
-  matchedTrack.setParticleID(particleId);
-  matchedTrack.setMatchChi2(matchChi2);
-
-  if (mPropagateTracksToPrimaryVertex) {
-    mTrackFitter->propagateToZ(&matchedTrack, mPrimaryVertex->getZ());
+  if (mRecoParam->mtPropagateMatchedTracksToPV && mPrimaryVertex) {
+    Propagator::Instance()->propagateToZ(matchedTrack, mPrimaryVertex->getZ(), mTrackFitter->getPropOpt());
   }
-
-  mMatchedTracks.push_back(std::move(matchedTrack));
+  matchedTrack.setParticleIDMS(msTrk.getParticleID());
+  matchedTrack.setParticleIDVT(vtTrk.getParticleID());
+  int msid = std::abs(msTrk.getParticleID());
+  matchedTrack.setParticleID(msid == std::abs(vtTrk.getParticleID()) ? msid : -msid);
+  matchedTrack.setChi2Match(chi2Match);
+  matchedTrack.setChi2Refit(chi2Inw);
+  matchedTrack.setNClusters(mTrackFitter->getNumberOfClusters());
+#ifdef _CHI2_TUNING_MODE_
+  (*dbgStream) << "refit" << "vtTrack=" << ((NA6PTrackParCov&)vtTrk) << "msTrack=" << ((NA6PTrackParCov&)msTrk)
+               << "chi2vec=" << mTrackFitter->getChi2Buffer() << "chi2Match=" << chi2Match
+               << "chi2Out=" << chi2Out << "chi2Inw=" << chi2Inw
+               << "vtPartID=" << vtTrk.getParticleID() << "msPartID=" << msTrk.getParticleID()
+               << "\n";
+#endif
   return true;
 }
 
@@ -301,7 +270,7 @@ void NA6PMatching::runMCMatching()
 {
   auto vtByPid = buildMCMatchingIndex();
   for (const auto& msTrack : *hMuonSpecTrackPtr) {
-    if (msTrack.getNHits() < mMinMSHits)
+    if (msTrack.getNHits() < mRecoParam->mtMinMSHits)
       continue;
 
     int msPartId = msTrack.getParticleID();
@@ -314,42 +283,44 @@ void NA6PMatching::runMCMatching()
 
     int vtIdx = it->second;
     const auto& vtTrack = (*hVerTelTrackPtr)[vtIdx];
-    fitAndStoreMatchedTrack(vtTrack, msTrack, msPartId, 0.0);
+    fitAndStoreMatchedTrack(vtTrack, msTrack, 0.0);
   }
 }
 
 void NA6PMatching::runDataMatching()
 {
-  if (mIsZMatchingSet) {
-    propToZMatching(*hVerTelTrackPtr, mZMatching, true);
-    propToZMatching(*hMuonSpecTrackPtr, mZMatching);
+  mSelIDVT.clear();
+  mSelIDMS.clear();
+  mMatchRecords.clear();
+
+  propToZMatching(*hVerTelTrackPtr, mRecoParam->mtZMatching, true);
+  propToZMatching(*hMuonSpecTrackPtr, mRecoParam->mtZMatching, false);
+  prefilterTracks();
+
+  for (int iMS = 0; iMS < (int)mSelIDMS.size(); iMS++) { // build matching candidates for each muon
+    buildMatchingCandidates(iMS);
   }
-
-  auto validVerTelIndices = prefilterVerTelTracks();
-
-  for (const auto& msTrack : *hMuonSpecTrackPtr) {
-    if (msTrack.getNHits() < mMinMSHits)
+  std::sort(mMatchRecords.begin(), mMatchRecords.end(), [](const auto& a, const auto& b) { return a.chi2Match < b.chi2Match; });
+  // now we have select the best mutual matches, discarding already validated tracks
+  for (const auto& mtc : mMatchRecords) {
+    if (mSelIDVT[mtc.vtID] < 0 || mSelIDMS[mtc.msID] < 0) { // one of these tracke was already used for a match
       continue;
-
-    auto [vtIdx, isTrueMatch, bestChi2] = findBestChi2Match(msTrack, validVerTelIndices);
-    if (vtIdx < 0)
-      continue;
-
-    const auto& vtTrack = (*hVerTelTrackPtr)[vtIdx];
-    int matchedPartID = isTrueMatch ? msTrack.getParticleID() : -std::abs(msTrack.getParticleID());
-    fitAndStoreMatchedTrack(vtTrack, msTrack, matchedPartID, bestChi2);
+    }
+    if (fitAndStoreMatchedTrack((*hVerTelTrackPtr)[mSelIDVT[mtc.vtID]], (*hMuonSpecTrackPtr)[mSelIDMS[mtc.msID]], mtc.chi2Match)) { // register if good fit and flag tracks as used
+      mSelIDVT[mtc.vtID] = -1;
+      mSelIDMS[mtc.msID] = -1;
+    }
   }
 }
 
 void NA6PMatching::runMatching()
 {
-  if (!mIsInitialized) {
-    LOGP(error, "Magnetic field and geometry not initialized");
-    return;
-  }
   clearTracks();
-  mMatchedTracks.reserve(hMuonSpecTrackPtr->size());
-  LOGP(info, "Process event with nVTTracks {} nMSTracks {}, primary vertex in z = {} cm", hVerTelTrackPtr->size(), hMuonSpecTrackPtr->size(), mPrimaryVertex->getZ());
+  mMatchedTracks.reserve(hMuonSpecTrackPtr ? hMuonSpecTrackPtr->size() : 0);
+  LOGP(info, "Process event with nVTTracks {} nMSTracks {}, primary vertex in z = {} cm",
+       hVerTelTrackPtr ? hVerTelTrackPtr->size() : 0,
+       hMuonSpecTrackPtr ? hMuonSpecTrackPtr->size() : 0,
+       mPrimaryVertex ? mPrimaryVertex->getZ() : -999.);
 
   if (mMCMatching) {
     runMCMatching();

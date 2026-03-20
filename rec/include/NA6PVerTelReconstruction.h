@@ -36,8 +36,7 @@ class NA6PVerTelReconstruction : public NA6PReconstruction
 {
  public:
   NA6PVerTelReconstruction();
-  NA6PVerTelReconstruction(const char* recparfile, const char* geofile = "geometry.root", const char* geoname = "NA6P");
-  ~NA6PVerTelReconstruction() override = default;
+  ~NA6PVerTelReconstruction() override;
 
   bool initAll();
   bool initVertexer();
@@ -51,7 +50,7 @@ class NA6PVerTelReconstruction : public NA6PReconstruction
   void setClusterSpaceResolution(double clures) { mCluRes = clures; }
   void setEmulateNoGaps(bool val = true) { mEmulateNoGaps = val; }
   void hitsToRecPoints(const std::vector<NA6PVerTelHit>& hits);
-  NA6PTrackerCA* getTracker() const { return mVTTracker; }
+  NA6PTrackerCA* getTracker() const { return mVTTracker.get(); }
 
   // methods to steer tracking
   void setClusters(std::vector<NA6PVerTelCluster>& clusters);
@@ -77,11 +76,11 @@ class NA6PVerTelReconstruction : public NA6PReconstruction
   std::vector<NA6PVertex> mVertices, *hVerticesPtr = &mVertices;    // vector of vertices
   TFile* mVertexFile = nullptr;                                     // file with vertices
   TTree* mVertexTree = nullptr;                                     // tree of vertices
-  NA6PVertexerTracklets* mVTTrackletVertexer = nullptr;             // vertexer
   std::vector<NA6PTrack> mTracks, *hTrackPtr = &mTracks;            // vector of tracks
   TFile* mTrackFile = nullptr;                                      // file with tracks
   TTree* mTrackTree = nullptr;                                      // tree of tracks
-  NA6PTrackerCA* mVTTracker = nullptr;                              // tracker
+  std::unique_ptr<NA6PVertexerTracklets> mVTTrackletVertexer;       // vertexer
+  std::unique_ptr<NA6PTrackerCA> mVTTracker;                        // tracker
 
   ClassDefNV(NA6PVerTelReconstruction, 1);
 };
