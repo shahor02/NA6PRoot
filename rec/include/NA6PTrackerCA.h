@@ -71,7 +71,7 @@ class NA6PTrackerCA
   static constexpr int kMaxIterationsCA = 10;
 
   NA6PTrackerCA();
-  ~NA6PTrackerCA();
+  ~NA6PTrackerCA() = default;
 
   // setters for configurable parameters
   void setNLayers(int n);
@@ -94,22 +94,12 @@ class NA6PTrackerCA
                           float maxChi2ndfCells,
                           float maxChi2ndfTracks,
                           int minNClusTracks);
-  void setParticleHypothesis(int pdg);
-  void setUseIntegralBForSeed()
-  {
-    if (mTrackFitter)
-      mTrackFitter->setUseIntegralBForSeed();
-  }
-  void setUseBatMidPointForSeed()
-  {
-    if (mTrackFitter)
-      mTrackFitter->setUseBatMidPointForSeed();
-  }
-  void setMaxPropagationStep(float step)
-  {
-    if (mTrackFitter)
-      mTrackFitter->setMaxPropagationStep(step);
-  }
+  void setParticleHypothesisPDG(int pdg) { mPID = PID::PDG2PID(pdg); }
+  void setParticleHypothesis(PID pid) { mPID = pid; }
+
+  void setUseIntegralBForSeed() { mTrackFitter->setUseIntegralBForSeed(); }
+  void setUseBatMidPointForSeed() { mTrackFitter->setUseBatMidPointForSeed(); }
+  void setMaxPropagationStep(float step) { mTrackFitter->setMaxPropagationStep(step); }
   void configureFromRecoParamVT(const std::string& filename = "");
   void configureFromRecoParamMS(const std::string& filename = "");
   void setVerbosity(bool opt = true) { mVerbose = opt; }
@@ -123,7 +113,7 @@ class NA6PTrackerCA
   std::vector<NA6PTrack> getTracks();
   template <typename ClusterType>
   std::vector<std::pair<ClusterType, ClusterType>> findTracklets(int jFirstLay, int jLastLay, std::vector<ClusterType>& cluArr, const NA6PVertex* primVert);
-  NA6PFastTrackFitter* getTrackFitter() { return mTrackFitter; }
+  NA6PFastTrackFitter* getTrackFitter() { return mTrackFitter.get(); }
 
  protected:
   // methods used in tracking
@@ -205,10 +195,11 @@ class NA6PTrackerCA
                   int requiredClus = -1);
 
  private:
+  PID mPID{};
   int mNLayers = 5;
   int mLayerStart = 0;
   float mPrimVertPos[3] = {};
-  NA6PFastTrackFitter* mTrackFitter = nullptr;
+  std::unique_ptr<NA6PFastTrackFitter> mTrackFitter;
   std::vector<bool> mIsClusterUsed = {};
   std::vector<TrackFitted> mFinalTracks = {};
   int mMaxSharedClusters = 0;

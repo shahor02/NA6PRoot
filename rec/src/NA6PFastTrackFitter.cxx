@@ -396,3 +396,73 @@ bool NA6PFastTrackFitter::fitTrackPoints(NA6PTrack& trackToFit, int dir, const N
   }
   return isGoodFit;
 }
+
+//=========================================================
+float NA6PFastTrackFitter::fitSeed(NA6PTrackParCov& seed, bool resetCovMat, int dir, NA6PTrackPar* linRef)
+{
+  std::vector<const NA6PBaseCluster*> clusv;
+  clusv.reserve(mNLayers); // RSTODO consider to have this as a class member filled once
+  for (int i = 0; i < mNLayers; i++) {
+    if (mClusters[i]) {
+      clusv.push_back(mClusters[i]);
+    }
+  }
+  return fitSeed(seed, clusv, resetCovMat, dir, linRef);
+}
+
+float NA6PFastTrackFitter::fitSeed(NA6PTrackParCov& seed, std::vector<const NA6PBaseCluster*> clusters, bool resetCovMat, int dir, NA6PTrackPar* linRef)
+{
+  // fit track (already seeded but not necessarily at the position of the 1st cluster to fit.
+  // If the covariance matrix reset it requested, then the track position is imposed at the 1st cluster to fit (w/o propagating other track params)
+  // and the covariance is reset. Otherwise (assuming that the fit is a continuation of the existing fit), the track is propagated to the 1st point
+  // (including the cov. matrix propagation).
+  // If linRef is provided, it is used for the KF linearization, otherwise the linearization is done wrt the track being updated.
+  // The propagation is done with the PID of the provided seed (or that of linRef, if provided).
+  //
+  // The cluster must be provided in the increasing Z order
+  //
+  // In case of the sucessful fit return total chi2, otherwise negative number
+  int nClus = clusters.size();
+  if (nClus < 2) {
+    LOGP(error, "Cannot fit track with only {} clusters\n", nClus);
+    return -1.f;
+  }
+  float chi2Tot = 0.f;
+  auto prop = Propagator::Instance();
+  int startC = 0, stopC = nClus, step = 1;
+  if (dir < 0) {
+    startC = nClus - 1;
+    stopC = -1;
+    step = -1;
+  }
+  if (resetCovMat) {
+    seed.setXYZ(clusters[startC]->getXYZ());
+    seed.resetCovariance(-1);
+    if (linRef) {
+      if (!prop->propagateToZ(*linRef, clusters[startC]->getZ(), mPropOpt)) { // linRef must be at the same position as the seed
+        return -1.f;
+      }
+      linRef->setXYZ(clusters[startC]->getXYZ());
+    }
+  }
+  mPropOpt.linRef = linRef;
+
+  int prevLr = clusters[startC]->getLayer() - step; // to check clusters ordering
+  for (int ic = startC; ic != stopC; ic += step) {
+    const auto& cl = *mClusters[ic];
+    if (cl.getLayer() <= prevLr) {
+      LOGP(fatal, "Clusters are not in increasing Z order");
+    }
+    prevLr = cl.getLayer();
+    float chi2 = 0;
+    if (!prop->propagateToZ(seed, cl.getZ(), mPropOpt) ||
+        (chi2 = seed.getPredictedChi2(cl)) > mMaxChi2Cl ||
+        !seed.update(cl)) {
+      chi2Tot = -1;
+      break;
+    }
+    chi2Tot += chi2;
+  }
+  mPropOpt.linRef = nullptr;
+  return chi2Tot;
+}

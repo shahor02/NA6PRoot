@@ -105,6 +105,15 @@ class NA6PFastTrackFitter
 
   bool loadGeometry(const std::string& filename = "geometry.root", const std::string geoname = "NA6P") { return Propagator::loadGeometry(filename, geoname); }
 
+  float fitSeed(NA6PTrackParCov& seed, std::vector<const NA6PBaseCluster*> clusters, bool resetCovMat = true, int dir = -1, NA6PTrackPar* linRef = nullptr);
+  float fitSeedInward(NA6PTrackParCov& seed, std::vector<const NA6PBaseCluster*> clusters, bool resetCovMat = true, NA6PTrackPar* linRef = nullptr) { return fitSeed(seed, clusters, resetCovMat, -1, linRef); }
+  float fitSeedOutward(NA6PTrackParCov& seed, std::vector<const NA6PBaseCluster*> clusters, bool resetCovMat = true, NA6PTrackPar* linRef = nullptr) { return fitSeed(seed, clusters, resetCovMat, 1, linRef); }
+
+  // version with the clusters already filled via addClusters
+  float fitSeed(NA6PTrackParCov& seed, bool resetCovMat = true, int dir = -1, NA6PTrackPar* linRef = nullptr);
+  float fitSeedInward(NA6PTrackParCov& seed, bool resetCovMat = true, NA6PTrackPar* linRef = nullptr) { return fitSeed(seed, resetCovMat, -1, linRef); }
+  float fitSeedOutward(NA6PTrackParCov& seed, bool resetCovMat = true, NA6PTrackPar* linRef = nullptr) { return fitSeed(seed, resetCovMat, 1, linRef); }
+
   bool fitTrackPoints(NA6PTrack& trackToFit, int dir = -1, const NA6PTrackParCov* seed = nullptr);
   bool fitTrackPointsInward(NA6PTrack& trackToFit, const NA6PTrackParCov* seed = nullptr) { return fitTrackPoints(trackToFit, -1, seed); }
   bool fitTrackPointsOutward(NA6PTrack& trackToFit, const NA6PTrackParCov* seed = nullptr) { return fitTrackPoints(trackToFit, 1, seed); }

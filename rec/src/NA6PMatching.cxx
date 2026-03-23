@@ -35,7 +35,7 @@ bool NA6PMatching::initMatching()
   mTrackFitter->enableMaterialCorrections();
   mTrackFitter->setPropagateToPrimaryVertex(false);
   mTrackFitter->setNLayers(11);
-  mTrackFitter->setParticleHypothesis(13); // muon mass hypothesis
+  mTrackFitter->setParticleHypothesis(PID::Muon); // muon mass hypothesis
   mTrackFitter->setUseIntegralBForSeed();
   configureFromRecoParam(mRecoParFilName);
   createTracksOutput();

@@ -19,32 +19,13 @@ ClassImp(NA6PTrackerCA)
 
 //______________________________________________________________________
 
-NA6PTrackerCA::NA6PTrackerCA() : mLayerStart{0},
-                                 mNLayers{5},
-                                 mPrimVertPos{0., 0., 0.},
-                                 mTrackFitter{nullptr},
-                                 mIsClusterUsed{false},
-                                 mMaxSharedClusters{0},
-                                 mPropagateTracksToPrimaryVertex{false},
-                                 mDoOutwardPropagation{false},
-                                 mDoInwardRefit{false},
-                                 mDoTrackConstrainedToPrimVert{false},
-                                 mZOutProp{40.},
-                                 mVerbose{false},
-                                 mNIterationsCA{2}
+NA6PTrackerCA::NA6PTrackerCA()
 {
-  mTrackFitter = new NA6PFastTrackFitter();
-  mTrackFitter->setNLayers(mNLayers);
-  mTrackFitter->setPropagateToPrimaryVertex(false);
+  mTrackFitter = std::make_unique<NA6PFastTrackFitter>();
+  mTrackFitter->setNLayers(mNLayers);               // RSREM
+  mTrackFitter->setPropagateToPrimaryVertex(false); // RSREM
 }
-//______________________________________________________________________
 
-NA6PTrackerCA::~NA6PTrackerCA()
-{
-  if (mTrackFitter)
-    delete mTrackFitter;
-  mTrackFitter = nullptr;
-}
 //______________________________________________________________________
 void NA6PTrackerCA::setNLayers(int n)
 {
@@ -52,6 +33,7 @@ void NA6PTrackerCA::setNLayers(int n)
   if (mTrackFitter)
     mTrackFitter->setNLayers(n);
 }
+
 //______________________________________________________________________
 void NA6PTrackerCA::setNumberOfIterations(int nIter)
 {
@@ -60,6 +42,7 @@ void NA6PTrackerCA::setNumberOfIterations(int nIter)
   else
     LOGP(error, "Number of iterations should be <= {}", kMaxIterationsCA);
 }
+
 void NA6PTrackerCA::setIterationParams(int iter,
                                        float maxDeltaThetaTracklets,
                                        float maxDeltaPhiTracklets,
@@ -86,13 +69,6 @@ void NA6PTrackerCA::setIterationParams(int iter,
   mMaxChi2ndfCellsCA[iter] = maxChi2ndfCells;
   mMaxChi2ndfTracksCA[iter] = maxChi2ndfTracks;
   mMinNClusTracksCA[iter] = minNClusTracks;
-}
-
-void NA6PTrackerCA::setParticleHypothesis(int pdg)
-{
-  if (mTrackFitter) {
-    mTrackFitter->setParticleHypothesis(pdg);
-  }
 }
 
 void NA6PTrackerCA::configureFromRecoParamVT(const std::string& filename)
@@ -506,7 +482,7 @@ bool NA6PTrackerCA::fitTrackPointsFast(const std::vector<int>& cluIDs,
 {
 
   int nClus = cluIDs.size();
-  mTrackFitter->cleanupAndStartFit();
+  mTrackFitter->cleanupAndStartFit(); // RSTODO
   mTrackFitter->setMaxChi2Cl(maxChi2TrClu);
   std::array<int, 3> layForSeed = {-1, -1, -1}; // filled only for fit to cells
   for (int jClu = 0; jClu < nClus; jClu++) {
@@ -522,14 +498,15 @@ bool NA6PTrackerCA::fitTrackPointsFast(const std::vector<int>& cluIDs,
   if (nClus == 3)
     mTrackFitter->computeSeed(-1, layForSeed); // -1 = fit is done inwards
 
-  if (!mTrackFitter->fitTrackPoints(fitTrack)) {
+  auto chiTot = mTrackFitter->fitSeedInward(fitTrack);
+  if (chiTot < 0) {
     return false;
   }
-
-  float chi2ndf = fitTrack.getNormChi2();
-  if (chi2ndf > maxChi2NDF)
+  float chi2ndf = nClus < 3 ? 0.f : chiTot / (2 * nClus - NA6PTrack::kNDOF); // RSTODO with B=0 the NDOF=4 and min clusters is 2!!!
+  if (chi2ndf > maxChi2NDF) {
     return false;
-
+  }
+  // RSTODO register chi2, clusters
   return true;
 }
 
