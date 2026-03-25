@@ -19,6 +19,8 @@
 #include <array>
 #include <Rtypes.h>
 
+class NA6PTrackPar; // fwd declaration only
+
 // class for operations with straight lines (tracklets)
 
 class NA6PLine
@@ -28,7 +30,8 @@ class NA6PLine
   NA6PLine(const NA6PLine& source) = default;
   NA6PLine& operator=(const NA6PLine& source) = default;
   NA6PLine(const float firstPoint[3], const float secondPoint[3]);
-  
+  NA6PLine(const NA6PTrackPar& t);
+
   static NA6PLine fromTwoPoints(const float p0[3], const float p1[3]);
   static NA6PLine fromPointAndDirection(const float xyz[3], const float dir[3]);
   static NA6PLine fromPointAndDirection(const double xyz[3], const double dir[3]);
@@ -65,8 +68,8 @@ class NA6PLine
   bool isEmpty() const { return (mOriginPoint[0] == 0.f && mOriginPoint[1] == 0.f && mOriginPoint[2] == 0.f) &&
                                 (mCosinesDirector[0] == 0.f && mCosinesDirector[1] == 0.f && mCosinesDirector[2] == 0.f); }
 
-  float mOriginPoint[3] = {0.0};
-  float mCosinesDirector[3] = {0.0};
+  std::array<float, 3> mOriginPoint{};
+  std::array<float, 3> mCosinesDirector{};
 
   ClassDefNV(NA6PLine, 1);
 };

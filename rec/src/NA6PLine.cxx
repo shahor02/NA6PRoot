@@ -1,10 +1,16 @@
 // NA6PCCopyright
 
 #include "NA6PLine.h"
+#include "NA6PTrackPar.h"
 
-ClassImp(NA6PLine)
+NA6PLine::NA6PLine(const NA6PTrackPar& t)
+{
+  mOriginPoint = t.getXYZ();
+  auto pxz2p = 1.f / t.getP2Pxz();
+  mCosinesDirector = {t.getTx() * pxz2p, t.getTy() * pxz2p, t.getCosPsi() * pxz2p};
+}
 
-  NA6PLine::NA6PLine(const float firstPoint[3], const float secondPoint[3])
+NA6PLine::NA6PLine(const float firstPoint[3], const float secondPoint[3])
 {
   for (int index{0}; index < 3; ++index) {
     mOriginPoint[index] = firstPoint[index];
