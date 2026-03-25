@@ -122,6 +122,8 @@ class NA6PTrackPar
   float getQ2P() const;
   float getCharge2Pxz() const { return getQ2Pxz(); } // RSTODO in case of q=0 return 0, while  getQ2Pxz() returns 1/p_xz
 
+  float getSinPsi2() const { return getTx() * getTx(); }
+  float getSinPsi() const { return getTx(); }
   float getCosPsi2() const { return getCos2FromSin(getTx()); }
   float getCosPsi() const { return getCosFromSin(getTx()); }
   float getPsi() const { return std::asin(std::max(-1.f, std::min(1.f, getTx()))); }
