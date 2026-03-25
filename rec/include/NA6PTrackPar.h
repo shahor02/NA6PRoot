@@ -1,3 +1,5 @@
+// NA6PCCopyright
+
 #ifndef NA6P_TRACKPAR_XZ_H
 #define NA6P_TRACKPAR_XZ_H
 
@@ -77,6 +79,9 @@ class NA6PTrackPar
   float getTy() const { return mP[kTy]; }       // py/pxz
   float getQ2Pxz() const { return mP[kQ2Pxz]; } // q/pxz
   float getR2() const { return getX() * getX() + getY() * getY(); }
+
+  template <typename T = float>
+  std::array<T, 3> getCircleParams(float by) const;
 
   const auto& getParam() const { return mP; }
   float getParam(int l) const { return mP[l]; }
@@ -188,6 +193,19 @@ inline float NA6PTrackPar::getQ2P() const
 {
   const float denom = getP2Pxz();
   return denom > 0.f ? getQ2Pxz() / denom : 0.f; // q/p = (q/pxz)/sqrt(1+ty^2)
+}
+
+template <typename T>
+std::array<T, 3> NA6PTrackPar::getCircleParams(float by) const
+{
+  // get circle params as {R, Xcenter, Zcenter}, for straight line just set to current coordinates
+  auto crv = getCurvature(by);
+  if (std::abs(crv) > kSmallKappa) {
+    T crvi = T(1) / crv, sn = getTx(), cs = std::sqrt((T(1) - sn) * (T(1) + sn));
+    return {std::abs(crvi), getX() + cs * crvi, getZ() - sn * crvi};
+  } else {
+    return {T(0), T(getX()), T(getZ())};
+  }
 }
 
 #endif

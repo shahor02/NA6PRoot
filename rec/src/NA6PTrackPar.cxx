@@ -1,3 +1,5 @@
+// NA6PCCopyright
+
 #include "NA6PTrackPar.h"
 #include <fairlogger/Logger.h>
 #include <algorithm>
