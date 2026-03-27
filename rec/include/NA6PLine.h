@@ -49,6 +49,30 @@ struct NA6PLine {
   }
 
   template <typename T>
+  static T getNorm2(const std::array<T, 3>& v)
+  {
+    return v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
+  }
+
+  template <typename T>
+  static T getNorm(const std::array<T, 3>& v)
+  {
+    return std::sqrt(getNorm2(v));
+  }
+
+  template <typename T>
+  static std::array<T, 3> getCross(const std::array<T, 3>& v1, const std::array<T, 3>& v2)
+  {
+    return {v1[1] * v2[2] - v1[2] * v2[1], -v1[0] * v2[2] + v1[2] * v2[0], v1[0] * v2[1] - v1[1] * v2[0]};
+  }
+
+  template <typename T>
+  static T getScalar(const std::array<T, 3>& v1, const std::array<T, 3>& v2)
+  {
+    return v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
+  }
+
+  template <typename T>
   float getDistanceFromPoint(const std::array<T, 3>& point) const;
 
   template <typename T>
@@ -93,7 +117,7 @@ template <typename T>
 inline float NA6PLine::getDistanceFromPoint(const std::array<T, 3>& point) const
 {
   const auto dif = getDiff(mOriginPoint, point);
-  const float t = std::inner_product(dif.begin(), dif.end(), mCosinesDirector.begin(), 0.f);
+  const float t = getScalar(dif, mCosinesDirector);
   const auto dxyz = getDiff(dif, std::array<float, 3>{t * mCosinesDirector[0], t * mCosinesDirector[1], t * mCosinesDirector[2]});
   return std::hypot(dxyz[0], dxyz[1], dxyz[2]);
 }
@@ -102,7 +126,7 @@ template <typename T>
 std::array<float, 6> NA6PLine::getDCAComponents(const std::array<T, 3>& point) const
 {
   const auto dif = getDiff(mOriginPoint, point);
-  const auto t = std::inner_product(dif.begin(), dif.end(), mCosinesDirector.begin(), 0.f);
+  const auto t = getScalar(dif, mCosinesDirector);
 
   std::array<float, 6> components{dif[0] - t * mCosinesDirector[0], 0., 0.,
                                   dif[1] - t * mCosinesDirector[1], 0.,
@@ -116,15 +140,13 @@ std::array<float, 6> NA6PLine::getDCAComponents(const std::array<T, 3>& point) c
 
 inline float NA6PLine::getDCA(const NA6PLine& secondLine, const float precision) const
 {
-  std::array<float, 3> nxyz{mCosinesDirector[1] * secondLine.mCosinesDirector[2] - mCosinesDirector[2] * secondLine.mCosinesDirector[1],
-                            -mCosinesDirector[0] * secondLine.mCosinesDirector[2] + mCosinesDirector[2] * secondLine.mCosinesDirector[0],
-                            mCosinesDirector[0] * secondLine.mCosinesDirector[1] - mCosinesDirector[1] * secondLine.mCosinesDirector[0]};
-  const float norm2 = std::inner_product(nxyz.begin(), nxyz.end(), nxyz.begin(), 0.f);
+  auto nxyz = getCross(mCosinesDirector, secondLine.mCosinesDirector);
+  const float norm2 = getNorm2(nxyz);
   if (norm2 <= precision * precision) {
     return getDistanceFromPoint(secondLine.mOriginPoint);
   }
   const auto dif = getDiff(secondLine.mOriginPoint, mOriginPoint);
-  return std::abs(std::inner_product(dif.begin(), dif.end(), nxyz.begin(), 0.f)) / std::sqrt(norm2);
+  return std::abs(getScalar(dif, nxyz)) / std::sqrt(norm2);
 }
 
 #endif // NA6P_LINE_H
