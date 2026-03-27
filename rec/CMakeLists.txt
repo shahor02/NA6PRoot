@@ -30,6 +30,7 @@ set(DICTIONARY_HEADERS
   NA6PTrack.h
   NA6PVertex.h
   NA6PLine.h
+  NA6PHelixHelper.h
   NA6PRecoParam.h
   NA6PReconstruction.h
   NA6PVerTelReconstruction.h

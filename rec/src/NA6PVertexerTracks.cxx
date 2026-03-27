@@ -188,13 +188,16 @@ void NA6PVertexerTracks::accountTrack(TrackVF& trc, VertexSeed& vtxSeed) const
   float cx = trc.mLine.mCosinesDirector[0];
   float cy = trc.mLine.mCosinesDirector[1];
   float cz = trc.mLine.mCosinesDirector[2];
-  float t = cx * (vtxSeed.x - ox) + cy * (vtxSeed.y - oy);
+  auto norm = cx * cx + cy * cy;
+  trc.wgh = 0.f;
+  if (norm < kAlmost0F)
+    return;
+  float t = (cx * (vtxSeed.x - ox) + cy * (vtxSeed.y - oy)) / norm; // RSFIX: added normalization, check if this is correct
   float dz = oz + cz * t - vtxSeed.z;
 
   auto chi2T = trc.evalChi2ToVertex(dx, dy);
   float wghT = (1.f - chi2T * vtxSeed.scaleSig2ITuk2I); // weighted distance to vertex
   if (wghT < kAlmost0F) {
-    trc.wgh = 0.f;
     return;
   }
   wghT *= wghT;

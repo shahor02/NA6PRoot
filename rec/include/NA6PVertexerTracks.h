@@ -37,18 +37,17 @@ struct TrackVF {
   int vtxID = kNoVtx;  // assigned vertex
 
   TrackVF() = default;
-  TrackVF(const NA6PTrackParCov& src, int id)
+  TrackVF(const NA6PTrackParCov& src, int id) : mLine(src)
   {
     // NB: src must already be propagated to its DCA to the beam axis
     // before constructing TrackVF — call propagateToDCABeamAxis() first
     trackIndex = id;
-    mLine = NA6PLine::fromPointAndDirection(src.getXYZ().data(), src.getPXYZ().data());
     float sxx = src.getSigmaX2(), syy = src.getSigmaY2(), sxy = src.getSigmaYX();
     float cx = mLine.mCosinesDirector[0];
     float cy = mLine.mCosinesDirector[1];
     float cz = mLine.mCosinesDirector[2];
     float pt2 = cx * cx + cy * cy;
-    float szz = (pt2 > 1e-6f) ? 0.5f * (sxx + syy) * (cz * cz) / pt2 : 1e10f;
+    float szz = (pt2 > 1e-6f) ? 0.5f * (sxx + syy) * (cz * cz) / pt2 : 1e10f; // RSTODO check the logic
     float det = sxx * syy - sxy * sxy;
     if (det <= 1e-20f) {
       mSig2ZI = -1.f;
@@ -75,10 +74,10 @@ struct TrackVF {
 
   float evalChi2ToVertex(const std::array<float, 3>& vtxPos) const
   {
-    auto res = getResiduals(vtxPos); // track-vertex residuals and chi2
-    float dx = res[0], dy = res[1];
-    return evalChi2ToVertex(dx, dy);
+    const auto res = getResiduals(vtxPos); // track-vertex residuals and chi2
+    return evalChi2ToVertex(res[0], res[1]);
   }
+
   float evalChi2ToVertex(float dx, float dy) const
   {
     constexpr float NDOF2I = 0.5f;

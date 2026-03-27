@@ -53,8 +53,8 @@ struct ClusterLines {
   void computeClusterCentroid();
   const std::vector<int>& getLabels() { return lineLabels; }
   int getSize() const { return lineLabels.size(); }
-  std::array<float, 3> getVertex() const { return lineCluVertex; }
-  std::array<float, 6> getRMS2() const { return lineCluRMS2; }
+  const std::array<float, 3>& getVertex() const { return lineCluVertex; }
+  const std::array<float, 6>& getRMS2() const { return lineCluRMS2; }
   inline float getAvgDistance2() const { return lineCluAvgDistance2; }
 
   bool operator==(const ClusterLines&) const;
