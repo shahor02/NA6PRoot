@@ -820,6 +820,8 @@ bool NA6PVertexerTracklets::compute3DVertices(const std::vector<TrackletForVerte
   if (usable == 0) {
     return false;
   }
+  auto mMinCandidateDistance3DSq = mMinCandidateDistance3D * mMinCandidateDistance3D;
+
   // Build candidate vertices by pairing tracklets and growing seeds
   std::vector<ClusterLines> candVertices;
   for (int jTr1 = 0; jTr1 < nTracklets; ++jTr1) {
@@ -904,18 +906,19 @@ bool NA6PVertexerTracklets::compute3DVertices(const std::vector<TrackletForVerte
     auto vertex1 = candVertices[jCand1].getVertex();
     for (int jCand2 = jCand1 + 1; jCand2 < nCandVertices; ++jCand2) {
       const auto& vertex2 = candVertices[jCand2].getVertex();
-      if (std::abs(vertex1[2] - vertex2[2]) > mMinCandidateDistanceZ ||
-          std::hypot(vertex1[0] - vertex2[0], vertex1[1] - vertex2[1], vertex1[2] - vertex2[2]) > mMinCandidateDistance3D) {
-        continue; // RSFIX changed the logic: erasing jCand2 must be coupled to the successful merge only; otherwise you silently discard a distinct vertex candidate.
+      if (std::abs(vertex1[2] - vertex2[2]) < mMinCandidateDistanceZ) {
+        float dist2 = NA6PLine::getNorm2(NA6PLine::getDiff(vertex1, vertex2));
+        if (dist2 < mMinCandidateDistance3DSq) {
+          for (auto label : candVertices[jCand2].getLabels()) {
+            const NA6PLine& line = trackletLines[label];
+            candVertices[jCand1].add(label, line);
+          }
+          vertex1 = candVertices[jCand1].getVertex();
+          candVertices.erase(candVertices.begin() + jCand2);
+          --jCand2;
+          --nCandVertices;
+        }
       }
-      for (auto label : candVertices[jCand2].getLabels()) {
-        const NA6PLine& line = trackletLines[label];
-        candVertices[jCand1].add(label, line);
-      }
-      vertex1 = candVertices[jCand1].getVertex();
-      candVertices.erase(candVertices.begin() + jCand2);
-      --jCand2;
-      --nCandVertices;
     }
   }
   std::sort(candVertices.begin(), candVertices.end(),

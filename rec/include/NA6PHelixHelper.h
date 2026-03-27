@@ -1,7 +1,25 @@
+// NA6PCCopyright
+
+// Based on:
+// Copyright 2019-2020 CERN and copyright holders of ALICE O2.
+// See https://alice-o2.web.cern.ch/copyright for details of the copyright holders.
+// All rights not expressly granted are reserved.
+//
+// This software is distributed under the terms of the GNU General Public
+// License v3 (GPL Version 3), copied verbatim in the file "COPYING".
+//
+// In applying this license CERN does not waive the privileges and immunities
+// granted to it by virtue of its status as an Intergovernmental Organization
+// or submit itself to any jurisdiction.
+
 #ifndef _NA6P_HELIX_HELPER_
 #define _NA6P_HELIX_HELPER_
 
-struct CrossInfo {
+#include <Rtypes.h>
+#include "NA6PTrackPar.h"
+#include "NA6PLine.h"
+
+struct NA6PHelixHelper {
   using CircleXZ = std::array<float, 3>;
   enum { kR,
          kX,
@@ -216,14 +234,14 @@ struct CrossInfo {
     return nDCA;
   }
 
-  CrossInfo() = default;
+  NA6PHelixHelper() = default;
 
-  CrossInfo(const CircleXZ& trax0, const NA6PTrack& tr0, const CircleXZ& trax1, const NA6PTrack& tr1, float maxDistXZ = MaxDistXZDef, bool isCollinear = false)
+  NA6PHelixHelper(const CircleXZ& trax0, const NA6PTrack& tr0, const CircleXZ& trax1, const NA6PTrack& tr1, float maxDistXZ = MaxDistXZDef, bool isCollinear = false)
   {
     set(trax0, tr0, trax1, tr1, maxDistXZ, isCollinear);
   }
 
-  ClassDefNV(CrossInfo, 1);
+  ClassDefNV(NA6PHelixHelper, 1);
 };
 
 #endif
