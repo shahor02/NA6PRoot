@@ -28,10 +28,18 @@ struct NA6PLine {
   NA6PLine() = default;
   NA6PLine(const NA6PLine& source) = default;
   NA6PLine& operator=(const NA6PLine& source) = default;
-  NA6PLine(const NA6PTrackPar& t);
+  NA6PLine(const NA6PTrackPar& trc);
+
+  std::array<float, 3> evalAt(float t) const { return propagate(mOriginPoint, mCosinesDirector, t); }
 
   template <typename T = float>
   NA6PLine(const std::array<T, 3>& start, const std::array<T, 3>& end);
+
+  template <typename T = float>
+  static std::array<T, 3> propagate(const std::array<T, 3>& origin, const std::array<T, 3>& dirs, T t)
+  {
+    return getSum(origin, getScaled(dirs, t));
+  }
 
   template <typename T = float>
   static NA6PLine fromTwoPoints(const std::array<T, 3>& p0, const std::array<T, 3>& p1)
@@ -48,10 +56,30 @@ struct NA6PLine {
     return {end[0] - start[0], end[1] - start[1], end[2] - start[2]};
   }
 
+  template <typename T1, typename T2>
+  static std::array<T1, 3> getSum(const std::array<T1, 3>& start, const std::array<T2, 3>& end)
+  {
+    return {end[0] + start[0], end[1] + start[1], end[2] + start[2]};
+  }
+
   template <typename T>
   static T getNorm2(const std::array<T, 3>& v)
   {
     return v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
+  }
+
+  template <typename T>
+  static void scale(std::array<T, 3>& v, T s)
+  {
+    for (int i = 0; i < 3; i++) {
+      v[i] *= s;
+    }
+  }
+
+  template <typename T>
+  static std::array<T, 3> getScaled(const std::array<T, 3>& v, T s)
+  {
+    return {v[0] * s, v[1] * s, v[2] * s};
   }
 
   template <typename T>
@@ -106,11 +134,7 @@ template <typename T>
 inline NA6PLine NA6PLine::fromPointAndDirection(const std::array<T, 3>& xyz, const std::array<T, 3>& dir)
 {
   T norm = std::hypot(dir[0], dir[1], dir[2]), inv = (norm > T(1e-12)) ? T(1) / norm : T(0);
-  return {{xyz[0], xyz[1], xyz[2]}, {
-                                      dir[0] * inv,
-                                      dir[1] * inv,
-                                      dir[2] * inv,
-                                    }};
+  return {{xyz[0], xyz[1], xyz[2]}, getScaled(dir, inv)};
 }
 
 template <typename T>
@@ -118,8 +142,7 @@ inline float NA6PLine::getDistanceFromPoint(const std::array<T, 3>& point) const
 {
   const auto dif = getDiff(mOriginPoint, point);
   const float t = getScalar(dif, mCosinesDirector);
-  const auto dxyz = getDiff(dif, std::array<float, 3>{t * mCosinesDirector[0], t * mCosinesDirector[1], t * mCosinesDirector[2]});
-  return std::hypot(dxyz[0], dxyz[1], dxyz[2]);
+  return getNorm(getDiff(dif, getScaled(mCosinesDirector, t)));
 }
 
 template <typename T>
