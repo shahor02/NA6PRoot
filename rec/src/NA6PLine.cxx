@@ -3,11 +3,11 @@
 #include "NA6PLine.h"
 #include "NA6PTrackPar.h"
 
-NA6PLine::NA6PLine(const NA6PTrackPar& t)
+NA6PLine::NA6PLine(const NA6PTrackPar& trc)
 {
-  mOriginPoint = t.getXYZ();
-  auto pxz2p = 1.f / t.getP2Pxz();
-  mCosinesDirector = {t.getTx() * pxz2p, t.getTy() * pxz2p, t.getCosPsi() * pxz2p};
+  mOriginPoint = trc.getXYZ();
+  auto pxz2p = 1.f / trc.getP2Pxz();
+  mCosinesDirector = {trc.getTx() * pxz2p, trc.getTy() * pxz2p, trc.getCosPsi() * pxz2p};
 }
 
 bool NA6PLine::getClosestPoints(const NA6PLine& line2, std::array<float, 3>& p1, std::array<float, 3>& p2, float precision) const
@@ -33,14 +33,8 @@ bool NA6PLine::getClosestPoints(const NA6PLine& line2, std::array<float, 3>& p1,
   float s = (uv * w0v - vv * w0u) / denom;
   float t = (uu * w0v - uv * w0u) / denom;
 
-  p1[0] = mOriginPoint[0] + s * mCosinesDirector[0];
-  p1[1] = mOriginPoint[1] + s * mCosinesDirector[1];
-  p1[2] = mOriginPoint[2] + s * mCosinesDirector[2];
-
-  p2[0] = line2.mOriginPoint[0] + t * line2.mCosinesDirector[0];
-  p2[1] = line2.mOriginPoint[1] + t * line2.mCosinesDirector[1];
-  p2[2] = line2.mOriginPoint[2] + t * line2.mCosinesDirector[2];
-
+  p1 = evalAt(s);
+  p2 = line2.evalAt(t);
   return true;
 }
 

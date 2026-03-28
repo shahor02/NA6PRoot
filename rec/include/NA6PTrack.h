@@ -78,6 +78,10 @@ class NA6PTrack : public NA6PTrackParCov
   void setChi2MSOuter(float chi2) { mChi2MSOuter = chi2; }
   void setChi2VTRefit(float chi2) { mChi2VTRefit = chi2; }
   void setChi2MSRefit(float chi2) { mChi2MSRefit = chi2; }
+
+  void setChi2(float chi2) {}    // RSTODO
+  void setChi2Out(float chi2) {} // RSTODO
+
   void setParticleLabel(int idx, int lr)
   {
     if (lr < kMaxLr)
@@ -92,7 +96,7 @@ class NA6PTrack : public NA6PTrackParCov
   void setCAIteration(int iter) { mCAIteration = iter; }
 
   template <typename ClusterType>
-  void addCluster(const ClusterType* clu, int cluIndex, float chi2);
+  void addCluster(const ClusterType* clu, int cluIndex, float chi2 = 0.f); // RSTODO get rid of chi2 here
 
   void print() const;
   std::string asString() const;

@@ -47,12 +47,14 @@ class NA6PFastTrackFitter
 
   // setters for configurable parameters
   void setMaxChi2Cl(float v = 10) { mMaxChi2Cl = v; }
+
   void setNLayers(int n)
   {
     mNLayers = n;
-    mClusters.clear();
     mClusters.resize(n);
+    resetClusters();
   }
+
   void setParticleHypothesis(int pdg) { mPID.setFromPDG(pdg); }
 
   void enableMaterialCorrections() { mPropOpt.matCorr = Propagator::MatCorrType::USEMatCorrTGeo; }
@@ -67,12 +69,7 @@ class NA6PFastTrackFitter
     mIsPrimVertSet = true;
   }
   void setSeed(const float* pos, const float* mom, int charge = 1);
-  void setCharge(int ch)
-  {
-    if (ch != 0)
-      mCharge = ch;
-  };
-  void unsetSeed() { mIsSeedSet = false; }
+  void unsetSeed() { mSeed.invalidate(); }
   void setSeedFromTwoHits() { mSeedPoints = kTwoPointSeed; }
   void setSeedFromThreeHits() { mSeedPoints = kThreePointSeed; }
   void setSeedFromOutermostHits() { mSeedOption = kOutermostAsSeed; }
@@ -89,14 +86,21 @@ class NA6PFastTrackFitter
   void computeSeedInner() { computeSeed(1); }
   void printClusters() const;
   void printSeed() const;
-  const auto& getSeedMomentum() const { return mSeedMom; }
-  const auto& getSeedPosition() const { return mSeedPos; }
-  int getCharge() const { return mCharge; }
-  void addCluster(int jLay, const NA6PBaseCluster& cl);
+  const auto& getSeed() const { return mSeed; }
+  void addCluster(const NA6PBaseCluster& cl);
+  const NA6PBaseCluster* getCluster(int lr) const { return mClusters[lr]; }
+  int getNumberOfClusters() const { return mNClusters; }
+  int getMinLayerWithCl() const { return mMinLayerWithCl; }
+  int getMaxLayerWithCl() const { return mMaxLayerWithCl; }
+
   void resetClusters()
   {
+    mMinLayerWithCl = 0x7fffffff;
+    mMaxLayerWithCl = -1;
+    mNClusters = 0;
     std::fill(mClusters.begin(), mClusters.end(), nullptr);
   }
+
   void cleanupAndStartFit()
   {
     resetClusters();
@@ -105,11 +109,6 @@ class NA6PFastTrackFitter
 
   bool loadGeometry(const std::string& filename = "geometry.root", const std::string geoname = "NA6P") { return Propagator::loadGeometry(filename, geoname); }
 
-  float fitSeed(NA6PTrackParCov& seed, std::vector<const NA6PBaseCluster*> clusters, bool resetCovMat = true, int dir = -1, NA6PTrackPar* linRef = nullptr);
-  float fitSeedInward(NA6PTrackParCov& seed, std::vector<const NA6PBaseCluster*> clusters, bool resetCovMat = true, NA6PTrackPar* linRef = nullptr) { return fitSeed(seed, clusters, resetCovMat, -1, linRef); }
-  float fitSeedOutward(NA6PTrackParCov& seed, std::vector<const NA6PBaseCluster*> clusters, bool resetCovMat = true, NA6PTrackPar* linRef = nullptr) { return fitSeed(seed, clusters, resetCovMat, 1, linRef); }
-
-  // version with the clusters already filled via addClusters
   float fitSeed(NA6PTrackParCov& seed, bool resetCovMat = true, int dir = -1, NA6PTrackPar* linRef = nullptr);
   float fitSeedInward(NA6PTrackParCov& seed, bool resetCovMat = true, NA6PTrackPar* linRef = nullptr) { return fitSeed(seed, resetCovMat, -1, linRef); }
   float fitSeedOutward(NA6PTrackParCov& seed, bool resetCovMat = true, NA6PTrackPar* linRef = nullptr) { return fitSeed(seed, resetCovMat, 1, linRef); }
@@ -129,9 +128,7 @@ class NA6PFastTrackFitter
   int mSeedPoints = kThreePointSeed;  // number of hits used for seed
   int mOptionForSeedB = kBatMidPoint; // option for B field usage in seed
 
-  std::array<float, 3> mSeedPos{};                 // seed for track position
-  std::array<float, 3> mSeedMom = {0.f, 0.f, 1.f}; // seed for track momentum
-  int mCharge = 1;                    // track charge for seed
+  NA6PTrackPar mSeed{};
 
   bool mPropagateToPrimVert = false;  // flag for propagation to primary vertex
   bool mIsPrimVertSet = false;        // flag for presence of prim vert z
@@ -141,18 +138,21 @@ class NA6PFastTrackFitter
 
   PID mPID;                                      // PID to impose
   std::vector<const NA6PBaseCluster*> mClusters; // array with clusters
+  int mMinLayerWithCl = 0x7fffffff;              // lowest layer having clusters
+  int mMaxLayerWithCl = -1;                      // highest layer having clusters
+  int mNClusters = 0;
 
  protected:
-  int getNumberOfClusters() const
-  {
-    int nClus = 0;
-    for (int jLay = 0; jLay < mNLayers; ++jLay)
-      if (mClusters[jLay])
-        nClus++;
-    return nClus;
-  }
-
   ClassDefNV(NA6PFastTrackFitter, 1);
 };
+
+inline void NA6PFastTrackFitter::addCluster(const NA6PBaseCluster& cl)
+{
+  int lay = cl.getLayer();
+  mClusters[lay] = &cl;
+  mMinLayerWithCl = std::min(lay, mMinLayerWithCl);
+  mMaxLayerWithCl = std::max(lay, mMaxLayerWithCl);
+  mNClusters++;
+}
 
 #endif

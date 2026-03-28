@@ -52,6 +52,7 @@ class NA6PTrackPar
   static constexpr float kSmallBend = 1e-6f;               // threshold on |kappa*dz|
   static constexpr float kSmallKappa = 1e-14f;             // threshold on |kappa|
   static constexpr float ELoss2EKinThreshInv = 1. / 0.025; // do not allow E.Loss correction step with dE/Ekin above the inverse of this value
+  static constexpr float InvalidZ = -99999.f;              // tracks with this Z were invalidated
   static constexpr int MaxELossIter = 50;                  // max number of iteration for the ELoss to account for BB dependence on beta*gamma
 
   NA6PTrackPar() = default;
@@ -65,6 +66,9 @@ class NA6PTrackPar
 
   void initParam(const std::array<float, 3> xyz, const std::array<float, 3> pxyz, int sign) { initParam(xyz.data(), pxyz.data(), sign); }
   void initParam(const float* xyz, const float* pxyz, int sign);
+
+  void invalidate() { mZ = InvalidZ; }
+  bool isValid() const { return mZ == InvalidZ; }
 
   void setPID(PID pid) { mPID = pid; }
   PID getPID() const { return mPID; }

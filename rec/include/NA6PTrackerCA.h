@@ -50,6 +50,16 @@ struct TrackCandidate {
   int outerLayer;
   int outerCellIndex;
   std::vector<int> cluIDs;
+  int getCluIDsWOGaps(std::vector<int>& dest) const // fill vectors of cluster IDs w/o gaps. RSTOD: check if cluIDs has actually gaps
+  {
+    dest.clear();
+    for (const auto cid : cluIDs) {
+      if (cid >= 0) {
+        dest.push_back(cid);
+      }
+    }
+    return dest.size();
+  }
 };
 
 struct TrackFitted {
@@ -147,14 +157,14 @@ class NA6PTrackerCA
                          float maxChi2TrClu,
                          float maxChi2NDF);
   template <typename ClusterType>
-  float computeTrackToClusterChi2(const NA6PTrack& track,
+  float computeTrackToClusterChi2(const NA6PTrackParCov& track,
                                   const ClusterType& clu);
   template <typename ClusterType>
-  bool fitTrackPointsFast(const std::vector<int>& cluIDs,
-                          const std::vector<ClusterType>& cluArr,
-                          NA6PTrack& fitTrack,
-                          float maxChi2TrClu,
-                          float maxChi2NDF);
+  float fitTrackPointsFast(const std::vector<int>& cluIDs,
+                           const std::vector<ClusterType>& cluArr,
+                           NA6PTrackParCov& fitTrack,
+                           float maxChi2TrClu,
+                           float maxChi2NDF);
   template <typename ClusterType>
   void findCellsNeighbours(const std::vector<CellCandidate>& cells,
                            const std::vector<int>& firstIndex,

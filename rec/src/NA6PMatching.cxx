@@ -169,7 +169,7 @@ void NA6PMatching::addClustersToFitter(const NA6PTrack& trk, const auto* clusPtr
   uint32_t cmap = trk.getClusterMap();
   for (int lr = 0; lr < NA6PTrack::kMaxLr; ++lr) {
     if (cmap & (1u << lr)) {
-      mTrackFitter->addCluster(lr, (*clusPtr)[trk.getClusterIndex(lr)]);
+      mTrackFitter->addCluster((*clusPtr)[trk.getClusterIndex(lr)]);
     }
   }
 }

@@ -21,6 +21,7 @@ ClassImp(NA6PTrackerCA)
 
 NA6PTrackerCA::NA6PTrackerCA()
 {
+  // RSTODO create init method for the fitter
   mTrackFitter = std::make_unique<NA6PFastTrackFitter>();
   mTrackFitter->setNLayers(mNLayers);               // RSREM
   mTrackFitter->setPropagateToPrimaryVertex(false); // RSREM
@@ -30,8 +31,7 @@ NA6PTrackerCA::NA6PTrackerCA()
 void NA6PTrackerCA::setNLayers(int n)
 {
   mNLayers = n;
-  if (mTrackFitter)
-    mTrackFitter->setNLayers(n);
+  mTrackFitter->setNLayers(n);
 }
 
 //______________________________________________________________________
@@ -166,11 +166,6 @@ void NA6PTrackerCA::printConfiguration() const
 
 bool NA6PTrackerCA::loadGeometry(const char* filename, const char* geoname)
 {
-
-  if (!mTrackFitter) {
-    LOGP(error, "Fitter not yet instantiated");
-    return false;
-  }
   return mTrackFitter->loadGeometry(filename, geoname);
 }
 
@@ -464,47 +459,47 @@ void NA6PTrackerCA::computeLayerCells(const std::vector<TrackletCandidate>& trac
 
 //______________________________________________________________________
 template <typename ClusterType>
-float NA6PTrackerCA::computeTrackToClusterChi2(const NA6PTrack& track,
-                                               const ClusterType& clu)
+float NA6PTrackerCA::computeTrackToClusterChi2(const NA6PTrackParCov& track, const ClusterType& clu)
 {
-  NA6PTrackParCov t = track;
+  NA6PTrackParCov t{track};
   return Propagator::Instance()->propagateToZ(t, clu.getZ()) ? t.getPredictedChi2(clu) : 1e99;
 }
 
 //______________________________________________________________________
 
 template <typename ClusterType>
-bool NA6PTrackerCA::fitTrackPointsFast(const std::vector<int>& cluIDs,
-                                       const std::vector<ClusterType>& cluArr,
-                                       NA6PTrack& fitTrack,
-                                       float maxChi2TrClu,
-                                       float maxChi2NDF)
+float NA6PTrackerCA::fitTrackPointsFast(const std::vector<int>& cluIDs,
+                                        const std::vector<ClusterType>& cluArr,
+                                        NA6PTrackParCov& fitTrack,
+                                        float maxChi2TrClu,
+                                        float maxChi2NDF)
 {
 
   int nClus = cluIDs.size();
-  mTrackFitter->cleanupAndStartFit(); // RSTODO
+  mTrackFitter->cleanupAndStartFit(); // RSREM
   mTrackFitter->setMaxChi2Cl(maxChi2TrClu);
   std::array<int, 3> layForSeed = {-1, -1, -1}; // filled only for fit to cells
   for (int jClu = 0; jClu < nClus; jClu++) {
     int cluID = cluIDs[jClu];
     const auto& clu = cluArr[cluID];
-    int nLay = clu.getLayer() - mLayerStart;
-    mTrackFitter->addCluster(nLay, clu);
-    if (nClus == 3)
-      layForSeed[jClu] = nLay;
+    mTrackFitter->addCluster(clu);
+    if (nClus == 3) {
+      layForSeed[jClu] = clu.getLayer() - mLayerStart;
+    }
   }
   // in case of fit to a cell (3 clusters): precompute the seed, skipping getLayersForSeed
   // Instead, in case of fit to a full track, the layers for seed are defined based on the option in mTrackFitter
-  if (nClus == 3)
+  if (nClus == 3) {                            // RSTODO why do we need to pass layForSeed?
     mTrackFitter->computeSeed(-1, layForSeed); // -1 = fit is done inwards
+  }
 
-  auto chiTot = mTrackFitter->fitSeedInward(fitTrack);
-  if (chiTot < 0) {
-    return false;
+  auto chiTot = mTrackFitter->fitSeedInward(fitTrack); // RSTODO  use linRef if needed
+  if (chiTot < 0.f) {
+    return -1.f;
   }
   float chi2ndf = nClus < 3 ? 0.f : chiTot / (2 * nClus - NA6PTrack::kNDOF); // RSTODO with B=0 the NDOF=4 and min clusters is 2!!!
   if (chi2ndf > maxChi2NDF) {
-    return false;
+    return -1.f;
   }
   // RSTODO register chi2, clusters
   return true;
@@ -745,85 +740,79 @@ void NA6PTrackerCA::fitAndSelectTracks(const std::vector<TrackCandidate>& trackC
   auto prop = Propagator::Instance();
 
   // fit all track candidates
+  std::vector<int> cluIDsForfit;
+  cluIDsForfit.reserve(mNLayers);
   for (const auto& cand : trackCands) {
-    int nClus = 0;
-    std::vector<int> cluIDsForfit;
-    for (int cluID : cand.cluIDs) {
-      if (cluID >= 0) { // cluID == -1 correspond to no clu on that layer
-        nClus++;
-        cluIDsForfit.push_back(cluID);
-      }
-    }
-    // fit the track
-    //    genfit::Track fitTrack;
-    NA6PTrack fitTrackFast;
-    //    bool fitSuccess = fitTrackPoints(cluIDsForfit,cluArr,fitter,fitTrack,9999999.,maxChi2NDF);
-    bool fitSuccess = fitTrackPointsFast(cluIDsForfit, cluArr, fitTrackFast, maxChi2TrClu, maxChi2NDF);
-    if (!fitSuccess) {
-      continue;                      // skip if fit failed
-    }
-    nClus = fitTrackFast.getNHits(); // some clusters could have been rejected in the fit
-    if (nClus < minNClu) {
+    int nClus = cand.getCluIDsWOGaps(cluIDsForfit);
+    if (nClus < minNClu) { // RSTODO do we really have such candidates at this stage?
       continue;
     }
+    // genfit::Track fitTrack;
+    NA6PTrack fitTrackFast;
+    float chi2Inw = fitTrackPointsFast(cluIDsForfit, cluArr, fitTrackFast, maxChi2TrClu, maxChi2NDF);
+    if (!chi2Inw < 0.f) {
+      continue; // skip if fit failed
+    }
     // const genfit::AbsTrackRep* rep = fitTrack.getTrackRep(0);
-    // float chi2 = fitTrack.getFitStatus(rep)->getChi2();
-    // float ndf = fitTrack.getFitStatus(rep)->getNdf();
-    // float chi2ndf = (ndf > 0) ? chi2 / ndf : 9999.0;
-    float chi2ndf = fitTrackFast.getNormChi2();
+    // float chi2 = fitTrack.getFitStatus(rep)->getChi2(), ndf = fitTrack.getFitStatus(rep)->getNdf(), chi2ndf = (ndf > 0) ? chi2 / ndf : 9999.0;
     if (mDoOutwardPropagation) {
       // outward fit (needed in VT for matching to Muon Spectrometer)
-      NA6PTrack outwRefit;
-      if (mTrackFitter->fitTrackPointsOutward(outwRefit, &fitTrackFast)) {
-        if (mDoInwardRefit) {
-          NA6PTrack inwRefit;
-          // Use outwRefit as the seed for the inward pass
-          if (mTrackFitter->fitTrackPointsInward(inwRefit, &outwRefit)) { // RSTODO remove overhead of using full NA6PTrack as temp.object
-            ((NA6PTrackParCov&)fitTrackFast) = inwRefit;
-            fitTrackFast.setStatusRefitInward(true);
-            fitTrackFast.setChi2VTRefit(inwRefit.getChi2VT());
-            fitTrackFast.setChi2MSRefit(inwRefit.getChi2MS());
-          } else {
-            fitTrackFast.setStatusRefitInward(false);
-          }
-        }
-        if (!prop->propagateToZ(outwRefit, mZOutProp, mTrackFitter->getPropOpt())) {
+      auto& outer = fitTrackFast.getOuterParam();
+      outer = fitTrackFast; // use inward as a seed
+      float chi2Out = mTrackFitter->fitSeedOutward(outer);
+      if (chi2Out < 0.f) { // reject tracks with failed refit
+        continue;
+      }
+      if (mDoInwardRefit) {
+        ((NA6PTrackParCov&)fitTrackFast) = outer; // use outward fit as a seed
+        if ((chi2Inw = mTrackFitter->fitTrackPointsInward(fitTrackFast)) < 0.f) {
           continue;
         }
-        fitTrackFast.setOuterParam(outwRefit);
-        fitTrackFast.setChi2VTOuter(outwRefit.getChi2VT());
-        fitTrackFast.setChi2MSOuter(outwRefit.getChi2MS());
       }
+      if (!prop->propagateToZ(outer, mZOutProp, mTrackFitter->getPropOpt())) {
+        continue;
+      }
+      fitTrackFast.setChi2Out(chi2Out);
+    } else {
+      fitTrackFast.getOuterParam().invalidate();
     }
-    if (mPropagateTracksToPrimaryVertex) { // RSTODO is not propagation to vertex already done in the fitTrackPointsInward?
+    if (mPropagateTracksToPrimaryVertex) {
       if (!prop->propagateToZ(fitTrackFast, mPrimVertPos[2], mTrackFitter->getPropOpt())) {
         continue;
       }
     }
+    fitTrackFast.setChi2(chi2Inw);
     if (mDoTrackConstrainedToPrimVert && primVert) {
-      mTrackFitter->constrainTrackToVertex(fitTrackFast, *primVert);
+      mTrackFitter->constrainTrackToVertex(fitTrackFast, *primVert); // no exit on failure!
+    } else {
+      fitTrackFast.getVertexConstrainedParam().invalidate();
     }
+    float chi2ndf = fitTrackFast.getNormChi2(); // RSRS
+
     fittedTracks.emplace_back(cand.innerLayer, cand.outerLayer, nClus, cand.cluIDs, std::move(fitTrackFast), chi2ndf);
   }
   // sort by chi2 in view of selection
-  std::sort(fittedTracks.begin(), fittedTracks.end(), [](const TrackFitted& a, const TrackFitted& b) {
+  std::sort(fittedTracks.begin(), fittedTracks.end(), [](const TrackFitted& a, const TrackFitted& b) { // RSTODO do we need really in-place sorting or just reindexing
     return a.chi2ndf < b.chi2ndf;
   });
   // treat tracks with shared clus: in case of sharing keep the track with lower chi2
   for (auto& track : fittedTracks) {
     int nShared = 0;
     for (int cluID : track.cluIDs) {
-      if (cluID >= 0 && mIsClusterUsed[cluID])
+      if (cluID >= 0 && mIsClusterUsed[cluID]) {
         nShared++;
+      }
     }
-    if (nShared > mMaxSharedClusters) {
-      // tracks should not be stored in the list of selected tracks
+    if (nShared > mMaxSharedClusters) { // tracks should not be stored in the list of selected tracks
       continue;
     }
     // mark the clusters of the selected track as used
+    // and register clusters in the final track. RSTODO currently there is a redundancy in clusters indices of the TrackFitted and those of the NA6PTrack
     for (int cluID : track.cluIDs) {
-      if (cluID >= 0)
+      if (cluID >= 0) {
         mIsClusterUsed[cluID] = true;
+        track.trackFitFast.addCluster(&cluArr[cluID], cluArr[cluID].getClusterIndex()); // RSTODO why do we pass separately the index?
+      }
     }
     // assign overall MC label to the track
     int nClus = track.cluIDs.size();
@@ -855,8 +844,9 @@ void NA6PTrackerCA::fitAndSelectTracks(const std::vector<TrackCandidate>& trackC
       }
     }
     // assign negative label to tracks with misassociations
-    if (counts.size() > 1 && idPartTrack > 0)
+    if (counts.size() > 1 && idPartTrack > 0) {
       idPartTrack *= -1;
+    }
     track.trackFitFast.setParticleID(idPartTrack);
     tracks.push_back(std::move(track));
   }
