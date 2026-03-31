@@ -17,21 +17,41 @@ ClassImp(NA6PTrackerCA)
 
   static constexpr float kThetaMax = M_PI_2 * 0.99f;
 
-//______________________________________________________________________
+namespace
+{
+std::string formatClusterIDs(const std::vector<int>& ids)
+{
+  std::string out;
+  for (size_t i = 0; i < ids.size(); ++i) {
+    if (i) {
+      out += ",";
+    }
+    out += std::to_string(ids[i]);
+  }
+  return out;
+}
+} // namespace
 
+//______________________________________________________________________
 NA6PTrackerCA::NA6PTrackerCA()
 {
   // RSTODO create init method for the fitter
   mTrackFitter = std::make_unique<NA6PFastTrackFitter>();
-  mTrackFitter->setNLayers(mNLayers);               // RSREM
-  mTrackFitter->setPropagateToPrimaryVertex(false); // RSREM
+  mTrackFitter->setPropagateToPrimaryVertex(false);
+
+#ifdef _CHI2_TUNING_MODE_
+  dbgStream = std::make_unique<NA6PTreeStreamRedirector>("trackerCA_dbg.root");
+#endif
 }
 
 //______________________________________________________________________
-void NA6PTrackerCA::setNLayers(int n)
+NA6PTrackerCA::~NA6PTrackerCA()
 {
-  mNLayers = n;
-  mTrackFitter->setNLayers(n);
+#ifdef _CHI2_TUNING_MODE_
+  if (dbgStream) {
+    dbgStream->Close();
+  }
+#endif
 }
 
 //______________________________________________________________________
@@ -85,6 +105,8 @@ void NA6PTrackerCA::configureFromRecoParamVT(const std::string& filename)
   setNumberOfIterations(param.vtNIterationsTrackerCA);
   setNLayers(param.vtNLayers);
   setMaxPropagationStep(param.maxPropagationStep);
+  setUseLinRef(param.useLinRefVT);
+  mTrackFitter->setSeedImprovePrec(param.seedImprovePrecVT);
 
   for (int jIter = 0; jIter < mNIterationsCA; ++jIter) {
     setIterationParams(jIter,
@@ -112,6 +134,9 @@ void NA6PTrackerCA::configureFromRecoParamMS(const std::string& filename)
   setStartLayer(param.vtNLayers);
   setDoTrackConstrainedToPrimVert(param.msDoConstrainedTrack);
   setMaxPropagationStep(param.maxPropagationStep);
+  setUseLinRef(param.useLinRefMS);
+  mTrackFitter->setSeedImprovePrec(param.seedImprovePrecMS);
+
   for (int jIter = 0; jIter < mNIterationsCA; ++jIter) {
     setIterationParams(jIter,
                        param.msMaxDeltaThetaTrackletsCA[jIter],
@@ -448,8 +473,22 @@ void NA6PTrackerCA::computeLayerCells(const std::vector<TrackletCandidate>& trac
           std::array<int, 3> cluIDs = {trkl1.firstClusterIndex, trkl2.firstClusterIndex, trkl2.secondClusterIndex};
           NA6PTrack fitTrackFast;
           //   genfit::Track fitTrack;
-          if (fitTrackPointsFast(std::vector<int>(cluIDs.begin(), cluIDs.end()), cluArr, fitTrackFast, maxChi2TrClu, maxChi2NDF)) {
+          float chi = fitTrackPointsFast(std::vector<int>(cluIDs.begin(), cluIDs.end()), cluArr, fitTrackFast, maxChi2TrClu, maxChi2NDF);
+          if (chi >= 0) {
+#ifdef _CHI2_TUNING_MODE_
+            auto mcTruth = mTrackFitter->getMCTruthStatus();
+            if (mcTruth.second) {
+              (*dbgStream) << "chiCells" << "iter=" << mCurIteration << "trc=" << ((NA6PTrackParCov&)fitTrackFast) << "chi2vec=" << mTrackFitter->getChi2Buffer() << "chi2Tot=" << chi << "\n";
+            }
+#endif
+            if (mVerbose) {
+              LOGP(info, "DBG cell accept lay={} trkl=({},{}) clu=({},{},{}) chi={}",
+                   iLayer, jTrkl1, jTrkl2, cluIDs[0], cluIDs[1], cluIDs[2], chi);
+            }
             cells.emplace_back(iLayer, jTrkl1, jTrkl2, std::move(cluIDs), fitTrackFast);
+          } else if (mVerbose) {
+            LOGP(info, "DBG cell reject lay={} trkl=({},{}) clu=({},{},{})",
+                 iLayer, jTrkl1, jTrkl2, cluIDs[0], cluIDs[1], cluIDs[2]);
           }
         }
       }
@@ -462,7 +501,13 @@ template <typename ClusterType>
 float NA6PTrackerCA::computeTrackToClusterChi2(const NA6PTrackParCov& track, const ClusterType& clu)
 {
   NA6PTrackParCov t{track};
-  return Propagator::Instance()->propagateToZ(t, clu.getZ()) ? t.getPredictedChi2(clu) : 1e99;
+  if (!Propagator::Instance()->propagateToZ(t, clu.getZ())) {
+    if (mVerbose) {
+      LOGP(info, "DBG trk-cl chi2 fail: propagate to z={} state={}", clu.getZ(), track.asString());
+    }
+    return 1e99;
+  }
+  return t.getPredictedChi2(clu);
 }
 
 //______________________________________________________________________
@@ -476,33 +521,34 @@ float NA6PTrackerCA::fitTrackPointsFast(const std::vector<int>& cluIDs,
 {
 
   int nClus = cluIDs.size();
-  mTrackFitter->cleanupAndStartFit(); // RSREM
+  mTrackFitter->cleanupAndStartFit();
   mTrackFitter->setMaxChi2Cl(maxChi2TrClu);
-  std::array<int, 3> layForSeed = {-1, -1, -1}; // filled only for fit to cells
   for (int jClu = 0; jClu < nClus; jClu++) {
-    int cluID = cluIDs[jClu];
-    const auto& clu = cluArr[cluID];
-    mTrackFitter->addCluster(clu);
-    if (nClus == 3) {
-      layForSeed[jClu] = clu.getLayer() - mLayerStart;
+    mTrackFitter->addCluster(cluArr[cluIDs[jClu]]);
+  }
+  if (!mTrackFitter->computeSeed(-1, &fitTrack)) {
+    if (mVerbose) {
+      LOGP(info, "DBG fit fail: seed nClus={} cluIDs={}", nClus, formatClusterIDs(cluIDs));
     }
+    return -1.f;
   }
-  // in case of fit to a cell (3 clusters): precompute the seed, skipping getLayersForSeed
-  // Instead, in case of fit to a full track, the layers for seed are defined based on the option in mTrackFitter
-  if (nClus == 3) {                            // RSTODO why do we need to pass layForSeed?
-    mTrackFitter->computeSeed(-1, layForSeed); // -1 = fit is done inwards
-  }
-
-  auto chiTot = mTrackFitter->fitSeedInward(fitTrack); // RSTODO  use linRef if needed
+  auto chiTot = mTrackFitter->fitSeedInward(fitTrack, true, mUseLinRef); // RSTODO  use linRef if needed
   if (chiTot < 0.f) {
+    if (mVerbose) {
+      LOGP(info, "DBG fit fail: fitSeedInward nClus={} cluIDs={} seed={}",
+           nClus, formatClusterIDs(cluIDs), fitTrack.asString());
+    }
     return -1.f;
   }
   float chi2ndf = nClus < 3 ? 0.f : chiTot / (2 * nClus - NA6PTrack::kNDOF); // RSTODO with B=0 the NDOF=4 and min clusters is 2!!!
   if (chi2ndf > maxChi2NDF) {
+    if (mVerbose) {
+      LOGP(info, "DBG fit fail: chi2ndf={} max={} nClus={} cluIDs={}",
+           chi2ndf, maxChi2NDF, nClus, formatClusterIDs(cluIDs));
+    }
     return -1.f;
   }
-  // RSTODO register chi2, clusters
-  return true;
+  return chiTot;
 }
 
 //______________________________________________________________________
@@ -550,8 +596,19 @@ void NA6PTrackerCA::findCellsNeighbours(const std::vector<CellCandidate>& cells,
         int jClu0 = cell1.cluIDs[0];
         const auto& clu0 = cluArr[jClu0];
         float cluchi2b = computeTrackToClusterChi2(cell2.trackFitFast, clu0);
-        if (cluchi2b > maxChi2TrClu)
+#ifdef _CHI2_TUNING_MODE_
+        auto mcTruth = getTrackMCTruthStatus(cell2.cluIDs, cluArr);
+        if (mcTruth.second && mcTruth.first == clu0.getParticleID()) {
+          (*dbgStream) << "chiNb" << "iter=" << mCurIteration << "trc=" << ((NA6PTrackParCov&)cell2.trackFitFast) << "trackNcl=" << cell2.trackFitFast.getNHits() << "trackChi2=" << cell2.trackFitFast.getChi2() << "chi2cl=" << cluchi2b << "\n";
+        }
+#endif
+        if (cluchi2b > maxChi2TrClu) {
+          if (mVerbose) {
+            LOGP(info, "DBG neigh reject: lay={} c1={} c2={} addClu={} chi2={} max={}",
+                 iLayer, jCe1, jCe2, jClu0, cluchi2b, maxChi2TrClu);
+          }
           continue;
+        }
 
         cneigh.push_back(std::make_pair(jCe1, jCe2));
       }
@@ -611,11 +668,26 @@ std::vector<TrackCandidate> NA6PTrackerCA::prolongSeed(const TrackCandidate& see
         }
         // --- Chi2 checks ---
         // Compute chi2 only for the innermost cluster of the cells to be connected
-        const auto& fitCurr = (dir == ExtendDirection::kInward) ? refCell.trackFitFast : ccNext.trackFitFast;
-        const auto& cluToAdd = (dir == ExtendDirection::kInward) ? cluArr[ccNext.cluIDs[0]] : cluArr[refCell.cluIDs[0]];
+        const auto& cellTst = (dir == ExtendDirection::kInward) ? refCell : ccNext;
+        const auto& fitCurr = cellTst.trackFitFast;
+        const auto& cluToAdd = cluArr[cellTst.cluIDs[0]];
         float chi2 = computeTrackToClusterChi2(fitCurr, cluToAdd);
-        if (chi2 > maxChi2TrClu)
+#ifdef _CHI2_TUNING_MODE_
+        auto mcTruth = getTrackMCTruthStatus(cellTst.cluIDs, cluArr);
+        if (mcTruth.second && mcTruth.first == cluToAdd.getParticleID()) {
+          (*dbgStream) << "chiProl" << "iter=" << mCurIteration << "trc=" << ((NA6PTrackParCov&)fitCurr) << "trackNcl=" << fitCurr.getNHits() << "trackChi2=" << fitCurr.getChi2() << "chi2cl=" << chi2 << "\n";
+        }
+#endif
+        if (chi2 > maxChi2TrClu) {
+          if (mVerbose) {
+            LOGP(info, "DBG prolong reject dir={} seedLayers=({},{}) cell={} nextClu={} chi2={} max={}",
+                 dir == ExtendDirection::kInward ? "in" : "out",
+                 seed.innerLayer, seed.outerLayer, jCe,
+                 dir == ExtendDirection::kInward ? ccNext.cluIDs[0] : refCell.cluIDs[0],
+                 chi2, maxChi2TrClu);
+          }
           continue;
+        }
 
         // create new prolonged track
         TrackCandidate extended = cand;
@@ -745,40 +817,58 @@ void NA6PTrackerCA::fitAndSelectTracks(const std::vector<TrackCandidate>& trackC
   for (const auto& cand : trackCands) {
     int nClus = cand.getCluIDsWOGaps(cluIDsForfit);
     if (nClus < minNClu) { // RSTODO do we really have such candidates at this stage?
+      if (mVerbose) {
+        LOGP(info, "DBG final skip: nClus={} min={} cluIDs={}", nClus, minNClu, formatClusterIDs(cand.cluIDs));
+      }
       continue;
     }
     // genfit::Track fitTrack;
     NA6PTrack fitTrackFast;
     float chi2Inw = fitTrackPointsFast(cluIDsForfit, cluArr, fitTrackFast, maxChi2TrClu, maxChi2NDF);
-    if (!chi2Inw < 0.f) {
+#ifdef _CHI2_TUNING_MODE_
+    auto mcTruth = mTrackFitter->getMCTruthStatus();
+    if (mcTruth.second) {
+      (*dbgStream) << "chiTracks" << "iter=" << mCurIteration << "trc=" << ((NA6PTrackParCov&)fitTrackFast) << "chi2vec=" << mTrackFitter->getChi2Buffer() << "chi2Tot=" << chi2Inw << "\n";
+    }
+#endif
+    if (chi2Inw < 0.f) {
+      if (mVerbose) {
+        LOGP(info, "DBG final reject: fit failed nClus={} cluIDs={}", nClus, formatClusterIDs(cluIDsForfit));
+      }
       continue; // skip if fit failed
     }
-    // const genfit::AbsTrackRep* rep = fitTrack.getTrackRep(0);
-    // float chi2 = fitTrack.getFitStatus(rep)->getChi2(), ndf = fitTrack.getFitStatus(rep)->getNdf(), chi2ndf = (ndf > 0) ? chi2 / ndf : 9999.0;
     if (mDoOutwardPropagation) {
-      // outward fit (needed in VT for matching to Muon Spectrometer)
+      // Outward state is auxiliary for matching; keep the inward track if it fails.
       auto& outer = fitTrackFast.getOuterParam();
       outer = fitTrackFast; // use inward as a seed
-      float chi2Out = mTrackFitter->fitSeedOutward(outer);
-      if (chi2Out < 0.f) { // reject tracks with failed refit
-        continue;
-      }
-      if (mDoInwardRefit) {
-        ((NA6PTrackParCov&)fitTrackFast) = outer; // use outward fit as a seed
-        if ((chi2Inw = mTrackFitter->fitTrackPointsInward(fitTrackFast)) < 0.f) {
-          continue;
+      float chi2Out = mTrackFitter->fitSeedOutward(outer, true, mUseLinRef);
+      if (chi2Out >= 0.f) {
+        if (mDoInwardRefit) {
+          NA6PTrackParCov inwRefit = outer; // use outward fit as a seed
+          float chi2Refit = mTrackFitter->fitSeedInward(inwRefit, true, mUseLinRef);
+          if (chi2Refit >= 0.f) {
+            static_cast<NA6PTrackParCov&>(fitTrackFast) = inwRefit;
+            chi2Inw = chi2Refit;
+            fitTrackFast.setStatusRefitInward(true);
+          } else {
+            fitTrackFast.setStatusRefitInward(false);
+          }
         }
+        if (prop->propagateToZ(outer, mZOutProp, mTrackFitter->getPropOpt())) {
+          fitTrackFast.setChi2Out(chi2Out);
+        } else {
+          outer.invalidate();
+        }
+      } else {
+        outer.invalidate();
       }
-      if (!prop->propagateToZ(outer, mZOutProp, mTrackFitter->getPropOpt())) {
-        continue;
-      }
-      fitTrackFast.setChi2Out(chi2Out);
     } else {
       fitTrackFast.getOuterParam().invalidate();
     }
     if (mPropagateTracksToPrimaryVertex) {
-      if (!prop->propagateToZ(fitTrackFast, mPrimVertPos[2], mTrackFitter->getPropOpt())) {
-        continue;
+      NA6PTrackParCov pvProp = fitTrackFast;
+      if (prop->propagateToZ(pvProp, mPrimVertPos[2], mTrackFitter->getPropOpt())) {
+        static_cast<NA6PTrackParCov&>(fitTrackFast) = pvProp;
       }
     }
     fitTrackFast.setChi2(chi2Inw);
@@ -787,9 +877,8 @@ void NA6PTrackerCA::fitAndSelectTracks(const std::vector<TrackCandidate>& trackC
     } else {
       fitTrackFast.getVertexConstrainedParam().invalidate();
     }
-    float chi2ndf = fitTrackFast.getNormChi2(); // RSRS
-
-    fittedTracks.emplace_back(cand.innerLayer, cand.outerLayer, nClus, cand.cluIDs, std::move(fitTrackFast), chi2ndf);
+    float chi2NDF = nClus < 3 ? 0.f : chi2Inw / (2 * nClus - NA6PTrack::kNDOF);
+    fittedTracks.emplace_back(cand.innerLayer, cand.outerLayer, nClus, cand.cluIDs, std::move(fitTrackFast), chi2NDF);
   }
   // sort by chi2 in view of selection
   std::sort(fittedTracks.begin(), fittedTracks.end(), [](const TrackFitted& a, const TrackFitted& b) { // RSTODO do we need really in-place sorting or just reindexing
@@ -811,7 +900,7 @@ void NA6PTrackerCA::fitAndSelectTracks(const std::vector<TrackCandidate>& trackC
     for (int cluID : track.cluIDs) {
       if (cluID >= 0) {
         mIsClusterUsed[cluID] = true;
-        track.trackFitFast.addCluster(&cluArr[cluID], cluArr[cluID].getClusterIndex()); // RSTODO why do we pass separately the index?
+        track.trackFitFast.addCluster(&cluArr[cluID]);
       }
     }
     // assign overall MC label to the track
@@ -899,8 +988,10 @@ void NA6PTrackerCA::findTracks(std::vector<ClusterType>& cluArr, const NA6PVerte
   std::vector<TrackCandidate> trackCandidates;
   std::vector<TrackFitted> iterationTracks;
   for (int jIteration = 0; jIteration < mNIterationsCA; ++jIteration) {
-    if (mVerbose)
+    mCurIteration = jIteration;
+    if (mVerbose) {
       LOGP(info, " -> Iteration {} <-", jIteration);
+    }
     foundTracklets.clear();
     foundCells.clear();
     cellsNeighbours.clear();

@@ -41,12 +41,13 @@ class NA6PTrack : public NA6PTrackParCov
   bool getStatusRefitInward() const { return mStatusRefitInward; }
   bool getStatusConstrained() const { return mStatusConstrained; }
 
-  bool updateTrack(const NA6PBaseCluster& cl, float maxChi2);
+  void setChi2(float c) { mChi2 = c; }
+  float getChi2() const { return mChi2; }
+  float getChi2Norm() const { return mNClusters > 2 ? mChi2 / (2 * mNClusters - kNDOF) : -1; }
 
-  float getChi2() const { return mChi2VT + mChi2MS; }
-  float getChi2VT() const { return mChi2VT; }
-  float getChi2MS() const { return mChi2MS; }
-  float getMatchChi2() const { return mMatchChi2; }
+  void setChi2Out(float c) { mChi2Outer = c; }
+  float getChi2Outer() const { return mChi2Outer; }
+  float getChi2OuterNorm() const { return mNClusters > 2 ? mChi2Outer / (2 * mNClusters - kNDOF) : -1; }
 
   const NA6PTrackParCov& getOuterParam() const { return mOuter; }
   NA6PTrackParCov& getOuterParam() { return mOuter; }
@@ -54,9 +55,6 @@ class NA6PTrack : public NA6PTrackParCov
   const NA6PTrackParCov& getVertexConstrainedParam() const { return mConstrained; }
   NA6PTrackParCov& getVertexConstrainedParam() { return mConstrained; }
 
-  int getNVTHits() const { return mNClustersVT; }
-  int getNMSHits() const { return mNClustersMS; }
-  int getNTRHits() const { return mNClustersTR; }
   int getNHits() const { return mNClusters; }
 
   uint32_t getClusterMap() const { return mClusterMap; }
@@ -65,22 +63,19 @@ class NA6PTrack : public NA6PTrackParCov
   int getParticleID() const { return mParticleID; }
   int getCAIteration() const { return mCAIteration; }
 
-  float getChi2VTOuter() const { return mChi2VTOuter; }
-  float getChi2MSOuter() const { return mChi2MSOuter; }
-  float getChi2VTRefit() const { return mChi2VTRefit; }
-  float getChi2MSRefit() const { return mChi2MSRefit; }
-  float getNormChi2() const { return mNClusters < 3 ? 0 : (mChi2VT + mChi2MS) / ((mNClusters << 1) - kNDOF); }
-
-  void setMatchChi2(float chi2) { mMatchChi2 = chi2; }
-  void setChi2VT(float chi2) { mChi2VT = chi2; }
-  void setChi2MS(float chi2) { mChi2MS = chi2; }
-  void setChi2VTOuter(float chi2) { mChi2VTOuter = chi2; }
-  void setChi2MSOuter(float chi2) { mChi2MSOuter = chi2; }
-  void setChi2VTRefit(float chi2) { mChi2VTRefit = chi2; }
-  void setChi2MSRefit(float chi2) { mChi2MSRefit = chi2; }
-
-  void setChi2(float chi2) {}    // RSTODO
-  void setChi2Out(float chi2) {} // RSTODO
+  float getChi2VT() const { return -1; }      // TOREM
+  float getChi2MS() const { return -1; }      // TOREM
+  float getMatchChi2() const { return -1; }   // TOREM
+  float getChi2MSOuter() const { return -1; } // TOREM
+  float getChi2VTRefit() const { return -1; } // TOREM
+  float getChi2MSRefit() const { return -1; } // TOREM
+  void setMatchChi2(float chi2) { ; }         // RSTODO
+  void setChi2VT(float chi2) {}               // TOREM
+  void setChi2MS(float chi2) {}               // TOREM
+  void setChi2VTOuter(float chi2) {}          // TOREM
+  void setChi2MSOuter(float chi2) {}          // TOREM
+  void setChi2VTRefit(float chi2) {}          // TOREM
+  void setChi2MSRefit(float chi2) {}          // TOREM
 
   void setParticleLabel(int idx, int lr)
   {
@@ -96,7 +91,7 @@ class NA6PTrack : public NA6PTrackParCov
   void setCAIteration(int iter) { mCAIteration = iter; }
 
   template <typename ClusterType>
-  void addCluster(const ClusterType* clu, int cluIndex, float chi2 = 0.f); // RSTODO get rid of chi2 here
+  void addCluster(const ClusterType* clu);
 
   void print() const;
   std::string asString() const;
@@ -107,18 +102,10 @@ class NA6PTrack : public NA6PTrackParCov
   std::array<int, kMaxLr> mClusterIndices{}; // cluster indices
   std::array<int, kMaxLr> mClusterPartID{};  // particle ID (per cluster) // RSTOD why this is needed? This info must be available from the cluster indices
 
-  float mMatchChi2 = 0.f;                    // total chi2
-  float mChi2VT = 0.f;                       // total chi2 VT
-  float mChi2MS = 0.f;                       // total chi2 MS
-  float mChi2VTOuter = 0.f;                  // total chi2 VT outward fit
-  float mChi2MSOuter = 0.f;                  // total chi2 MS outward fit
-  float mChi2VTRefit = 0.f;                  // total chi2 VT inward refit
-  float mChi2MSRefit = 0.f;                  // total chi2 MS inward refit
+  float mChi2 = 0.f;                         // total chi2
+  float mChi2Outer = 0.f;                    // total chi2 outward fit
   uint32_t mClusterMap = 0;                  // pattern of clusters per layer
   int mNClusters = 0;                        // total hits
-  int mNClustersVT = 0;                      // total VT hits
-  int mNClustersMS = 0;                      // total MS hits
-  int mNClustersTR = 0;                      // total TR hits
   int mParticleID = -1;                      // particle ID (MC truth)
   int mCAIteration = -1;                     //! CA iteration (for debug)
   bool mStatusRefitInward = false;           // boolean for status of inward refit

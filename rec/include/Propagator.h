@@ -45,7 +45,6 @@ class Propagator
     float maxStep{2.0f};
     MatCorrType matCorr{MatCorrType::USEMatCorrTGeo};
     bool byOnly{false};
-    bool fixCorrelations{false};
     ClassDefNV(PropOpt, 1);
   };
 
@@ -132,8 +131,7 @@ class Propagator
     return getMeanMaterialBudgetFromGeom(start.data(), end.data());
   }
 
-  MagneticField* mField = nullptr;          ///< External or own nominal field map
-  std::unique_ptr<MagneticField> mOwnField; /// in case it owns the field
+  MagneticField* mField = nullptr; ///< External or own nominal field map
 
   ClassDefNV(Propagator, 0);
 };

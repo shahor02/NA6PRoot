@@ -131,6 +131,9 @@ class NA6PTrackPar
   float getCosPsi2() const { return getCos2FromSin(getTx()); }
   float getCosPsi() const { return getCosFromSin(getTx()); }
   float getPsi() const { return std::asin(std::max(-1.f, std::min(1.f, getTx()))); }
+  float getPhi() const { return getPsi(); }
+  float getTheta() const { return std::acos(getCosPsi() / getP2Pxz()); }
+  float getEta() const { return -std::log(std::tan(getTheta() * 0.5f)); }
   float getCurvature(float by) const { return kB2C * by * getQ2Pxz(); }
 
   float getR() const { return std::sqrt(getR2()); }
@@ -151,7 +154,8 @@ class NA6PTrackPar
   template <typename T = float>
   std::array<T, 3> getPXYZ() const
   {
-    return {getPx(), getPy(), getPz()};
+    auto pxz = getPxz();
+    return {getTx() * pxz, getTy() * pxz, getCosPsi() * pxz};
   }
 
   bool getPosDirGlo(std::array<float, 7>& posdirp) const;
@@ -159,21 +163,20 @@ class NA6PTrackPar
   bool propagateParamToZ(float z, float by); // Propagation in dipole field B=(0,By,0)
   bool propagateParamToZ(float z, const float* bxyz);
   bool propagateParamToZ(float z, const std::array<float, 3>& bxyz) { return propagateParamToZ(z, bxyz.data()); }
-  bool correctForELoss(float xrho, bool anglecorr = false);
+  bool correctForELoss(float xrho, float density, float atomicZ, float zOverA, bool anglecorr = false);
   bool getZPCAToLine(float XL, float YL, float by, float& zca) const;
   std::string asString() const;
 
   float getdEdxBB(float betagamma) { return BetheBlochSolid(betagamma); }
-  float getdEdxBBOpt(float betagamma) { return BetheBlochSolidOpt(betagamma); }
-  float getBetheBlochSolidDerivativeApprox(float dedx, float bg) { return BetheBlochSolidDerivative(dedx, bg); }
+  float getdEdxBBOpt(float betagamma, float meanZA = 0.49848) { return BetheBlochSolid(betagamma, meanZA); }
+  float getBetheBlochSolidDerivativeApprox(float dedx, float bg, float meanZA) { return BetheBlochSolidDerivative(dedx, bg, meanZA); }
 
  protected:
   static float getCos2FromSin(float s);
   static float getCosFromSin(float s);
 
   float BetheBlochSolid(float bg, float rho = 2.33, float kp1 = 0.20, float kp2 = 3.00, float meanI = 173e-9, float meanZA = 0.49848);
-  float BetheBlochSolidOpt(float bg);
-  float BetheBlochSolidDerivative(float dedx, float bg);
+  float BetheBlochSolidDerivative(float dedx, float bg, float meanZA);
   void g3helx3(float qfield, float step, std::array<float, 7>& vect);
 
   float mZ = 0.f;

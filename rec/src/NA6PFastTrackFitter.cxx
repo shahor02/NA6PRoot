@@ -12,19 +12,18 @@
 #include "NA6PVerTelCluster.h"
 #include "NA6PMuonSpecCluster.h"
 #include "NA6PLine.h"
+#include "Seeder.h"
 
 NA6PFastTrackFitter::NA6PFastTrackFitter()
 {
   if (TGeoGlobalMagField::Instance()->GetField() == nullptr) {
     Propagator::loadField();
   }
-  mClusters.resize(mNLayers);
 }
 
 void NA6PFastTrackFitter::printClusters() const
 {
-  LOGP(info, "N layers = {}", mNLayers);
-  for (int jLay = 0; jLay < mNLayers; ++jLay) {
+  for (int jLay = 0; jLay < getNLayers(); ++jLay) {
     if (mClusters[jLay])
       LOGP(info, "Layer {} Cluster position = {} {} {}", jLay, mClusters[jLay]->getX(), mClusters[jLay]->getY(), mClusters[jLay]->getZ());
     else
@@ -41,7 +40,7 @@ void NA6PFastTrackFitter::setSeed(const float* pos, const float* mom, int charge
   mSeed.initParam(pos, mom, charge);
 }
 
-bool NA6PFastTrackFitter::constrainTrackToVertex(NA6PTrack& trc, const NA6PVertex& pv) const
+bool NA6PFastTrackFitter::constrainTrackToVertex(NA6PTrack& trc, const NA6PVertex& pv)
 {
   NA6PTrackParCov t = trc;
   if (!Propagator::Instance()->propagateToZ(t, pv.getZ(), mPropOpt)) {
@@ -55,6 +54,7 @@ bool NA6PFastTrackFitter::constrainTrackToVertex(NA6PTrack& trc, const NA6PVerte
   auto sxy = pv.getSigmaXY() + (tx * ty * pv.getSigmaZ2()) - (tx * pv.getSigmaYZ()) - (ty * pv.getSigmaXZ());
   vClu.setErr(sxx, sxy, syy);
   auto chi2 = t.getPredictedChi2(vClu);
+  mChi2Buffer.push_back(chi2);
   if (chi2 > mMaxChi2Cl || !t.update(vClu)) {
     trc.getVertexConstrainedParam().invalidate();
     return false;
@@ -63,215 +63,110 @@ bool NA6PFastTrackFitter::constrainTrackToVertex(NA6PTrack& trc, const NA6PVerte
   return true;
 }
 
-int NA6PFastTrackFitter::getLayersForSeed(std::array<int, 3>& layForSeed) const
+int NA6PFastTrackFitter::getLayersForSeed(int dir, std::array<int, 3>& layForSeed)
 {
-  // define layers to be used in seed calculation depending on the options
-
-  int layWithClus[kMaxLayers];
-  int nLayWithClus = 0;
-  for (int i = 0; i < mNLayers; ++i) {
-    if (mClusters[i]) {
-      layWithClus[nLayWithClus++] = i;
-    }
-  }
+  // define layers to be used in seed calculation depending on the options, in the order of track fit direction (dir>0 : forward)
+  int nLayWithClus = countLayerWithClusters();
   if (nLayWithClus < 2) {
-    LOGP(error, "Array with clusters has less than 2 clusters {}", nLayWithClus);
+    LOGP(error, "Only {} layers with clusters, at least 2 needed for seeding", nLayWithClus);
     return 0;
   }
+  layForSeed[2] = -1; // in case only 2 layers available
+  if (nLayWithClus <= 3) {
+    for (int i = 0; i < mNClusters; i++) {
+      layForSeed[i] = mLayersWithClusters[i];
+    }
+    if (dir < 0) {
+      std::swap(layForSeed[0], layForSeed[nLayWithClus - 1]);
+    }
+    return nLayWithClus;
+  }
   // select layers for seed determination
-  if (mSeedOption == kInnermostAsSeed) {
-    for (int i = 0; i < 3 && i < nLayWithClus; ++i) {
-      layForSeed[i] = layWithClus[i];
-    }
-  } else if (mSeedOption == kOutermostAsSeed) {
-    for (int i = 0; i < 3 && i < nLayWithClus; ++i) {
-      layForSeed[i] = layWithClus[nLayWithClus - 1 - i];
-    }
-  } else { // kInMidOutAsSeed
-    layForSeed[0] = layWithClus[0];
-    layForSeed[2] = layWithClus[nLayWithClus - 1];
-    if (layForSeed[0] == layForSeed[2]) {
-      LOGP(error, "Innermost and outermost clusters coincide");
-      return 0;
-    }
-    int mid = (layForSeed[0] + layForSeed[2]) / 2;
-    // Find closest layer to midpoint
-    int best = -1;
-    int bestDist = 999;
-    for (int i = 0; i < nLayWithClus; ++i) {
-      int lay = layWithClus[i];
-      if (lay == layForSeed[0] || lay == layForSeed[2]) {
-        continue;
+  if (mSeedOption == kEdgeClusters) {
+    if (dir > 0) {
+      for (int i = 0; i < 3 && i < nLayWithClus; ++i) {
+        layForSeed[i] = mLayersWithClusters[i];
       }
-      int dist = std::abs(lay - mid);
+    } else {
+      for (int i = 0; i < 3 && i < nLayWithClus; ++i) {
+        layForSeed[i] = mLayersWithClusters[nLayWithClus - 1 - i];
+      }
+    }
+  } else { // max lever arm
+    layForSeed[0] = mLayersWithClusters[0];
+    layForSeed[2] = mLayersWithClusters[nLayWithClus - 1];
+    int mid = (layForSeed[0] + layForSeed[2]) / 2, best = -1, bestDist = 999; // Find closest layer to midpoint
+    for (int i = 1; i < nLayWithClus - 1; ++i) {
+      int dist = std::abs(mLayersWithClusters[i] - mid);
       if (dist < bestDist) {
         bestDist = dist;
-        best = lay;
+        best = mLayersWithClusters[i];
       }
     }
     layForSeed[1] = best;
-    if (best == -1) {
-      LOGP(warning, "Cannot find middle layer between {} and {}", layForSeed[0], layForSeed[2]);
+    if (dir < 0) {
+      std::swap(layForSeed[0], layForSeed[2]);
     }
   }
-  // count layers
-  int nSeedLayers = 0;
-  for (int i = 0; i < 3; ++i) {
-    if (layForSeed[i] >= 0) {
-      ++nSeedLayers;
-    }
-  }
-  return nSeedLayers;
+  return 3;
 }
 
-int NA6PFastTrackFitter::sortLayersForSeed(std::array<int, 3>& layForSeed, int dir) const
+std::pair<double, double> NA6PFastTrackFitter::getFieldMomenta(const std::array<float, 3>& pos, const std::array<float, 3>& df, const int nSteps) const
 {
-  // Sort according to fitting direction
-  // dir = 1 -> forward (innermost first)
-  // dir = -1 -> backward (outermost first)
-  // Returns the number of valid layers after sorting (2 or 3)
-  int tmpArr[3];
-  int valid = 0;
-  for (int i = 0; i < 3; ++i) {
-    if (layForSeed[i] >= 0 && layForSeed[i] < mNLayers) {
-      tmpArr[valid++] = layForSeed[i];
-    }
-  }
-  if (valid < 2) {
-    LOGP(error, "Less than 2 clusters found in different layers. Seed cannot be computed");
-    return 0;
-  }
-  dir > 0 ? std::sort(tmpArr, tmpArr + valid) : std::sort(tmpArr, tmpArr + valid, std::greater<int>());
-  for (int i = 0; i < 3; ++i) {
-    layForSeed[i] = (i < valid) ? tmpArr[i] : -1;
-  }
-  return valid;
-}
-
-void NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed)
-{
-  if (mNClusters < 2) {
-    LOGP(error, "Cannot compute seed with {} clusters", mNClusters);
-    return;
-  }
-  if (mNClusters == 2 && mSeedPoints == kThreePointSeed) {
-    LOGP(error, "Cannot compute seed with the 3-cluster option and only {} clusters -> resort to 2-point seed", mNClusters);
-  }
+  // calcualte By 1st and 2nd momenta between 2 points defined by the start position and the difference end-start.
+  const auto vStep = NA6PLine::getScaled(df, 1.f / nSteps);
+  auto posFQuery = NA6PLine::getSum(pos, NA6PLine::getScaled(vStep, 0.5f));
   auto prop = Propagator::Instance();
-  int nSeedLayers = sortLayersForSeed(layForSeed, dir);
-  int jLay = layForSeed[0];
-  if (jLay < 0 || !mClusters[jLay]) {
-    LOGP(error, "First seed layer invalid");
-    return;
+  double mom0 = 0, mom1 = 0.;
+  for (int i = 0; i < nSteps; i++) {
+    float by = prop->getBy(posFQuery);
+    mom0 += by;
+    mom1 += by * posFQuery[2];
+    NA6PLine::add(posFQuery, vStep);
   }
-  mSeed.setXYZ(mClusters[jLay]->getXYZ());
-  float by = prop->getBy(mClusters[jLay]->getXYZ());
-  bool useTwoPoint = (mSeedPoints == kTwoPointSeed) || (mNClusters == 2) || (nSeedLayers == 2) || (std::abs(by) < NA6PTrackPar::kSmallBend);
-  int kLay = layForSeed[1];
-  if (kLay < 0 || !mClusters[kLay]) {
-    LOGP(error, "Second seed layer invalid");
-    return;
-  }
-  auto uvec = NA6PLine::getDiff(mClusters[jLay]->getXYZ(), mClusters[kLay]->getXYZ());
-  float norm = NA6PLine::getNorm(uvec);
-  if (norm > phys_const::kAlmost0F) {
-    // Enforce track direction along +z
-    if (uvec[2] < 0) {
-      norm = -norm;
-    }
-    auto normI = uvec[2] < 0 ? -1.f / norm : 1. / norm;
-    for (int i = 0; i < 3; i++) {
-      uvec[i] *= normI;
-    }
-  }
-  auto setTwoPointKin = [uvec, this]() {
-    auto pxz = std::hypot(uvec[0], uvec[2]);
-    this->mSeed.setTx(uvec[0] / pxz);
-    this->mSeed.setTy(uvec[1] / pxz);
-    this->mSeed.setQ2Pxz(1.f / pxz); // RSCHECK
-  };
-  if (useTwoPoint) {
-    setTwoPointKin();
-    return;
-  }
-  int lLay = layForSeed[2];
-  if (lLay < 0 || !mClusters[lLay]) {
-    LOGP(error, "Third seed layer invalid");
-    return;
-  }
-  if (dir < 0) {
-    // swap lLay and jLay to order the layers from innermost to outermost
-    int tmp = jLay;
-    jLay = lLay;
-    lLay = tmp;
-  }
-  auto *clJ = mClusters[jLay], *clK = mClusters[kLay], *clL = mClusters[lLay];
-  float x1 = clJ->getX(), z1 = clJ->getZ(), x2 = clK->getX(), z2 = clK->getZ(), x3 = clL->getX(), z3 = clL->getZ();
-  if (mOptionForSeedB == kBatMidPoint) {
-    by = prop->getBy(clK->getXYZ());         // get magnetic field in the middle point
-  } else if (mOptionForSeedB == kMaximumB) { // use maximum magnetic field among the 3 hits
-    by = std::max({prop->getBy(clJ->getXYZ()), prop->getBy(clK->getXYZ()), prop->getBy(clL->getXYZ())});
-  } else { // integral of field
-    constexpr int nSteps = 10;
-    auto point = clJ->getXYZ();
-    const auto &midPoint = clK->getXYZ(), &lastPoint = clL->getXYZ();
-    std::array<float, 3> step = NA6PLine::getScaled(NA6PLine::getDiff(midPoint, lastPoint), 1.f / nSteps);
-    float stepL = NA6PLine::getNorm(step), aveField = 0.f, totLength = 0.f;
-    for (int js = 0; js <= nSteps; js++) {
-      aveField += prop->getBy(point) * stepL;
-      totLength += stepL;
-      for (int k = 0; k < 3; k++) {
-        point[k] += step[k];
-      }
-    }
-    by = aveField / totLength;
-  }
-  // circle fit: compute center (cx, cz) and radius
-  float determ = 2.0 * (x1 * (z2 - z3) + x2 * (z3 - z1) + x3 * (z1 - z2));
-  float cx = 0.0, cz = 0.0, radius = 1e6;
-  if (std::abs(determ) > phys_const::kAlmost0F) {
-    float a1 = x1 * x1 + z1 * z1;
-    float a2 = x2 * x2 + z2 * z2;
-    float a3 = x3 * x3 + z3 * z3;
-    cx = (a1 * (z2 - z3) + a2 * (z3 - z1) + a3 * (z1 - z2)) / determ;
-    cz = (a1 * (x3 - x2) + a2 * (x1 - x3) + a3 * (x2 - x1)) / determ;
-    radius = std::sqrt((x1 - cx) * (x1 - cx) + (z1 - cz) * (z1 - cz));
-  }
-
-  if (radius > 1e5) {
-    setTwoPointKin();
-    return;
-  }
-  float pxzI = 1. / std::abs(NA6PTrackPar::kB2C * by * radius); // radius is in cm, By in kG, pxz GeV/c
-  float ntI = 1.f / std::hypot(uvec[0], uvec[2]);
-  float crossy = (x2 - x1) * (z3 - z2) - (z2 - z1) * (x3 - x2);
-  int qSign = (crossy * by > 0) ? +1 : -1;
-  mSeed.setTx(uvec[0] * ntI);
-  mSeed.setTy(uvec[1] * ntI);
-  mSeed.setQ2Pxz((crossy * by > 0) ? pxzI : -pxzI);
-  return;
+  return {mom0 * vStep[2], mom1 * vStep[2]};
 }
 
-void NA6PFastTrackFitter::computeSeed(int dir)
+bool NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed, NA6PTrackPar* seed)
+{
+  // layers are provided in increasing order if dir>0 (forward fit) and decreasing if dir<0 (backward fit), seed is defined at 1st provided cluster position
+  if (!seed) {
+    seed = &mSeed;
+  }
+  int nSeedLayers = layForSeed[2] >= 0 ? 3 : 2;
+  const auto &xyz0 = mClusters[layForSeed[0]]->getXYZ(), xyz1 = mClusters[layForSeed[1]]->getXYZ();
+  if (nSeedLayers == 2) {                              // straight line seed only
+    const auto dpos01 = NA6PLine::getDiff(xyz0, xyz1); // c1 - c0
+    seed->setXYZ(xyz0);
+    auto pxzI = (dir > 0 ? 1.f : -1.f) / std::hypot(dpos01[0], dpos01[2]);
+    seed->setTx(dpos01[0] * pxzI);
+    seed->setTy(dpos01[1] * pxzI);
+    seed->setQ2Pxz(1.f / mMostProbableP);
+    return true;
+  }
+  const auto& xyz2 = mClusters[layForSeed[2]]->getXYZ();
+
+  auto mcTruth = getMCTruthStatus(); // RSREM
+  LOGP(debug, "seed Dir{} L:{}/{}/{} MC status: TSame={} TPID={}", dir, layForSeed[0], layForSeed[1], layForSeed[2], mcTruth.second, mcTruth.first);
+
+  return Seeder::create(*seed, dir > 0, xyz0, xyz1, xyz2, mSeedImprovePrec);
+}
+
+bool NA6PFastTrackFitter::computeSeed(int dir, NA6PTrackPar* seed)
 {
   // compute track seed from 3 (or 2) clusters
   // dir = 1 -> forward dir = -1 -> backward
-
+  if (!seed) {
+    seed = &mSeed;
+  }
   std::array<int, 3> layForSeed = {-1, -1, -1};
-  int origSeedOption = mSeedOption;
-  if (dir == 1 && mSeedOption == kOutermostAsSeed) {
-    mSeedOption = kInnermostAsSeed;
-  }
-  if (dir == -1 && mSeedOption == kInnermostAsSeed) {
-    mSeedOption = kOutermostAsSeed;
-  }
-  int nSeedLayers = getLayersForSeed(layForSeed);
+  int nSeedLayers = getLayersForSeed(dir, layForSeed);
   if (nSeedLayers < 2) {
+    seed->invalidate();
     LOGP(error, "Cannot compute seed with {} seeding layers", nSeedLayers);
-    return;
+    return false;
   }
-  mSeedOption = origSeedOption;
-  computeSeed(dir, layForSeed);
+  return computeSeed(dir, layForSeed, seed);
 }
 
 void NA6PFastTrackFitter::printSeed() const
@@ -282,63 +177,13 @@ void NA6PFastTrackFitter::printSeed() const
     LOGP(info, "Seed not set");
 }
 
-bool NA6PFastTrackFitter::fitTrackPoints(NA6PTrack& trackToFit, int dir, const NA6PTrackParCov* seed)
-{
-  if (mNClusters < 2) {
-    LOGP(error, "Cannot fit track with only {} clusters\n", mNClusters);
-    return false;
-  }
-  bool isGoodFit = true;
-  auto prop = Propagator::Instance();
-  trackToFit.reset();
-  if (seed) {
-    // Seed provided as a track from previous pass
-    ((NA6PTrackParCov&)trackToFit) = *seed;
-  } else {
-    if (!mSeed.isValid()) { // Set seed from clusters in the outer (inner) layers if not set from outside
-      dir > 0 ? computeSeedInner() : computeSeedOuter();
-    }
-    if (mSeed.isValid()) {
-      ((NA6PTrackPar&)trackToFit) = mSeed;
-    } else {
-      LOGP(warn, "Track seed not computed properly, will run the fit w/o seed");
-    }
-  }
-  trackToFit.setPID(mPID);
-  trackToFit.resetCovariance(-1);
-  int startLay = (dir > 0) ? 0 : mNLayers - 1, endLay = (dir > 0) ? mNLayers : -1, stepLay = (dir > 0) ? 1 : -1;
-  int nClFit = 0;
-  for (int jLay = startLay; jLay != endLay; jLay += stepLay) {
-    if (mClusters[jLay]) {
-      if (nClFit == 0) { // 1st cluster, just assign track to its position
-        trackToFit.setXYZ(mClusters[jLay]->getXYZ());
-      } else {
-        if (!prop->propagateToZ(trackToFit, mClusters[jLay]->getZ(), mPropOpt)) {
-          isGoodFit = false;
-          break;
-        }
-      }
-      if (!trackToFit.updateTrack(*mClusters[jLay], mMaxChi2Cl)) {
-        isGoodFit = false;
-        break;
-      }
-      nClFit++;
-    }
-  }
-  if (isGoodFit && dir < 0 && mPropagateToPrimVert && mIsPrimVertSet && !prop->propagateToZ(trackToFit, mPrimVertZ, mPropOpt)) {
-    isGoodFit = false;
-  }
-  return isGoodFit;
-}
-
-//=========================================================
-float NA6PFastTrackFitter::fitSeed(NA6PTrackParCov& seed, bool resetCovMat, int dir, NA6PTrackPar* linRef)
+float NA6PFastTrackFitter::fitSeed(NA6PTrackParCov& seed, bool resetCovMat, int dir, bool useLinRef)
 {
   // fit track (already seeded but not necessarily at the position of the 1st cluster to fit.
   // If the covariance matrix reset it requested, then the track position is imposed at the 1st cluster to fit (w/o propagating other track params)
   // and the covariance is reset. Otherwise (assuming that the fit is a continuation of the existing fit), the track is propagated to the 1st point
   // (including the cov. matrix propagation).
-  // If linRef is provided, it is used for the KF linearization, otherwise the linearization is done wrt the track being updated.
+  // If useLinRef is true, the clone of the seed is used for the KF linearization, otherwise the linearization is done wrt the track being updated.
   // The propagation is done with the PID of the provided seed (or that of linRef, if provided).
   //
   // In case of the sucessful fit return total chi2, otherwise negative number
@@ -357,30 +202,101 @@ float NA6PFastTrackFitter::fitSeed(NA6PTrackParCov& seed, bool resetCovMat, int 
   if (resetCovMat) {
     auto cl = getCluster(startL);
     seed.setXYZ(cl->getXYZ());
-    seed.resetCovariance(-1);
-    if (linRef) {
-      if (!prop->propagateToZ(*linRef, cl->getZ(), mPropOpt)) { // linRef must be at the same position as the seed
-        return -1.f;
-      }
-      linRef->setXYZ(cl->getXYZ());
-    }
+    seed.resetCovariance(NA6PTrackParCov::MaxErrSelRescale);
   }
-  mPropOpt.linRef = linRef;
+  NA6PTrackPar linRefLoc(seed), *linRef = useLinRef ? &linRefLoc : nullptr;
+  mPropOpt.linRef = useLinRef ? &linRefLoc : nullptr;
 
+  auto mcTruth = getMCTruthStatus(); // RSREM
+
+  int cntCl = 0;
   for (int il = startL; il != stopL; il += step) {
     if (!mClusters[il]) {
       continue;
     }
-    const auto cl = *mClusters[il];
+    const auto& cl = *mClusters[il];
     float chi2 = 0;
-    if (!prop->propagateToZ(seed, cl.getZ(), mPropOpt) ||
-        (chi2 = seed.getPredictedChi2(cl)) > mMaxChi2Cl ||
-        !seed.update(cl)) {
+    if (!prop->propagateToZ(seed, cl.getZ(), mPropOpt)) {
+      LOGP(debug, "DBG fitSeed fail: propagate il={} z={} truthSame={} truthPID={} state={}", il, cl.getZ(), mcTruth.second, mcTruth.first, seed.asString());
       chi2Tot = -1;
       break;
     }
+    if (mcTruth.second) {
+      LOGP(debug, "DBGR Before update {}/{}: {}", cntCl, mNClusters, seed.asString());
+    }
+    chi2 = seed.getPredictedChi2(cl);
+    mChi2Buffer.push_back(chi2);
+    if (mcTruth.second) {
+      LOGP(debug, "DBGR chi2={} for cluster {}", chi2, cl.asString());
+    }
+    if (chi2 > mMaxChi2Cl) {
+      const auto dx = seed.getX() - cl.getX();
+      const auto dy = seed.getY() - cl.getY();
+      const auto exx = seed.getSigmaX2() + cl.getSigXX();
+      const auto eyx = seed.getSigmaYX() + cl.getSigYX();
+      const auto eyy = seed.getSigmaY2() + cl.getSigYY();
+      const auto det = exx * eyy - eyx * eyx;
+      LOGP(debug, "DBG fitSeed fail chi2 at {}/{} il={} chi2={:.3f} max={} truthSame={} truthPID={} clPID={} clXYZ=({:.3e},{:.3e},{:.3e}) state={}", cntCl, mNClusters,
+           il, chi2, mMaxChi2Cl, mcTruth.second, mcTruth.first, cl.getParticleID(), cl.getX(), cl.getY(), cl.getZ(), seed.asString());
+      LOGP(debug, "DBG predChi2 new: frame=labXY il={} truthSame={} truthPID={} clPID={} dx={} dy={} trXY=({},{}) clXY=({},{}) trCov=({:.3e},{:.3e},{:.3e}) clCov=({:.3e},{:.3e},{:.3e}) sumcov=({:.3e},{:.3e},{:.3e}) det={} chi2={}",
+           il, mcTruth.second, mcTruth.first, cl.getParticleID(), dx, dy, seed.getX(), seed.getY(), cl.getX(), cl.getY(), seed.getSigmaX2(), seed.getSigmaYX(), seed.getSigmaY2(),
+           cl.getSigXX(), cl.getSigYX(), cl.getSigYY(), exx, eyx, eyy, det, chi2);
+      chi2Tot = -1;
+      break;
+    } else if (!seed.update(cl)) {
+      LOGP(debug, "DBG fitSeed fail: update il={} chi2={:.3f} truthSame={} truthPID={} clPID={} clXYZ=({:.3e},{:.3e},{:.3e}) state={}",
+           il, chi2, mcTruth.second, mcTruth.first, cl.getParticleID(), cl.getX(), cl.getY(), cl.getZ(), seed.asString());
+      chi2Tot = -1;
+      break;
+    } else if (mcTruth.second) {
+      LOGP(debug, "DBG fitSeed OK chi2 at {}/{} il={} chi2={:.3f}/{:.3f} max={} truthSame={} truthPID={} clPID={} clXYZ=({:.3e},{:.3e},{:.3e}) state={}", cntCl, mNClusters,
+           il, chi2, chi2 + chi2Tot, mMaxChi2Cl, mcTruth.second, mcTruth.first, cl.getParticleID(), cl.getX(), cl.getY(), cl.getZ(), seed.asString());
+    }
+    if (mcTruth.second) {
+      LOGP(debug, "DBGR After update {}/{}: {}", cntCl, mNClusters, seed.asString());
+    }
     chi2Tot += chi2;
+    cntCl++;
   }
+
+  if (dir < 0 && mPropagateToPrimVert && mIsPrimVertSet && !prop->propagateToZ(seed, mPrimVertZ, mPropOpt)) {
+    return -1.f;
+  }
+
   mPropOpt.linRef = nullptr;
   return chi2Tot;
+}
+
+void NA6PFastTrackFitter::addClustersToTrack(NA6PTrack& tr)
+{
+  for (int i = mMinLayerWithCl; i <= mMaxLayerWithCl; i++) {
+    const auto* cl = getCluster(i);
+    if (cl) {
+      tr.addCluster(cl);
+    }
+  }
+}
+
+std::pair<int, bool> NA6PFastTrackFitter::getMCTruthStatus()
+{
+  std::vector<std::pair<int, int>> occurrences;
+  for (int jl = mMinLayerWithCl; jl <= mMaxLayerWithCl; ++jl) {
+    if (!mClusters[jl]) {
+      continue;
+    }
+    const int pid = mClusters[jl]->getParticleID();
+    bool found{false};
+    for (int i = 0; i < (int)occurrences.size(); i++) {
+      if (pid == occurrences[i].first) {
+        occurrences[i].second++;
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      occurrences.emplace_back(pid, 1);
+    }
+  }
+  std::sort(std::begin(occurrences), std::end(occurrences), [](auto e1, auto e2) { return e1.second > e2.second; });
+  return {occurrences.front().second == mNClusters, occurrences.front().first};
 }

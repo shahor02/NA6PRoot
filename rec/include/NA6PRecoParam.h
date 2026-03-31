@@ -40,12 +40,14 @@ struct NA6PRecoParam : public na6p::conf::ConfigurableParamHelper<NA6PRecoParam>
   std::string vertexerMultiVertexMode = "Iterative";
   bool vertexerAllowSingleConstribClusters = false;
   // VerTel CA tracker
+  bool useLinRefVT = true;
   bool vtDoOutwardPropagation = true;
   float vtZOutProp = 40.;
   bool vtDoInwardRefit = false;
   bool vtPropagateTracksToPV = true;
   bool vtDoConstrainedTrack = false;
   int vtNIterationsTrackerCA = 2;
+  float seedImprovePrecVT = 0.02;
   float vtMaxDeltaThetaTrackletsCA[MaxIterationsTrackerCA] = {0.04, 0.1, 0.15, 0.3, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   float vtMaxDeltaPhiTrackletsCA[MaxIterationsTrackerCA] = {0.1, 0.2, 0.25, 0.5, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   float vtMaxDeltaTanLCellsCA[MaxIterationsTrackerCA] = {4., 9., 18., 40., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
@@ -59,15 +61,17 @@ struct NA6PRecoParam : public na6p::conf::ConfigurableParamHelper<NA6PRecoParam>
   // MuonSpec CA tracker
   int msNLayers = 6;
   int msNIterationsTrackerCA = 2;
+  bool useLinRefMS = false;
+  float seedImprovePrecMS = 0.02;
   float msMaxDeltaThetaTrackletsCA[MaxIterationsTrackerCA] = {0.06, 0.1, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   float msMaxDeltaPhiTrackletsCA[MaxIterationsTrackerCA] = {0.1, 0.6, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   float msMaxDeltaTanLCellsCA[MaxIterationsTrackerCA] = {6., 9., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   float msMaxDeltaPhiCellsCA[MaxIterationsTrackerCA] = {0.6, 0.8, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   float msMaxDeltaPxPzCellsCA[MaxIterationsTrackerCA] = {0.05, 0.08, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   float msMaxDeltaPyPzCellsCA[MaxIterationsTrackerCA] = {0.05, 0.08, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
-  float msMaxChi2TrClCellsCA[MaxIterationsTrackerCA] = {5., 100., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
-  float msMaxChi2ndfCellsCA[MaxIterationsTrackerCA] = {5., 100., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
-  float msMaxChi2ndfTracksCA[MaxIterationsTrackerCA] = {5., 100., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
+  float msMaxChi2TrClCellsCA[MaxIterationsTrackerCA] = {10., 20., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
+  float msMaxChi2ndfCellsCA[MaxIterationsTrackerCA] = {10., 20., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
+  float msMaxChi2ndfTracksCA[MaxIterationsTrackerCA] = {5., 5., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   int msMinNClusTracksCA[MaxIterationsTrackerCA] = {6, 6, 0, 0, 0, 0, 0, 0, 0};
   bool msDoConstrainedTrack = false;
   // Matching parameters

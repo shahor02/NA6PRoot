@@ -15,10 +15,13 @@
 #ifndef NA6P_TRACKER_CA_H
 #define NA6P_TRACKER_CA_H
 
+#define _CHI2_TUNING_MODE_
+
 #include <string>
 #include <Rtypes.h>
 #include "NA6PFastTrackFitter.h"
 #include "NA6PTrack.h"
+#include "NA6PTreeStreamRedirector.h"
 
 // Cellular Automaton track finder
 
@@ -81,10 +84,10 @@ class NA6PTrackerCA
   static constexpr int kMaxIterationsCA = 10;
 
   NA6PTrackerCA();
-  ~NA6PTrackerCA() = default;
+  ~NA6PTrackerCA();
 
   // setters for configurable parameters
-  void setNLayers(int n);
+  void setNLayers(int n) { mNLayers = n; }
   void setStartLayer(int start) { mLayerStart = start; }
   void setMaxNumberOfSharedClusters(int n) { mMaxSharedClusters = n; }
   void setPropagateTracksToPrimaryVertex(bool opt = true) { mPropagateTracksToPrimaryVertex = opt; }
@@ -107,12 +110,11 @@ class NA6PTrackerCA
   void setParticleHypothesisPDG(int pdg) { mPID = PID::PDG2PID(pdg); }
   void setParticleHypothesis(PID pid) { mPID = pid; }
 
-  void setUseIntegralBForSeed() { mTrackFitter->setUseIntegralBForSeed(); }
-  void setUseBatMidPointForSeed() { mTrackFitter->setUseBatMidPointForSeed(); }
   void setMaxPropagationStep(float step) { mTrackFitter->setMaxPropagationStep(step); }
   void configureFromRecoParamVT(const std::string& filename = "");
   void configureFromRecoParamMS(const std::string& filename = "");
   void setVerbosity(bool opt = true) { mVerbose = opt; }
+  void setUseLinRef(bool v) { mUseLinRef = v; }
 
   void printConfiguration() const;
   int getNIterations() const { return mNIterationsCA; }
@@ -204,6 +206,9 @@ class NA6PTrackerCA
                   const std::string& label,
                   int requiredClus = -1);
 
+  template <typename T, typename ClusterType>
+  std::pair<int, bool> getTrackMCTruthStatus(const T& clIDs, const std::vector<ClusterType>& cluArr) const;
+
  private:
   PID mPID{};
   int mNLayers = 5;
@@ -213,6 +218,7 @@ class NA6PTrackerCA
   std::vector<bool> mIsClusterUsed = {};
   std::vector<TrackFitted> mFinalTracks = {};
   int mMaxSharedClusters = 0;
+  bool mUseLinRef = true;
   bool mVerbose = false;
   bool mPropagateTracksToPrimaryVertex = false;
   bool mDoOutwardPropagation = false;
@@ -220,6 +226,7 @@ class NA6PTrackerCA
   bool mDoTrackConstrainedToPrimVert = false;
   float mZOutProp = 38.1175;
   int mNIterationsCA = 2;
+  int mCurIteration = -1;
   float mMaxDeltaThetaTrackletsCA[kMaxIterationsCA] = {0.04, 0.1, 0.15, 0.3, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   float mMaxDeltaPhiTrackletsCA[kMaxIterationsCA] = {0.1, 0.2, 0.25, 0.5, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   float mMaxDeltaTanLCellsCA[kMaxIterationsCA] = {4., 9., 18., 40., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
@@ -231,7 +238,36 @@ class NA6PTrackerCA
   float mMaxChi2ndfTracksCA[kMaxIterationsCA] = {100., 500., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   int mMinNClusTracksCA[kMaxIterationsCA] = {5, 3, 0, 0, 0, 0, 0, 0, 0, 0};
 
+  std::unique_ptr<NA6PTreeStreamRedirector> dbgStream;
+
   ClassDefNV(NA6PTrackerCA, 1);
 };
+
+template <typename T, typename ClusterType>
+std::pair<int, bool> NA6PTrackerCA::getTrackMCTruthStatus(const T& clIDs, const std::vector<ClusterType>& cluArr) const
+{
+  std::vector<std::pair<int, int>> occurrences;
+  int ncl = 0;
+  for (auto id : clIDs) {
+    if (id < 0) {
+      continue;
+    }
+    ncl++;
+    const int pid = cluArr[id].getParticleID();
+    bool found{false};
+    for (int i = 0; i < (int)occurrences.size(); i++) {
+      if (pid == occurrences[i].first) {
+        occurrences[i].second++;
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      occurrences.emplace_back(pid, 1);
+    }
+  }
+  std::sort(std::begin(occurrences), std::end(occurrences), [](auto e1, auto e2) { return e1.second > e2.second; });
+  return {occurrences.front().second == ncl, occurrences.front().first};
+}
 
 #endif

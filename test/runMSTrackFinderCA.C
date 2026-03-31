@@ -25,6 +25,8 @@
 #include "NA6PTrackerCA.h"
 #include "MagneticField.h"
 #include "NA6PMuonSpecModularHit.h"
+#include <TDatabasePDG.h>
+#include <TParticlePDG.h>
 #endif
 
 const int maxIterationsCA = NA6PTrackerCA::kMaxIterationsCA;
@@ -38,7 +40,7 @@ void runMSTrackFinderCA(int firstEv = 0,
   auto magField = new MagneticField();
   magField->loadField();
   magField->setAsGlobalField();
-
+  auto dbPDG = TDatabasePDG::Instance();
   int nMomBins = 40;
   float pMax = 30.0;
   TH1F* hMomGen = new TH1F("hMomGen", ";p (GeV/c);counts", nMomBins, 0., pMax);
@@ -55,18 +57,19 @@ void runMSTrackFinderCA(int firstEv = 0,
     hEtaRecoIterCA[jIteration] = new TH1F(Form("hEtaRecoIterCA%d", jIteration), ";#eta;counts", 20, 1., 5.);
   }
 
-  NA6PTrackerCA* tracker = new NA6PTrackerCA();
+  std::unique_ptr<NA6PTrackerCA> tracker = std::make_unique<NA6PTrackerCA>();
   tracker->setNLayers(6);
   tracker->setStartLayer(5);
-  // tracker->setVerbosity(true);
+  tracker->setUseLinRef(false);
+  tracker->setVerbosity(false);
   if (!tracker->loadGeometry(Form("%s/geometry.root", dirSimu)))
     return;
   // pass here the configuration of the tracker via an ini file
   // tracker->configureFromRecoParam(/* filename.ini */);
   // alternatively the configuration can be set calling setters for the iterations
   tracker->setNumberOfIterations(2);
-  tracker->setIterationParams(0, 0.06, 0.1, 6., 0.6, 0.05, 0.05, 5., 5., 5., 6);
-  tracker->setIterationParams(1, 0.1, 0.6, 9., 0.8, 0.08, 0.08, 10., 10., 10., 6);
+  tracker->setIterationParams(0, 0.06, 0.1, 6., 0.6, 0.05, 0.05, 10., 10., 5., 6);
+  tracker->setIterationParams(1, 0.1, 0.6, 9., 0.8, 0.08, 0.08, 20., 20., 5., 6);
   tracker->printConfiguration();
   TFile* fk = new TFile(Form("%s/MCKine.root", dirSimu));
   TTree* mcTree = (TTree*)fk->Get("mckine");
@@ -91,8 +94,9 @@ void runMSTrackFinderCA(int firstEv = 0,
   NA6PVertex primVert;
 
   int nIterationsCA = tracker->getNIterations();
-
+  std::vector<int> hitSelID;
   for (int jEv = firstEv; jEv < lastEv; jEv++) {
+    //    printf("\nEvent %d *************\n", jEv);
     mcTree->GetEvent(jEv);
     th->GetEvent(jEv);
     int nPart = mcArr->size();
@@ -111,11 +115,13 @@ void runMSTrackFinderCA(int firstEv = 0,
       auto curPart = mcArr->at(jp);
       int maskHits = 0;
       int counter = 0;
+      hitSelID.clear();
       for (size_t jHit = 0; jHit < nHits; ++jHit) {
         const auto& hit = msHits.at(jHit);
         int idPart = hit.getTrackID();
         if (idPart == jp) {
           counter++;
+          hitSelID.push_back(jHit);
         }
       }
       if (nLayers == counter) {
@@ -128,6 +134,17 @@ void runMSTrackFinderCA(int firstEv = 0,
         double etaPart = -std::log(std::tan(thetaPart / 2.));
         hMomGen->Fill(momPart);
         hEtaGen->Fill(etaPart);
+        /* // uncomment this to print the state of reconstructable tracks
+        for (int jHit = 0; jHit < counter; ++jHit) {
+          const auto& hit = msHits.at(hitSelID[jHit]);
+          const auto mom = hit.getMomIn(), pos = hit.getPosIn();
+          int pdg = curPart.GetPdgCode();
+          auto ppdg = dbPDG->GetParticle(pdg);
+          int idPart = hit.getTrackID();
+          NA6PTrackPar trMC(pos, mom, ppdg->Charge()/3.);
+          printf("MC state Part%d Pdg=%d at Hit%zu: %s\n", idPart, pdg, jHit, trMC.asString().c_str());
+        }
+        */
       }
     }
     tc->GetEvent(jEv);
@@ -135,7 +152,7 @@ void runMSTrackFinderCA(int firstEv = 0,
     std::vector<NA6PTrack> trks = tracker->getTracks();
     int nTrks = trks.size();
     for (int jT = 0; jT < nTrks; jT++) {
-      NA6PTrack tr = trks[jT];
+      const NA6PTrack& tr = trks[jT];
       int idPartTrack = tr.getParticleID();
       int jIteration = tr.getCAIteration();
       if (tr.getNHits() == 6) {
@@ -149,6 +166,7 @@ void runMSTrackFinderCA(int firstEv = 0,
         double etaPart = -std::log(std::tan(thetaPart / 2.));
         hMomReco->Fill(momPart);
         hEtaReco->Fill(etaPart);
+        // RS printf("found track#%d iter:%d partID:%d %s\n", jT, jIteration, idPartTrack, ((NA6PTrackPar&)tr).asString().c_str());
         if (jIteration >= 0 && jIteration < maxIterationsCA) {
           hMomRecoIterCA[jIteration]->Fill(momPart);
           hEtaRecoIterCA[jIteration]->Fill(etaPart);
@@ -211,12 +229,14 @@ void runMSTrackFinderCA(int firstEv = 0,
     }
   }
   leg->Draw();
+  gPad->SetGrid();
   cef->cd(2);
   TH1F* hEffMom = (TH1F*)hMomReco->Clone("hEffMom");
   hEffMom->Divide(hMomReco, hMomGen, 1., 1., "B");
   hEffMom->GetYaxis()->SetTitle("Efficiency");
   hEffMom->SetStats(0);
   hEffMom->Draw();
+  gPad->SetGrid();
   cef->cd(3);
   hEtaGen->SetLineColor(kGray + 1);
   hEtaGen->SetLineWidth(3);
@@ -230,12 +250,15 @@ void runMSTrackFinderCA(int firstEv = 0,
       hEtaRecoIterCA[jIteration]->Draw("same");
     }
   }
+  gPad->SetGrid();
   cef->cd(4);
   TH1F* hEffEta = (TH1F*)hEtaReco->Clone("hEffEta");
   hEffEta->Divide(hEtaReco, hEtaGen, 1., 1., "B");
   hEffEta->GetYaxis()->SetTitle("Efficiency");
   hEffEta->SetStats(0);
   hEffEta->Draw();
+  gPad->SetGrid();
+  cef->Print("msEff.png");
 
   TCanvas* cpu = new TCanvas("cpu", "", 1400, 800);
   cpu->Divide(2, 2);
@@ -244,19 +267,24 @@ void runMSTrackFinderCA(int firstEv = 0,
   hMomGoodReco->SetLineColor(kGreen + 1);
   ;
   hMomGoodReco->Draw("same");
+  gPad->SetGrid();
   cpu->cd(2);
   hPurityMom->GetYaxis()->SetTitle("Purity");
   hPurityMom->SetMinimum(0);
   hPurityMom->SetStats(0);
   hPurityMom->Draw();
+  gPad->SetGrid();
   cpu->cd(3);
   hEtaReco->Draw();
   hEtaGoodReco->SetLineColor(kGreen + 1);
   ;
   hEtaGoodReco->Draw("same");
+  gPad->SetGrid();
   cpu->cd(4);
   hPurityEta->GetYaxis()->SetTitle("Purity");
   hPurityEta->SetMinimum(0);
   hPurityEta->SetStats(0);
   hPurityEta->Draw();
+  gPad->SetGrid();
+  cpu->Print("msPur.png");
 }

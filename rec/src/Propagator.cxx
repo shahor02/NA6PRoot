@@ -23,9 +23,9 @@ bool Propagator::loadField()
     return true;
   }
   auto prop = Instance(true);
-  prop->mOwnField = std::make_unique<MagneticField>();
-  prop->mOwnField->loadField();
-  prop->mOwnField->setAsGlobalField();
+  auto f = new MagneticField();
+  f->loadField();
+  f->setAsGlobalField();
   prop->updateField();
   return true;
 }
@@ -171,7 +171,7 @@ bool Propagator::propagateToZ(NA6PTrackParCov& track, float zToGo, const Propaga
       if (matCorr != MatCorrType::USEMatCorrNONE) {
         auto xyz1 = linRef.getXYZ();
         auto mb = this->getMeanMaterial(xyz0, xyz1);
-        if (!track.correctForMaterial(mb.meanX2X0, (dir > 0 ? -mb.meanRho : mb.meanRho) * mb.meanL, linRef)) {
+        if (!track.correctForMaterial(mb.meanX2X0, (dir > 0 ? -mb.meanRho : mb.meanRho) * mb.meanL, mb.meanRho, mb.meanZ, mb.meanZ2A, linRef)) {
           res = false;
         }
       }
@@ -179,9 +179,6 @@ bool Propagator::propagateToZ(NA6PTrackParCov& track, float zToGo, const Propaga
     };
     if (!(opt.byOnly ? track.propagateToZ(z, getBy(xyz0), opt.linRef) : track.propagateToZ(z, getFieldXYZ(xyz0), opt.linRef))) {
       return false;
-    }
-    if (opt.fixCorrelations) {
-      track.fixCorrelations();
     }
     if (!correct()) {
       return false;
@@ -221,7 +218,7 @@ bool Propagator::propagateToZ(NA6PTrackPar& track, float zToGo, const Propagator
       if (matCorr != MatCorrType::USEMatCorrNONE) {
         auto xyz1 = track.getXYZ();
         auto mb = this->getMeanMaterial(xyz0, xyz1);
-        if (!track.correctForELoss((dir > 0 ? -mb.meanRho : mb.meanRho)) * mb.meanL) {
+        if (!track.correctForELoss((dir > 0 ? -mb.meanRho : mb.meanRho) * mb.meanL, mb.meanRho, mb.meanZ, mb.meanZ2A)) {
           res = false;
         }
       }

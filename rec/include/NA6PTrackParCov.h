@@ -6,9 +6,12 @@
 #include "Math/SMatrix.h"
 
 // Keep the same correlation checks knobs as your original
-#define _CHECK_BAD_CORRELATIONS_
-// #define _FIX_BAD_CORRELATIONS_x
-#define _PRINT_BAD_CORRELATIONS_
+#define _CHECK_COV_POSDEF_
+// #define _CHECK_BAD_CORRELATIONS_
+// #define _PRINT_COV_PROBLEMS_
+#define _FIX_COV_PROBLEMS_
+#define _LIMIT_COV_TO_MAX_ERR_
+#define _SAVE_TRACK_FOR_DEBUG_
 
 /*
   Add covariance matrix and related methods to NA6PTrackPar
@@ -19,6 +22,9 @@ class NA6PTrackParCov : public NA6PTrackPar
 {
  public:
   using prec_t = double;
+  using precCov_t = double;
+  using CovArray = std::array<precCov_t, 15>;
+  using CovArrayF = std::array<float, 15>;
   enum CovLables : int {
     kXX,
     kYX,
@@ -37,13 +43,33 @@ class NA6PTrackParCov : public NA6PTrackPar
     kQ2PxzQ2Pxz
   };
 
+  static constexpr float // clamping values
+    kCX2max = 100 * 100,
+    kCY2max = 100 * 100,
+    kCTX2max = 1. * 1.,
+    kCTY2max = 1. * 1.,
+    kC1Pxz2max = 100 * 100;
+  static constexpr float // assigned at reset
+    kCX2Ini = 50 * 50,
+    kCY2Ini = 50 * 50,
+    kCTX2Ini = 0.6 * 0.6,
+    kCTY2Ini = 0.6 * 0.6,
+    kC1Pxz2Ini = 10 * 10;
+
+  static constexpr double MaxCorr = 0.9999999f;
+  static constexpr float MaxErrSel = -1.f;        // Set to max error
+  static constexpr float MaxErrSelRescale = -2.f; // Set to max error and rescale relative momentume error to assigned q/pxz
+
+  static constexpr float kCMaxDiag[5] = {kCX2max, kCY2max, kCTX2max, kCTY2max, kC1Pxz2max};
+
   using NA6PTrackPar::NA6PTrackPar;
   using MatrixD5 = ROOT::Math::SMatrix<double, 5, 5>;
   using MatrixD5Sym = ROOT::Math::SMatrix<double, 5>;
 
   NA6PTrackParCov() = default;
   NA6PTrackParCov(const NA6PTrackParCov& src) = default;
-  NA6PTrackParCov(float z, const std::array<float, 5>& par, std::array<float, 15> cov) : NA6PTrackPar(z, par), mC{cov} {}
+  NA6PTrackParCov(float z, const std::array<float, 5>& par, const CovArray& cov) : NA6PTrackPar(z, par), mC{cov} {}
+  NA6PTrackParCov(float z, const std::array<float, 5>& par, const CovArrayF& cov) : NA6PTrackPar(z, par) { setCov(cov); }
   NA6PTrackParCov(const float* xyz, const float* pxyz, int sign, float errLoose = -2);
   NA6PTrackParCov(const std::array<float, 3>& xyz, const std::array<float, 3>& pxyz, int sign, float errLoose = -2);
   ~NA6PTrackParCov() = default;
@@ -52,29 +78,35 @@ class NA6PTrackParCov : public NA6PTrackPar
   void init(const float* xyz, const float* pxyz, int sign, float errLoose = -2);
   void init(const std::array<float, 3>& xyz, const std::array<float, 3>& pxyz, int sign, float errLoose = -2) { init(xyz.data(), pxyz.data(), sign, errLoose); }
 
-  void setCov(const std::array<float, 15>& c) { mC = c; }
-  const std::array<float, 15>& getCov() const { return mC; }
-  std::array<float, 15>& getCov() { return mC; }
+  void setCov(const CovArray& c) { mC = c; }
+  void setCov(const CovArrayF& c)
+  {
+    for (int i = 0; i < 15; ++i) {
+      mC[i] = c[i];
+    }
+  }
+  const CovArray& getCov() const { return mC; }
+  CovArray& getCov() { return mC; }
 
-  float getSigmaX2() const { return mC[kXX]; }
-  float getSigmaYX() const { return mC[kYX]; }
-  float getSigmaY2() const { return mC[kYY]; }
-  float getSigmaTxX() const { return mC[kTxX]; }
-  float getSigmaTxY() const { return mC[kTxY]; }
-  float getSigmaTx2() const { return mC[kTxTx]; }
-  float getSigmaTyX() const { return mC[kTyX]; }
-  float getSigmaTyY() const { return mC[kTyY]; }
-  float getSigmaTyTx() const { return mC[kTyTx]; }
-  float getSigmaTy2() const { return mC[kTyTy]; }
-  float getSigmaQ2PxzX() const { return mC[kQ2PxzX]; }
-  float getSigmaQ2PxzY() const { return mC[kQ2PxzY]; }
-  float getSigmaQ2PxzTx() const { return mC[kQ2PxzTx]; }
-  float getSigmaQ2PzTy() const { return mC[kQ2PxzTy]; }
-  float getSigmaQ2Pxz2() const { return mC[kQ2PxzQ2Pxz]; }
+  precCov_t getSigmaX2() const { return mC[kXX]; }
+  precCov_t getSigmaYX() const { return mC[kYX]; }
+  precCov_t getSigmaY2() const { return mC[kYY]; }
+  precCov_t getSigmaTxX() const { return mC[kTxX]; }
+  precCov_t getSigmaTxY() const { return mC[kTxY]; }
+  precCov_t getSigmaTx2() const { return mC[kTxTx]; }
+  precCov_t getSigmaTyX() const { return mC[kTyX]; }
+  precCov_t getSigmaTyY() const { return mC[kTyY]; }
+  precCov_t getSigmaTyTx() const { return mC[kTyTx]; }
+  precCov_t getSigmaTy2() const { return mC[kTyTy]; }
+  precCov_t getSigmaQ2PxzX() const { return mC[kQ2PxzX]; }
+  precCov_t getSigmaQ2PxzY() const { return mC[kQ2PxzY]; }
+  precCov_t getSigmaQ2PxzTx() const { return mC[kQ2PxzTx]; }
+  precCov_t getSigmaQ2PzTy() const { return mC[kQ2PxzTy]; }
+  precCov_t getSigmaQ2Pxz2() const { return mC[kQ2PxzQ2Pxz]; }
 
-  float getCovMatElem(int i, int j) const { return mC[CovarMap[i][j]]; }
-  void setCovMatElem(int i, int j, float v) { mC[CovarMap[i][j]] = v; }
-  void incCovMatElem(int i, int j, float v) { mC[CovarMap[i][j]] += v; }
+  precCov_t getCovMatElem(int i, int j) const { return mC[CovarMap[i][j]]; }
+  void setCovMatElem(int i, int j, precCov_t v) { mC[CovarMap[i][j]] = v; }
+  void incCovMatElem(int i, int j, precCov_t v) { mC[CovarMap[i][j]] += v; }
 
   // --- propagation: state + Jacobian + covariance transport ---
   bool propagateToZ(float z, float by);
@@ -105,12 +137,11 @@ class NA6PTrackParCov : public NA6PTrackPar
   bool update(const NA6PTrackParCov& rhs, const MatrixD5Sym& covInv);
   bool update(const NA6PTrackParCov& rhs);
 
-  bool correctForMaterial(float x2x0, float xrho, bool anglecorr = false);
-  bool correctForMaterial(float x2x0, float xrho, NA6PTrackPar& linRef, bool anglecorr = false);
+  bool correctForMaterial(float x2x0, float xrho, float density, float atomicZ, float zOverA, bool anglecorr = false);
+  bool correctForMaterial(float x2x0, float xrho, float density, float atomicZ, float zOverA, NA6PTrackPar& linRef, bool anglecorr = false);
 
-  void resetCovariance(float s2 = -1.);
-  void checkCorrelations();
-  void fixCorrelations();
+  void resetCovariance(float s2 = MaxErrSelRescale);
+  void checkCovariance();
   std::string asString() const;
   void printCorr() const;
 
@@ -121,12 +152,16 @@ class NA6PTrackParCov : public NA6PTrackPar
                                          {kTyX, kTyY, kTyTx, kTyTy, kQ2PxzTy},
                                          {kQ2PxzX, kQ2PxzY, kQ2PxzTx, kQ2PxzTy, kQ2PxzQ2Pxz}};
 
+  constexpr static int CovarDiag[5] = {0, 2, 5, 9, 14};
+
  protected:
-  std::array<float, 15> mC{}; // lower triangle representation
+  CovArray mC{}; // lower triangle representation
 
   void transportCovariance(prec_t f02, prec_t f04, prec_t f12, prec_t f13, prec_t f14, prec_t f24);
+  bool isCovariancePositiveDefinite(const NA6PTrackParCov::CovArray& c);
+  void checkCovariancePosDef();
 
-  ClassDefNV(NA6PTrackParCov, 1);
+  ClassDefNV(NA6PTrackParCov, 2);
 };
 
 #endif
