@@ -131,6 +131,9 @@ class NA6PTrackPar
   float getCosPsi2() const { return getCos2FromSin(getTx()); }
   float getCosPsi() const { return getCosFromSin(getTx()); }
   float getPsi() const { return std::asin(std::max(-1.f, std::min(1.f, getTx()))); }
+  float getPhi() const { return getPsi(); }
+  float getTheta() const { return std::acos(getCosPsi() / getP2Pxz()); }
+  float getEta() const { return -std::log(std::tan(getTheta() * 0.5f)); }
   float getCurvature(float by) const { return kB2C * by * getQ2Pxz(); }
 
   float getR() const { return std::sqrt(getR2()); }
@@ -151,7 +154,8 @@ class NA6PTrackPar
   template <typename T = float>
   std::array<T, 3> getPXYZ() const
   {
-    return {getPx(), getPy(), getPz()};
+    auto pxz = getPxz();
+    return {getTx() * pxz, getTy() * pxz, getCosPsi() * pxz};
   }
 
   bool getPosDirGlo(std::array<float, 7>& posdirp) const;

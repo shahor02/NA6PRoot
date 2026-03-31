@@ -148,11 +148,15 @@ int NA6PFastTrackFitter::sortLayersForSeed(std::array<int, 3>& layForSeed, int d
   return valid;
 }
 
-void NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed)
+bool NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed, NA6PTrackPar* seed)
 {
+  if (!seed) {
+    seed = &mSeed;
+  }
+  seed->invalidate();
   if (mNClusters < 2) {
     LOGP(error, "Cannot compute seed with {} clusters", mNClusters);
-    return;
+    return false;
   }
   if (mNClusters == 2 && mSeedPoints == kThreePointSeed) {
     LOGP(error, "Cannot compute seed with the 3-cluster option and only {} clusters -> resort to 2-point seed", mNClusters);
@@ -162,15 +166,15 @@ void NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed)
   int jLay = layForSeed[0];
   if (jLay < 0 || !mClusters[jLay]) {
     LOGP(error, "First seed layer invalid");
-    return;
+    return false;
   }
-  mSeed.setXYZ(mClusters[jLay]->getXYZ());
+  seed->setXYZ(mClusters[jLay]->getXYZ());
   float by = prop->getBy(mClusters[jLay]->getXYZ());
   bool useTwoPoint = (mSeedPoints == kTwoPointSeed) || (mNClusters == 2) || (nSeedLayers == 2) || (std::abs(by) < NA6PTrackPar::kSmallBend);
   int kLay = layForSeed[1];
   if (kLay < 0 || !mClusters[kLay]) {
     LOGP(error, "Second seed layer invalid");
-    return;
+    return false;
   }
   auto uvec = NA6PLine::getDiff(mClusters[jLay]->getXYZ(), mClusters[kLay]->getXYZ());
   float norm = NA6PLine::getNorm(uvec);
@@ -184,20 +188,20 @@ void NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed)
       uvec[i] *= normI;
     }
   }
-  auto setTwoPointKin = [uvec, this]() {
+  auto setTwoPointKin = [&uvec, &seed]() {
     auto pxz = std::hypot(uvec[0], uvec[2]);
-    this->mSeed.setTx(uvec[0] / pxz);
-    this->mSeed.setTy(uvec[1] / pxz);
-    this->mSeed.setQ2Pxz(1.f / pxz); // RSCHECK
+    seed->setTx(uvec[0] / pxz);
+    seed->setTy(uvec[1] / pxz);
+    seed->setQ2Pxz(1.f / pxz); // RSCHECK
+    return true;
   };
   if (useTwoPoint) {
-    setTwoPointKin();
-    return;
+    return setTwoPointKin();
   }
   int lLay = layForSeed[2];
   if (lLay < 0 || !mClusters[lLay]) {
     LOGP(error, "Third seed layer invalid");
-    return;
+    return false;
   }
   if (dir < 0) {
     // swap lLay and jLay to order the layers from innermost to outermost
@@ -239,24 +243,25 @@ void NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed)
   }
 
   if (radius > 1e5) {
-    setTwoPointKin();
-    return;
+    return setTwoPointKin();
   }
   float pxzI = 1. / std::abs(NA6PTrackPar::kB2C * by * radius); // radius is in cm, By in kG, pxz GeV/c
   float ntI = 1.f / std::hypot(uvec[0], uvec[2]);
   float crossy = (x2 - x1) * (z3 - z2) - (z2 - z1) * (x3 - x2);
   int qSign = (crossy * by > 0) ? +1 : -1;
-  mSeed.setTx(uvec[0] * ntI);
-  mSeed.setTy(uvec[1] * ntI);
-  mSeed.setQ2Pxz((crossy * by > 0) ? pxzI : -pxzI);
-  return;
+  seed->setTx(uvec[0] * ntI);
+  seed->setTy(uvec[1] * ntI);
+  seed->setQ2Pxz((crossy * by > 0) ? pxzI : -pxzI);
+  return true;
 }
 
-void NA6PFastTrackFitter::computeSeed(int dir)
+bool NA6PFastTrackFitter::computeSeed(int dir, NA6PTrackPar* seed)
 {
   // compute track seed from 3 (or 2) clusters
   // dir = 1 -> forward dir = -1 -> backward
-
+  if (!seed) {
+    seed = &mSeed;
+  }
   std::array<int, 3> layForSeed = {-1, -1, -1};
   int origSeedOption = mSeedOption;
   if (dir == 1 && mSeedOption == kOutermostAsSeed) {
@@ -267,11 +272,12 @@ void NA6PFastTrackFitter::computeSeed(int dir)
   }
   int nSeedLayers = getLayersForSeed(layForSeed);
   if (nSeedLayers < 2) {
+    seed->invalidate();
     LOGP(error, "Cannot compute seed with {} seeding layers", nSeedLayers);
-    return;
+    return false;
   }
   mSeedOption = origSeedOption;
-  computeSeed(dir, layForSeed);
+  return computeSeed(dir, layForSeed, seed);
 }
 
 void NA6PFastTrackFitter::printSeed() const
@@ -383,4 +389,14 @@ float NA6PFastTrackFitter::fitSeed(NA6PTrackParCov& seed, bool resetCovMat, int 
   }
   mPropOpt.linRef = nullptr;
   return chi2Tot;
+}
+
+void NA6PFastTrackFitter::addClustersToTrack(NA6PTrack& tr)
+{
+  for (int i = mMinLayerWithCl; i <= mMaxLayerWithCl; i++) {
+    const auto* cl = getCluster(i);
+    if (cl) {
+      tr.addCluster(cl, cl->getClusterIndex());
+    }
+  }
 }

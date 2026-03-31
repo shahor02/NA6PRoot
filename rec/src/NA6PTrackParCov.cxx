@@ -633,9 +633,38 @@ bool NA6PTrackParCov::update(float xm, float ym, float sx2, float sxy, float sy2
 
 void NA6PTrackParCov::resetCovariance(float s2)
 {
-  // mimic your existing behavior: if s2<0 choose defaults; if >0 scale
-  const float sc = (s2 > 0.f) ? s2 : 1.f;
-  mC = {1e-6f * sc, 0.f, 1e-6f * sc, 0.f, 0.f, 1e-6f * sc, 0.f, 0.f, 0.f, 1e-6f * sc, 0.f, 0.f, 0.f, 0.f, 1e-2f * sc};
+  // Reset the covarince matrix to "something big"
+  double d0(kCX2max), d1(kCY2max), d2(kCTX2max), d3(kCTY2max), d4(kC1Pt2max);
+  if (s2 > kTinyF) {
+    d0 = getSigmaX2() * s2;
+    d1 = getSigmaY2() * s2;
+    d2 = getSigmaTx2() * s2;
+    d3 = getSigmaTy2() * s2;
+    d4 = getSigmaQ2Pxz2() * s2;
+    if (d0 > kCX2max) {
+      d0 = kCX2max;
+    }
+    if (d1 > kCY2max) {
+      d1 = kCY2max;
+    }
+    if (d2 > kCTX2max) {
+      d2 = kCTX2max;
+    }
+    if (d3 > kCTY2max) {
+      d3 = kCTY2max;
+    }
+    if (d4 > kC1Pt2max) {
+      d4 = kC1Pt2max;
+    }
+  }
+  for (int i = 0; i < 15; i++) {
+    mC[i] = 0;
+  }
+  mC[kXX] = d0;
+  mC[kYY] = d1;
+  mC[kTxTx] = d2;
+  mC[kTyTy] = d3;
+  mC[kQ2PxzQ2Pxz] = d4;
 }
 
 void NA6PTrackParCov::printCorr() const

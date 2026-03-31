@@ -43,6 +43,7 @@ class NA6PTrack : public NA6PTrackParCov
 
   bool updateTrack(const NA6PBaseCluster& cl, float maxChi2);
 
+  void setChi2(float c) { mChi2VT = c; } // RSTODO this should be the only chi2
   float getChi2() const { return mChi2VT + mChi2MS; }
   float getChi2VT() const { return mChi2VT; }
   float getChi2MS() const { return mChi2MS; }
@@ -71,16 +72,15 @@ class NA6PTrack : public NA6PTrackParCov
   float getChi2MSRefit() const { return mChi2MSRefit; }
   float getNormChi2() const { return mNClusters < 3 ? 0 : (mChi2VT + mChi2MS) / ((mNClusters << 1) - kNDOF); }
 
-  void setMatchChi2(float chi2) { mMatchChi2 = chi2; }
+  void setMatchChi2(float chi2) { mMatchChi2 = chi2; } // RSTODO
+  void setChi2Out(float chi2) {}                       // RSTODO
+
   void setChi2VT(float chi2) { mChi2VT = chi2; }
   void setChi2MS(float chi2) { mChi2MS = chi2; }
   void setChi2VTOuter(float chi2) { mChi2VTOuter = chi2; }
   void setChi2MSOuter(float chi2) { mChi2MSOuter = chi2; }
   void setChi2VTRefit(float chi2) { mChi2VTRefit = chi2; }
   void setChi2MSRefit(float chi2) { mChi2MSRefit = chi2; }
-
-  void setChi2(float chi2) {}    // RSTODO
-  void setChi2Out(float chi2) {} // RSTODO
 
   void setParticleLabel(int idx, int lr)
   {

@@ -36,6 +36,11 @@ class NA6PTrackParCov : public NA6PTrackPar
     kQ2PxzTy,
     kQ2PxzQ2Pxz
   };
+  static constexpr float kCX2max = 20 * 20, // SigmaX<=20cm
+    kCY2max = 20 * 20,                      // SigmaY<=20cm
+    kCTX2max = 1 * 1,                       // SigmaPx/Pxz<=1
+    kCTY2max = 1 * 1,                       // SigmaPy/Pxz<=1
+    kC1Pt2max = 10 * 10;                    // Sigma1/Pt<=10 1/GeV
 
   using NA6PTrackPar::NA6PTrackPar;
   using MatrixD5 = ROOT::Math::SMatrix<double, 5, 5>;

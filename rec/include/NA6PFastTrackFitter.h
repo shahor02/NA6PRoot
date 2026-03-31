@@ -80,13 +80,14 @@ class NA6PFastTrackFitter
   void setUseIntegralBForSeed() { mOptionForSeedB = kIntegralB; }
   int getLayersForSeed(std::array<int, 3>& layForSeed) const;
   int sortLayersForSeed(std::array<int, 3>& layForSeed, int dir) const;
-  void computeSeed(int dir, std::array<int, 3>& layForSeed);
-  void computeSeed(int dir = -1);
-  void computeSeedOuter() { computeSeed(-1); }
-  void computeSeedInner() { computeSeed(1); }
+  bool computeSeed(int dir, std::array<int, 3>& layForSeed, NA6PTrackPar* seed = nullptr);
+  bool computeSeed(int dir, NA6PTrackPar* seed = nullptr);
+  bool computeSeedOuter(NA6PTrackPar* seed = nullptr) { return computeSeed(-1, seed); }
+  bool computeSeedInner(NA6PTrackPar* seed = nullptr) { return computeSeed(1, seed); }
   void printClusters() const;
   void printSeed() const;
   const auto& getSeed() const { return mSeed; }
+  auto& getSeed() { return mSeed; }
   void addCluster(const NA6PBaseCluster& cl);
   const NA6PBaseCluster* getCluster(int lr) const { return mClusters[lr]; }
   int getNumberOfClusters() const { return mNClusters; }
@@ -112,11 +113,11 @@ class NA6PFastTrackFitter
   float fitSeed(NA6PTrackParCov& seed, bool resetCovMat = true, int dir = -1, NA6PTrackPar* linRef = nullptr);
   float fitSeedInward(NA6PTrackParCov& seed, bool resetCovMat = true, NA6PTrackPar* linRef = nullptr) { return fitSeed(seed, resetCovMat, -1, linRef); }
   float fitSeedOutward(NA6PTrackParCov& seed, bool resetCovMat = true, NA6PTrackPar* linRef = nullptr) { return fitSeed(seed, resetCovMat, 1, linRef); }
+  void addClustersToTrack(NA6PTrack& track);
 
   bool fitTrackPoints(NA6PTrack& trackToFit, int dir = -1, const NA6PTrackParCov* seed = nullptr);
   bool fitTrackPointsInward(NA6PTrack& trackToFit, const NA6PTrackParCov* seed = nullptr) { return fitTrackPoints(trackToFit, -1, seed); }
   bool fitTrackPointsOutward(NA6PTrack& trackToFit, const NA6PTrackParCov* seed = nullptr) { return fitTrackPoints(trackToFit, 1, seed); }
-
   bool constrainTrackToVertex(NA6PTrack& trc, const NA6PVertex& pv) const;
   const auto& getPropOpt() const { return mPropOpt; }
 
