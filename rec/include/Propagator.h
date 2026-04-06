@@ -45,7 +45,6 @@ class Propagator
     float maxStep{2.0f};
     MatCorrType matCorr{MatCorrType::USEMatCorrTGeo};
     bool byOnly{false};
-    bool fixCorrelations{false};
     ClassDefNV(PropOpt, 1);
   };
 

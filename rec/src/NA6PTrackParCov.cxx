@@ -1,8 +1,6 @@
 // NA6PCCopyright
 #include "NA6PTrackParCov.h"
 
-#include <algorithm>
-#include <stdexcept>
 #include <fmt/format.h>
 #include <fairlogger/Logger.h>
 
@@ -69,7 +67,6 @@ bool NA6PTrackParCov::propagateToZ(float z, float by)
     mZ = z;
     // Jacobian
     const float f02 = c0Idz * c0I * c0I;
-    ;                                     // dx/ds0
     const float f12 = getTy() * f02 * s0; // d(ty/c0)/ds0 * dz
     const float f13 = c0Idz;              // dy/dty
     transportCovariance(f02, 0., f12, f13, 0., 0.);
@@ -85,10 +82,7 @@ bool NA6PTrackParCov::propagateToZ(float z, float by)
     return false;
   }
   const float dx2dz = (s0 + s1) / denom, cps_dx2dz = (c1 + s1 * dx2dz);
-  prec_t dr_ds0 = 0.0; // In the ds->0 limit the full derivative is well-behaved but algebra is messy;
-  prec_t dr_dq = 0.0;  // for transport stability we can safely drop these tiny cross-terms (they scale with bend).
-
-  if (abend < kSmallBend) {
+  if (abend < 0.05f) {
     mP[kY] += dz * cps_dx2dz * getTy();
   } else {
     // for small bends the linear apporximation of the arc by the segment is OK, but at large bends need precise value
@@ -106,10 +100,7 @@ bool NA6PTrackParCov::propagateToZ(float z, float by)
         rot = -phys_const::PI - rot;
       }
     }
-    const prec_t invc0 = 1. / c0, invc1 = 1. / c1;
     mP[kY] += getTy() / kappa * rot;
-    dr_ds0 = (invc1 - invc0) / bend;
-    dr_dq = (K * dz) * ((bend * invc1) - rot) / (bend * bend);
   }
 
   mP[kX] += dx2dz * dz;
@@ -129,12 +120,13 @@ bool NA6PTrackParCov::propagateToZ(float z, float by)
   const prec_t f02 = dz * (dN_ds0 * denom - N * dDen_ds0) * invDen2; // dx/d(tx0)
   const prec_t f04 = dz * (dN_dq * denom - N * dDen_dq) * invDen2;   // dx/d(q)
 
-  // y1 = y0 + ty * dz * r, r = (asin(s1)-asin(s0))/ds
-  // dr/ds0 = (1/c1 - 1/c0)/ds   (since ds is independent of s0)
-  // dr/dq  = (K*dz) * ( ds/c1 - dpsi ) / ds^2
-  const prec_t f12 = getTy() * dz * dr_ds0; // dy/d(tx0)
-  const prec_t f13 = dz * cps_dx2dz;        // dy/d(ty0)
-  const prec_t f14 = getTy() * dz * dr_dq;  // dy/d(q)
+  const prec_t dzccInv = dz * invDen;
+  const prec_t hh = dzccInv * (1. / c1) * (1.0 + c0 * c1 + s0 * s1);
+  const prec_t jj = dz * (dx2dz - s1 * (1. / c1));
+  // O2-equivalent Jacobian for the transported y/z-like coordinate.
+  const prec_t f12 = getTy() * ((hh * (1. / c0)) * s1 + jj);
+  const prec_t f13 = dz * cps_dx2dz;
+  const prec_t f14 = getTy() * ((hh * dzccInv * K) * s1 + jj * (K * dz));
   const prec_t f24 = K * dz;                // tx1 = s1 = s0 + K*q*dz
 
   transportCovariance(f02, f04, f12, f13, f14, f24);
@@ -204,6 +196,7 @@ bool NA6PTrackParCov::propagateToZ(float z, const float* bxyz)
   if (std::abs(kappa) < kSmallKappa) {
     return propagateToZ(z, 0.f); // for the straight-line propagation use 1D field method
   }
+  const float ty0 = getTy();
   const float K = kB2C * bxyz[1], bend = kappa * dz, abend = std::abs(bend);
   const float s0 = getTx(), s1 = s0 + bend;
   if (std::abs(s0) > kAlmost1F || std::abs(s1) > kAlmost1F) {
@@ -214,28 +207,9 @@ bool NA6PTrackParCov::propagateToZ(float z, const float* bxyz)
     return false;
   }
   const float dx2dz = (s0 + s1) / denom, cps_dx2dz = (c1 + s1 * dx2dz);
-  const float step = getP2Pxz() * (abend < 0.05f ? dz * std::abs(c1 + s1 * dx2dz) :                                // chord
+  const float step = getP2Pxz() * (abend < 0.05f ? dz * std::abs(cps_dx2dz) :                                      // chord
                                      2.f * std::asin(0.5f * dz * std::sqrt(1.f + dx2dz * dx2dz) * kappa) / kappa); // arc
   //
-  prec_t dr_ds0 = 0.0; // In the ds->0 limit the full derivative is well-behaved but algebra is messy;
-  prec_t dr_dq = 0.0;  // for transport stability we can safely drop these tiny cross-terms (they scale with bend).
-  if (abend > kSmallBend) {
-    auto arg = c0 * s1 - c1 * s0;
-    if (std::abs(arg) > kAlmost1F) {
-      return false; // loop
-    }
-    float rot = std::asin(arg);
-    if (s0 * s0 + s1 * s1 > 1.f && s0 * s1 < 0) {
-      if (s1 > 0.f) {
-        rot = phys_const::PI - rot;
-      } else {
-        rot = -phys_const::PI - rot;
-      }
-    }
-    const prec_t invc0 = 1. / c0, invc1 = 1. / c1;
-    dr_ds0 = (invc1 - invc0) / bend;
-    dr_dq = (K * dz) * ((bend * invc1) - rot) / (bend * bend);
-  }
   // get the track x,y,z,px/p,py/p,pz/p,p
   std::array<float, 7> vecLab{0.f};
   if (!getPosDirGlo(vecLab)) {
@@ -283,16 +257,6 @@ bool NA6PTrackParCov::propagateToZ(float z, const float* bxyz)
     x += dzFin * vecLab[3] / vecLab[5]; // dzFin * px/pz
     y += dzFin * vecLab[4] / vecLab[5]; // dzFin * py/pz
   }
-  mP[kX] = x;
-  mP[kY] = y;
-
-  // Calculate the track parameters
-  auto t = 1.f / std::sqrt(vecLab[3] * vecLab[3] + vecLab[5] * vecLab[5]); // p / pxz
-  mZ = z;
-  mP[kTx] = vecLab[3] * t;
-  mP[kTy] = vecLab[4] * t;
-  mP[kQ2Pxz] = q * t / vecLab[6];
-  //
   // transport cov matrix
   // --- Jacobian for covariance transport ---
   // x1 = x0 + dz*(s0+s1)/(c0+c1)
@@ -307,15 +271,25 @@ bool NA6PTrackParCov::propagateToZ(float z, const float* bxyz)
   const prec_t f02 = dz * (dN_ds0 * denom - N * dDen_ds0) * invDen2; // dx/d(tx0)
   const prec_t f04 = dz * (dN_dq * denom - N * dDen_dq) * invDen2;   // dx/d(q)
 
-  // y1 = y0 + ty * dz * r, r = (asin(s1)-asin(s0))/ds
-  // dr/ds0 = (1/c1 - 1/c0)/ds   (since ds is independent of s0)
-  // dr/dq  = (K*dz) * ( ds/c1 - dpsi ) / ds^2
-  const prec_t f12 = getTy() * dz * dr_ds0; // dy/d(tx0)
-  const prec_t f13 = dz * cps_dx2dz;        // dy/d(ty0)
-  const prec_t f14 = getTy() * dz * dr_dq;  // dy/d(q)
+  const prec_t dzccInv = dz * invDen;
+  const prec_t hh = dzccInv * (1. / c1) * (1.0 + c0 * c1 + s0 * s1);
+  const prec_t jj = dz * (dx2dz - s1 * (1. / c1));
+  const prec_t f12 = ty0 * ((hh * (1. / c0)) * s1 + jj);
+  const prec_t f13 = dz * cps_dx2dz;
+  const prec_t f14 = ty0 * ((hh * dzccInv * K) * s1 + jj * (K * dz));
   const prec_t f24 = K * dz;                // tx1 = s1 = s0 + K*q*dz
 
   transportCovariance(f02, f04, f12, f13, f14, f24);
+
+  mP[kX] = x;
+  mP[kY] = y;
+
+  // Calculate the track parameters
+  auto t = 1.f / std::sqrt(vecLab[3] * vecLab[3] + vecLab[5] * vecLab[5]); // p / pxz
+  mZ = z;
+  mP[kTx] = vecLab[3] * t;
+  mP[kTy] = vecLab[4] * t;
+  mP[kQ2Pxz] = q * t / vecLab[6];
   return true;
 }
 
@@ -344,28 +318,9 @@ bool NA6PTrackParCov::propagateToZ(float z, const float* bxyz, NA6PTrackPar& lin
     return false;
   }
   const float dx2dz = (s0 + s1) / denom, cps_dx2dz = (c1 + s1 * dx2dz);
-  const float step = linRef0.getP2Pxz() * (abend < 0.05f ? dz * std::abs(c1 + s1 * dx2dz) :                                // chord
+  const float step = linRef0.getP2Pxz() * (abend < 0.05f ? dz * std::abs(cps_dx2dz) :                                      // chord
                                              2.f * std::asin(0.5f * dz * std::sqrt(1.f + dx2dz * dx2dz) * kappa) / kappa); // arc
   //
-  prec_t dr_ds0 = 0.0; // In the ds->0 limit the full derivative is well-behaved but algebra is messy;
-  prec_t dr_dq = 0.0;  // for transport stability we can safely drop these tiny cross-terms (they scale with bend).
-  if (abend > kSmallBend) {
-    auto arg = c0 * s1 - c1 * s0;
-    if (std::abs(arg) > kAlmost1F) {
-      return false; // loop
-    }
-    float rot = std::asin(arg);
-    if (s0 * s0 + s1 * s1 > 1.f && s0 * s1 < 0) {
-      if (s1 > 0.f) {
-        rot = phys_const::PI - rot;
-      } else {
-        rot = -phys_const::PI - rot;
-      }
-    }
-    const prec_t invc0 = 1. / c0, invc1 = 1. / c1;
-    dr_ds0 = (invc1 - invc0) / bend;
-    dr_dq = (K * dz) * ((bend * invc1) - rot) / (bend * bend);
-  }
   //
   // get the track x,y,z,px/p,py/p,pz/p,p
   std::array<float, 7> vecLab{0.f};
@@ -410,7 +365,7 @@ bool NA6PTrackParCov::propagateToZ(float z, const float* bxyz, NA6PTrackPar& lin
   // Do the final correcting step to the target plane (linear approximation)
   float x = vecLab[0], y = vecLab[1];
   auto dzFin = z - vecLab[2];
-  if (abs(dzFin) > kTinyF) {
+  if (std::abs(dzFin) > kTinyF) {
     x += dzFin * vecLab[3] / vecLab[5]; // dz * px/pz
     y += dzFin * vecLab[4] / vecLab[5]; // dz * py/pz
   }
@@ -425,26 +380,25 @@ bool NA6PTrackParCov::propagateToZ(float z, const float* bxyz, NA6PTrackPar& lin
   linRef1.setQ2Pxz(q * t / vecLab[6]);
   //
   // transport cov matrix
-  // --- Jacobian for covariance transport ---
-  // x1 = x0 + dz*(s0+s1)/(c0+c1)
-  const prec_t N = s0 + linRef1.getTx(), invDen = 1. / denom, invDen2 = invDen * invDen;
-  const prec_t dc0_ds0 = -s0 / c0, dc1_ds1 = -linRef1.getTx() / linRef1.getCosPsi();
-  const prec_t ds1_ds0 = 1.0, ds1_dq = K * dz;         // ds1/ds0 = 1 ; ds1/dq = K*dz
-  const prec_t dN_ds0 = 2.0f, dN_dq = ds1_dq;          // dN/ds0 = 1 + ds1/ds0 = 2 ; dN/dq = ds1/dq
-  const prec_t dDen_ds0 = dc0_ds0 + dc1_ds1 * ds1_ds0; // dDen/ds0 = dc0/ds0 + dc1/ds1 * ds1/ds0
-  const prec_t dDen_dq = dc1_ds1 * ds1_dq;             // dDen/dq = dc1/ds1 * ds1/dq
-
-  // d(dx)/dvar = dz * ( dN*Den - N*dDen ) / Den^2
-  const prec_t f02 = dz * (dN_ds0 * denom - N * dDen_ds0) * invDen2; // dx/d(tx0)
-  const prec_t f04 = dz * (dN_dq * denom - N * dDen_dq) * invDen2;   // dx/d(q)
-
-  // y1 = y0 + ty * dz * r, r = (asin(s1)-asin(s0))/ds
-  // dr/ds0 = (1/c1 - 1/c0)/ds   (since ds is independent of s0)
-  // dr/dq  = (K*dz) * ( ds/c1 - dpsi ) / ds^2
-  const prec_t f12 = linRef1.getTy() * dz * dr_ds0; // dy/d(tx0)
-  const prec_t f13 = dz * cps_dx2dz;                // dy/d(ty0)
-  const prec_t f14 = linRef1.getTy() * dz * dr_dq;  // dy/d(q)
-  const prec_t f24 = K * dz;                        // tx1 = s1 = s0 + K*q*dz
+  // Recompute the Jacobian from the transported linearization reference, matching O2.
+  prec_t snpRef0 = linRef0.getTx();
+  prec_t snpRef1 = linRef1.getTx();
+  prec_t cspRef0 = linRef0.getCosPsi();
+  prec_t cspRef1 = linRef1.getCosPsi();
+  prec_t cspRef0Inv = 1. / cspRef0;
+  prec_t cspRef1Inv = 1. / cspRef1;
+  prec_t cc = cspRef0 + cspRef1;
+  prec_t ccInv = 1. / cc;
+  prec_t dx2dzRef = (snpRef0 + snpRef1) * ccInv;
+  prec_t dzccInv = dz * ccInv;
+  prec_t hh = dzccInv * cspRef1Inv * (1. + cspRef0 * cspRef1 + snpRef0 * snpRef1);
+  prec_t jj = dz * (dx2dzRef - snpRef1 * cspRef1Inv);
+  prec_t f02 = hh * cspRef0Inv;
+  prec_t f04 = hh * dzccInv * K;
+  prec_t f24 = dz * K;
+  prec_t f12 = linRef0.getTy() * (f02 * snpRef1 + jj);
+  prec_t f13 = dz * (cspRef1 + snpRef1 * dx2dzRef);
+  prec_t f14 = linRef0.getTy() * (f04 * snpRef1 + jj * f24);
 
   float diff[5];
   for (int i = 0; i < 5; i++) {
@@ -468,7 +422,7 @@ bool NA6PTrackParCov::propagateToZ(float z, const float* bxyz, NA6PTrackPar& lin
 
 void NA6PTrackParCov::transportCovariance(prec_t f02, prec_t f04, prec_t f12, prec_t f13, prec_t f14, prec_t f24)
 {
-  auto &C00 = mC[kXX], &C10 = mC[kYX], &C20 = mC[kTxX], &C30 = mC[kTyX], &C40 = mC[kQ2Pxz], &C11 = mC[kYY], &C21 = mC[kTxY],
+  auto &C00 = mC[kXX], &C10 = mC[kYX], &C20 = mC[kTxX], &C30 = mC[kTyX], &C40 = mC[kQ2PxzX], &C11 = mC[kYY], &C21 = mC[kTxY],
        &C31 = mC[kTyY], &C41 = mC[kQ2PxzY], &C22 = mC[kTxTx], &C32 = mC[kTyTx], &C42 = mC[kQ2PxzTx], &C33 = mC[kTyTy], &C43 = mC[kQ2PxzTy], &C44 = mC[kQ2PxzQ2Pxz];
 
   // b = C*ft
@@ -502,7 +456,7 @@ void NA6PTrackParCov::transportCovariance(prec_t f02, prec_t f04, prec_t f12, pr
   C32 += b32;
   C42 += b42;
 
-  checkCorrelations();
+  checkCovariance();
 }
 
 // ---------------- chi2 and update ----------------
@@ -624,7 +578,7 @@ bool NA6PTrackParCov::update(float xm, float ym, float sx2, float sxy, float sy2
     }
   }
 
-  checkCorrelations();
+  checkCovariance();
   return true;
 }
 
@@ -634,7 +588,7 @@ bool NA6PTrackParCov::update(float xm, float ym, float sx2, float sxy, float sy2
 void NA6PTrackParCov::resetCovariance(float s2)
 {
   // Reset the covarince matrix to "something big"
-  double d0(kCX2max), d1(kCY2max), d2(kCTX2max), d3(kCTY2max), d4(kC1Pt2max);
+  double d0(kCX2max), d1(kCY2max), d2(kCTX2max), d3(kCTY2max), d4(kC1Pxz2max);
   if (s2 > kTinyF) {
     d0 = getSigmaX2() * s2;
     d1 = getSigmaY2() * s2;
@@ -653,8 +607,8 @@ void NA6PTrackParCov::resetCovariance(float s2)
     if (d3 > kCTY2max) {
       d3 = kCTY2max;
     }
-    if (d4 > kC1Pt2max) {
-      d4 = kC1Pt2max;
+    if (d4 > kC1Pxz2max) {
+      d4 = kC1Pxz2max;
     }
   }
   for (int i = 0; i < 15; i++) {
@@ -672,29 +626,27 @@ void NA6PTrackParCov::printCorr() const
   // optional: implement like your original if needed
 }
 
-void NA6PTrackParCov::checkCorrelations()
+void NA6PTrackParCov::checkCovariance()
 {
+  // In case the diagonal element is bigger than the maximal allowed value, it is set to
+  // the limit and the off-diagonal elements that correspond to it are scaled accordingly
 #ifdef _CHECK_BAD_CORRELATIONS_
-  // minimal sanity: protect against negative variances
-  if (mC[kXX] < 0.f || mC[kYY] < 0.f || mC[kTxTx] < 0.f || mC[kTyTy] < 0.f || mC[kQ2PxzQ2Pxz] < 0.f) {
+  for (int i = 0; i < 5; i++) {
+    if (mC[CovarDiag[i]] < 0.f) {
 #ifdef _PRINT_BAD_CORRELATIONS_
-    LOGP(warning, "Bad covariance diag detected: {}", asString());
+      LOGP(warning, "Bad covariance diag detected: {}", asString());
 #endif
-#ifdef _FIX_BAD_CORRELATIONS_
-    fixCorrelations();
-#endif
+      mC[CovarDiag[i]] = -mC[CovarDiag[i]];
+    }
+    if (mC[CovarDiag[i]] > kCMaxDiag[i]) {
+      auto scl = std::sqrt(kCMaxDiag[i] / mC[CovarDiag[i]]);
+      for (int j = 0; j < 5; j++) {
+        mC[CovarMap[i][j]] *= scl;
+      }
+      mC[CovarDiag[i]] = kCMaxDiag[i];
+    }
   }
 #endif
-}
-
-void NA6PTrackParCov::fixCorrelations()
-{
-  // simple repair: clamp small negative diagonals to tiny positive
-  mC[kXX] = std::max(mC[kXX], 1e-12f);
-  mC[kYY] = std::max(mC[kYY], 1e-12f);
-  mC[kTxTx] = std::max(mC[kTxTx], 1e-12f);
-  mC[kTyTy] = std::max(mC[kTyTy], 1e-12f);
-  mC[kQ2PxzQ2Pxz] = std::max(mC[kQ2PxzQ2Pxz], 1e-18f);
 }
 
 bool NA6PTrackParCov::correctForMaterial(float x2x0, float xrho, bool anglecorr)
@@ -820,7 +772,7 @@ bool NA6PTrackParCov::correctForMaterial(float x2x0, float xrho, bool anglecorr)
 
   mP[kQ2Pxz] *= p0 / p;
 
-  checkCorrelations();
+  checkCovariance();
 
   return true;
 }
@@ -950,7 +902,7 @@ bool NA6PTrackParCov::correctForMaterial(float x2x0, float xrho, NA6PTrackPar& l
   if (&linRef != this) {
     mP[kQ2Pxz] *= fact;
   }
-  checkCorrelations();
+  checkCovariance();
 
   return true;
 }
@@ -960,6 +912,30 @@ float NA6PTrackParCov::getPredictedChi2(const NA6PTrackParCov& rhs) const
 {
   MatrixD5Sym cov; // perform matrix operations in double!
   return getPredictedChi2(rhs, cov);
+}
+
+//______________________________________________
+float NA6PTrackParCov::getPredictedChi2Quiet(const NA6PTrackParCov& rhs) const
+{
+  if (std::abs(getZ() - rhs.getZ()) > kTinyF) {
+    return 2.f / kTinyF;
+  }
+  MatrixD5Sym cov;
+  buildCombinedCovMatrix(rhs, cov);
+  if (!cov.Invert()) {
+    return 2.f / kTinyF;
+  }
+  double chi2diag = 0., chi2ndiag = 0., diff[5];
+  for (int i = 5; i--;) {
+    diff[i] = getParam(i) - rhs.getParam(i);
+    chi2diag += diff[i] * diff[i] * cov(i, i);
+  }
+  for (int i = 5; i--;) {
+    for (int j = i; j--;) {
+      chi2ndiag += diff[i] * diff[j] * cov(i, j);
+    }
+  }
+  return chi2diag + 2. * chi2ndiag;
 }
 
 //______________________________________________
@@ -1006,13 +982,13 @@ bool NA6PTrackParCov::update(const NA6PTrackParCov& rhs, const MatrixD5Sym& covI
   // update track with other track, the inverted combined cov matrix should be supplied
 
   // consider skipping this check, since it is usually already done upstream
-  if (std::abs(this->getX() - rhs.getX()) > kTinyF) {
+  if (std::abs(this->getZ() - rhs.getZ()) > kTinyF) {
     LOGP(error, "The reference Z of the tracks differ: {} : {}", getZ(), rhs.getZ());
     return false;
   }
   // gain matrix K = Cov0*H*(Cov0+Cov0)^-1 (for measurement matrix H=I)
   MatrixD5Sym matC0;
-  double diff[5], parUpd[5] = {};
+  double diff[5];
   for (int i = 0; i < 5; i++) {
     for (int j = 0; j <= i; j++) {
       matC0(i, j) = getCovMatElem(i, j);
@@ -1020,18 +996,18 @@ bool NA6PTrackParCov::update(const NA6PTrackParCov& rhs, const MatrixD5Sym& covI
     diff[i] = rhs.getParam(i) - getParam(i);
   }
   MatrixD5 matK = matC0 * covInv;
-  for (int i = 0; i < 5; i++) {
-    double upd = 0.;
-    for (int j = 0; j < i; j++) {
-      upd += matK(i, j) * diff[j];
+
+  for (int i = 4; i >= 0; --i) {
+    for (int j = 4; j >= 0; --j) {
+      incParam(i, matK(i, j) * diff[j]);
     }
-    incParam(i, upd);
   }
+
   // updated covariance: Cov0 = Cov0 - K*Cov0
   matK *= MatrixD5(matC0);
-  for (int i = 0; i < 5; i++) {
-    for (int j = 0; j <= i; j++) {
-      incCovMatElem(i, j, -matC0(i, j));
+  for (int i = 0; i < 5; ++i) {
+    for (int j = 0; j <= i; ++j) {
+      incCovMatElem(i, j, -matK(i, j));
     }
   }
   return true;

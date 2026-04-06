@@ -2,8 +2,6 @@
 
 #include "NA6PTrackPar.h"
 #include <fairlogger/Logger.h>
-#include <algorithm>
-#include <sstream>
 
 void NA6PTrackPar::initParam(const float* xyz, const float* pxyz, int sgn)
 {
@@ -55,7 +53,7 @@ bool NA6PTrackPar::propagateParamToZ(float z, float by)
   }
   const float dx2dz = (s0 + s1) / denom;
 
-  if (abend < kSmallBend) {
+  if (abend < 0.05f) {
     mP[kY] += dz * (c1 + s1 * dx2dz) * getTy();
   } else {
     // for small bends the linear apporximation of the arc by the segment is OK, but at large bends need precise value
@@ -106,7 +104,8 @@ bool NA6PTrackPar::propagateParamToZ(float z, const float* bxyz)
     return false;
   }
   const float dx2dz = (s0 + s1) / denom;
-  const float step = getP2Pxz() * (abend < 0.05f ? dz * std::abs(c1 + s1 * dx2dz) :                                // chord
+  const float cpsDx2dz = c1 + s1 * dx2dz;
+  const float step = getP2Pxz() * (abend < 0.05f ? dz * std::abs(cpsDx2dz) :                                       // chord
                                      2.f * std::asin(0.5f * dz * std::sqrt(1.f + dx2dz * dx2dz) * kappa) / kappa); // arc
   //
   // get the track x,y,z,px/p,py/p,pz/p,p

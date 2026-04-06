@@ -7,7 +7,6 @@
 
 // Keep the same correlation checks knobs as your original
 #define _CHECK_BAD_CORRELATIONS_
-// #define _FIX_BAD_CORRELATIONS_x
 #define _PRINT_BAD_CORRELATIONS_
 
 /*
@@ -36,11 +35,19 @@ class NA6PTrackParCov : public NA6PTrackPar
     kQ2PxzTy,
     kQ2PxzQ2Pxz
   };
+  /*
   static constexpr float kCX2max = 20 * 20, // SigmaX<=20cm
     kCY2max = 20 * 20,                      // SigmaY<=20cm
     kCTX2max = 1 * 1,                       // SigmaPx/Pxz<=1
     kCTY2max = 1 * 1,                       // SigmaPy/Pxz<=1
-    kC1Pt2max = 10 * 10;                    // Sigma1/Pt<=10 1/GeV
+    kC1Pxz2max = 10 * 10;                   // Sigma1/Pxz<=10 1/GeV
+  */
+  static constexpr float kCX2max = 100 * 100, // SigmaX<=20cm
+    kCY2max = 100 * 100,                      // SigmaY<=20cm
+    kCTX2max = 1 * 1,                         // SigmaPx/Pxz<=1
+    kCTY2max = 1 * 1,                         // SigmaPy/Pxz<=1
+    kC1Pxz2max = 100 * 100;                   // Sigma1/Pxz<=10 1/GeV
+  static constexpr float kCMaxDiag[5] = {kCX2max, kCY2max, kCTX2max, kCTY2max, kC1Pxz2max};
 
   using NA6PTrackPar::NA6PTrackPar;
   using MatrixD5 = ROOT::Math::SMatrix<double, 5, 5>;
@@ -114,8 +121,7 @@ class NA6PTrackParCov : public NA6PTrackPar
   bool correctForMaterial(float x2x0, float xrho, NA6PTrackPar& linRef, bool anglecorr = false);
 
   void resetCovariance(float s2 = -1.);
-  void checkCorrelations();
-  void fixCorrelations();
+  void checkCovariance();
   std::string asString() const;
   void printCorr() const;
 
@@ -125,6 +131,8 @@ class NA6PTrackParCov : public NA6PTrackPar
                                          {kTxX, kTxY, kTxTx, kTyTx, kQ2PxzTx},
                                          {kTyX, kTyY, kTyTx, kTyTy, kQ2PxzTy},
                                          {kQ2PxzX, kQ2PxzY, kQ2PxzTx, kQ2PxzTy, kQ2PxzQ2Pxz}};
+
+  constexpr static int CovarDiag[5] = {0, 2, 5, 9, 14};
 
  protected:
   std::array<float, 15> mC{}; // lower triangle representation

@@ -180,9 +180,6 @@ bool Propagator::propagateToZ(NA6PTrackParCov& track, float zToGo, const Propaga
     if (!(opt.byOnly ? track.propagateToZ(z, getBy(xyz0), opt.linRef) : track.propagateToZ(z, getFieldXYZ(xyz0), opt.linRef))) {
       return false;
     }
-    if (opt.fixCorrelations) {
-      track.fixCorrelations();
-    }
     if (!correct()) {
       return false;
     }
