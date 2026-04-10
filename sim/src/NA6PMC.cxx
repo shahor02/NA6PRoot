@@ -97,35 +97,62 @@ void NA6PMC::forceCharmHadronicDecays()
   D0_decay_mode[0][0] = -321; // K-
   D0_decay_mode[0][1] = 211;  // pi+
   TVirtualMC::GetMC()->SetDecayMode(421, D0_BR, D0_decay_mode);
+  int D0bar_decay_mode[6][3] = {{0}};
+  D0bar_decay_mode[0][0] = 321; // K+
+  D0bar_decay_mode[0][1] = -211;  // pi-
+  TVirtualMC::GetMC()->SetDecayMode(-421, D0_BR, D0bar_decay_mode);
+  //
   int Dp_decay_mode[6][3] = {{0}};
   float Dp_BR[6] = {100.f, 0.f, 0.f, 0.f, 0.f, 0.f};
   Dp_decay_mode[0][0] = -321; // K-
   Dp_decay_mode[0][1] = 211;  // pi+
   Dp_decay_mode[0][2] = 211;  // pi+
   TVirtualMC::GetMC()->SetDecayMode(411, Dp_BR, Dp_decay_mode);
-  int Ds_decay_mode[6][3] = {{0}};
+  int Dm_decay_mode[6][3] = {{0}};
+  Dm_decay_mode[0][0] = 321; // K+
+  Dm_decay_mode[0][1] = -211;  // pi-
+  Dm_decay_mode[0][2] = -211;  // pi-
+  TVirtualMC::GetMC()->SetDecayMode(-411, Dp_BR, Dm_decay_mode);
+  //
+  int Dsp_decay_mode[6][3] = {{0}};
   float Ds_BR[6] = {90.f, 10.f, 0.f, 0.f, 0.f, 0.f};
-  Ds_decay_mode[0][0] = 333;  // phi
-  Ds_decay_mode[0][1] = 211;  // pi+
-  Ds_decay_mode[1][0] = -313; // K*0bar
-  Ds_decay_mode[1][1] = 321;  // K
-  TVirtualMC::GetMC()->SetDecayMode(431, Ds_BR, Ds_decay_mode);
+  Dsp_decay_mode[0][0] = 333;  // phi
+  Dsp_decay_mode[0][1] = 211;  // pi+
+  Dsp_decay_mode[1][0] = -313; // K*0bar
+  Dsp_decay_mode[1][1] = 321;  // K+
+  TVirtualMC::GetMC()->SetDecayMode(431, Ds_BR, Dsp_decay_mode);
+  int Dsm_decay_mode[6][3] = {{0}};
+  Dsm_decay_mode[0][0] = 333;  // phi
+  Dsm_decay_mode[0][1] = -211;  // pi-
+  Dsm_decay_mode[1][0] = 313; // K*0
+  Dsm_decay_mode[1][1] = -321;  // K-
+  TVirtualMC::GetMC()->SetDecayMode(-431, Ds_BR, Dsm_decay_mode);
   int Kstar_decay_mode[6][3] = {{0}};
   float Kstar_BR[6] = {100.f, 0.f, 0.f, 0.f, 0.f, 0.f};
   Kstar_decay_mode[0][0] = 321;  // K+
   Kstar_decay_mode[0][1] = -211; // pi-
   TVirtualMC::GetMC()->SetDecayMode(313, Kstar_BR, Kstar_decay_mode);
+  int Kstarbar_decay_mode[6][3] = {{0}};
+  Kstarbar_decay_mode[0][0] = -321;  // K-
+  Kstarbar_decay_mode[0][1] = 211; // pi+
+  TVirtualMC::GetMC()->SetDecayMode(-313, Kstar_BR, Kstarbar_decay_mode);
   int Phi_decay_mode[6][3] = {{0}};
   float Phi_BR[6] = {100.f, 0.f, 0.f, 0.f, 0.f, 0.f};
   Phi_decay_mode[0][0] = 321;  // K+
   Phi_decay_mode[0][1] = -321; // K-
   TVirtualMC::GetMC()->SetDecayMode(333, Phi_BR, Phi_decay_mode);
-  int Lc_decay_mode[6][3] = {{0}};
+  //
+  int Lcp_decay_mode[6][3] = {{0}};
   float Lc_BR[6] = {100.f, 0.f, 0.f, 0.f, 0.f, 0.f};
-  Lc_decay_mode[0][0] = -321; // K-
-  Lc_decay_mode[0][1] = 2212; // p
-  Lc_decay_mode[0][2] = 211;  // pi+
-  TVirtualMC::GetMC()->SetDecayMode(4122, Lc_BR, Lc_decay_mode);
+  Lcp_decay_mode[0][0] = -321; // K-
+  Lcp_decay_mode[0][1] = 2212; // p
+  Lcp_decay_mode[0][2] = 211;  // pi+
+  TVirtualMC::GetMC()->SetDecayMode(4122, Lc_BR, Lcp_decay_mode);
+  int Lcm_decay_mode[6][3] = {{0}};
+  Lcm_decay_mode[0][0] = 321; // K+
+  Lcm_decay_mode[0][1] = -2212; // pbar
+  Lcm_decay_mode[0][2] = -211;  // pi-
+  TVirtualMC::GetMC()->SetDecayMode(-4122, Lc_BR, Lcm_decay_mode);
 }
 
 void NA6PMC::forceJpsiDecays()
