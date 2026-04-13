@@ -217,7 +217,7 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
       float phiPart = curPart.Phi();
       float thetaPart = std::acos(pzPart / momPart);
       float etaPart = -std::log(std::tan(thetaPart / 2.));
-      std::array<std::unique_ptr<NA6PBaseCluster>, 5> clusters{nullptr, nullptr, nullptr, nullptr, nullptr};
+      std::array<std::unique_ptr<NA6PBaseCluster>, 6> clusters{};
       float xclu[5], yclu[5], zclu[5];
       if (curPart.IsPrimary()) {
         hEtaGen->Fill(etaPart);
@@ -290,6 +290,8 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
         if (fitter->computeSeed(-1, &currTr) && (chiFit = fitter->fitSeed(currTr)) >= 0.f) {
           //  if (fitter->fitTrackPoints(currTr)) {
           std::cout << "Track fit done.\n";
+          fitter->addClustersToTrack(currTr);
+          currTr.setChi2(chiFit);
           // fitter->propagateToZ(&currTr,zvert);
           hIsGood->Fill(1);
           int nClusters = currTr.getNHits();

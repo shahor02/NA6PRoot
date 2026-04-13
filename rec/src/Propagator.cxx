@@ -23,9 +23,9 @@ bool Propagator::loadField()
     return true;
   }
   auto prop = Instance(true);
-  prop->mOwnField = std::make_unique<MagneticField>();
-  prop->mOwnField->loadField();
-  prop->mOwnField->setAsGlobalField();
+  auto f = new MagneticField();
+  f->loadField();
+  f->setAsGlobalField();
   prop->updateField();
   return true;
 }

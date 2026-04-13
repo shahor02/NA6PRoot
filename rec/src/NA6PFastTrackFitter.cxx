@@ -179,11 +179,7 @@ bool NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed, N
   auto uvec = NA6PLine::getDiff(mClusters[jLay]->getXYZ(), mClusters[kLay]->getXYZ());
   float norm = NA6PLine::getNorm(uvec);
   if (norm > phys_const::kAlmost0F) {
-    // Enforce track direction along +z
-    if (uvec[2] < 0) {
-      norm = -norm;
-    }
-    auto normI = uvec[2] < 0 ? -1.f / norm : 1. / norm;
+    auto normI = uvec[2] < 0 ? -1.f / norm : 1. / norm; // Enforce track direction along +z
     for (int i = 0; i < 3; i++) {
       uvec[i] *= normI;
     }
@@ -204,10 +200,7 @@ bool NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed, N
     return false;
   }
   if (dir < 0) {
-    // swap lLay and jLay to order the layers from innermost to outermost
-    int tmp = jLay;
-    jLay = lLay;
-    lLay = tmp;
+    std::swap(jLay, lLay); // swap lLay and jLay to order the layers from innermost to outermost
   }
   auto *clJ = mClusters[jLay], *clK = mClusters[kLay], *clL = mClusters[lLay];
   float x1 = clJ->getX(), z1 = clJ->getZ(), x2 = clK->getX(), z2 = clK->getZ(), x3 = clL->getX(), z3 = clL->getZ();
@@ -364,6 +357,8 @@ float NA6PFastTrackFitter::fitSeed(NA6PTrackParCov& seed, bool resetCovMat, int 
     auto cl = getCluster(startL);
     seed.setXYZ(cl->getXYZ());
     seed.resetCovariance(-1);
+    auto prelQPerpI = linRef ? linRef->getParam(4) : seed.getParam(4);
+    seed.setCovMatElem(4, 4, prelQPerpI * prelQPerpI * seed.getCovMatElem(4, 4));
     if (linRef) {
       if (!prop->propagateToZ(*linRef, cl->getZ(), mPropOpt)) { // linRef must be at the same position as the seed
         return -1.f;
@@ -377,7 +372,7 @@ float NA6PFastTrackFitter::fitSeed(NA6PTrackParCov& seed, bool resetCovMat, int 
     if (!mClusters[il]) {
       continue;
     }
-    const auto cl = *mClusters[il];
+    const auto& cl = *mClusters[il];
     float chi2 = 0;
     if (!prop->propagateToZ(seed, cl.getZ(), mPropOpt) ||
         (chi2 = seed.getPredictedChi2(cl)) > mMaxChi2Cl ||
@@ -387,6 +382,11 @@ float NA6PFastTrackFitter::fitSeed(NA6PTrackParCov& seed, bool resetCovMat, int 
     }
     chi2Tot += chi2;
   }
+
+  if (dir < 0 && mPropagateToPrimVert && mIsPrimVertSet && !prop->propagateToZ(seed, mPrimVertZ, mPropOpt)) {
+    return -1.f;
+  }
+
   mPropOpt.linRef = nullptr;
   return chi2Tot;
 }

@@ -131,8 +131,7 @@ class Propagator
     return getMeanMaterialBudgetFromGeom(start.data(), end.data());
   }
 
-  MagneticField* mField = nullptr;          ///< External or own nominal field map
-  std::unique_ptr<MagneticField> mOwnField; /// in case it owns the field
+  MagneticField* mField = nullptr; ///< External or own nominal field map
 
   ClassDefNV(Propagator, 0);
 };

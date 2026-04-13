@@ -8,6 +8,7 @@
 // Keep the same correlation checks knobs as your original
 #define _CHECK_BAD_CORRELATIONS_
 #define _PRINT_BAD_CORRELATIONS_
+#define _FIX_BAD_CORRELATIONS_
 
 /*
   Add covariance matrix and related methods to NA6PTrackPar
@@ -35,18 +36,18 @@ class NA6PTrackParCov : public NA6PTrackPar
     kQ2PxzTy,
     kQ2PxzQ2Pxz
   };
-  /*
   static constexpr float kCX2max = 20 * 20, // SigmaX<=20cm
     kCY2max = 20 * 20,                      // SigmaY<=20cm
     kCTX2max = 1 * 1,                       // SigmaPx/Pxz<=1
     kCTY2max = 1 * 1,                       // SigmaPy/Pxz<=1
     kC1Pxz2max = 10 * 10;                   // Sigma1/Pxz<=10 1/GeV
-  */
+  /*
   static constexpr float kCX2max = 100 * 100, // SigmaX<=20cm
     kCY2max = 100 * 100,                      // SigmaY<=20cm
     kCTX2max = 1 * 1,                         // SigmaPx/Pxz<=1
     kCTY2max = 1 * 1,                         // SigmaPy/Pxz<=1
     kC1Pxz2max = 100 * 100;                   // Sigma1/Pxz<=10 1/GeV
+  */
   static constexpr float kCMaxDiag[5] = {kCX2max, kCY2max, kCTX2max, kCTY2max, kC1Pxz2max};
 
   using NA6PTrackPar::NA6PTrackPar;

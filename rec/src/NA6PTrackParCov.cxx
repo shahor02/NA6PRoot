@@ -508,9 +508,9 @@ bool NA6PTrackParCov::update(float xm, float ym, float sx2, float sxy, float sy2
   const prec_t S11 = C[1][1] + R11;
 
   const prec_t det = S00 * S11 - S01 * S01;
-  if (det < 1e-20)
+  if (det < 1e-20) {
     return false;
-
+  }
   const prec_t invS00 = S11 / det;
   const prec_t invS01 = -S01 / det;
   const prec_t invS11 = S00 / det;
@@ -636,7 +636,9 @@ void NA6PTrackParCov::checkCovariance()
 #ifdef _PRINT_BAD_CORRELATIONS_
       LOGP(warning, "Bad covariance diag detected: {}", asString());
 #endif
+#ifdef _FIX_BAD_CORRELATIONS_
       mC[CovarDiag[i]] = -mC[CovarDiag[i]];
+#endif
     }
     if (mC[CovarDiag[i]] > kCMaxDiag[i]) {
       auto scl = std::sqrt(kCMaxDiag[i] / mC[CovarDiag[i]]);
@@ -644,6 +646,32 @@ void NA6PTrackParCov::checkCovariance()
         mC[CovarMap[i][j]] *= scl;
       }
       mC[CovarDiag[i]] = kCMaxDiag[i];
+    }
+  }
+
+  // Keep all 2x2 principal minors positive. Without this, propagation or
+  // diagonal limiting can leave an indefinite covariance with positive
+  // diagonal elements; the next Kalman update then legitimately produces
+  // negative variances.
+  constexpr float MaxCorr = 0.999f;
+  for (int i = 1; i < 5; ++i) {
+    for (int j = 0; j < i; ++j) {
+      const auto sig2 = mC[CovarDiag[i]] * mC[CovarDiag[j]];
+      auto& cov = mC[CovarMap[i][j]];
+      if (sig2 <= 0.f) {
+        cov = 0.f;
+        continue;
+      }
+      const auto maxCov = MaxCorr * std::sqrt(sig2);
+      if (std::abs(cov) > maxCov) {
+#ifdef _PRINT_BAD_CORRELATIONS_
+        LOGP(warning, "Bad covariance correlation detected for {} {}: {} vs diag {} {}",
+             i, j, cov, mC[CovarDiag[i]], mC[CovarDiag[j]]);
+#endif
+#ifdef _FIX_BAD_CORRELATIONS_
+        cov = std::copysign(maxCov, cov);
+#endif
+      }
     }
   }
 #endif
