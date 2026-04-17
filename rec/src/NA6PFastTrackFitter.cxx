@@ -18,13 +18,11 @@ NA6PFastTrackFitter::NA6PFastTrackFitter()
   if (TGeoGlobalMagField::Instance()->GetField() == nullptr) {
     Propagator::loadField();
   }
-  mClusters.resize(mNLayers);
 }
 
 void NA6PFastTrackFitter::printClusters() const
 {
-  LOGP(info, "N layers = {}", mNLayers);
-  for (int jLay = 0; jLay < mNLayers; ++jLay) {
+  for (int jLay = 0; jLay < getNLayers(); ++jLay) {
     if (mClusters[jLay])
       LOGP(info, "Layer {} Cluster position = {} {} {}", jLay, mClusters[jLay]->getX(), mClusters[jLay]->getY(), mClusters[jLay]->getZ());
     else
@@ -63,33 +61,33 @@ bool NA6PFastTrackFitter::constrainTrackToVertex(NA6PTrack& trc, const NA6PVerte
   return true;
 }
 
-int NA6PFastTrackFitter::getLayersForSeed(std::array<int, 3>& layForSeed) const
+int NA6PFastTrackFitter::getLayersForSeed(std::array<int, 3>& layForSeed)
 {
   // define layers to be used in seed calculation depending on the options
-
-  int layWithClus[kMaxLayers];
-  int nLayWithClus = 0;
-  for (int i = 0; i < mNLayers; ++i) {
-    if (mClusters[i]) {
-      layWithClus[nLayWithClus++] = i;
-    }
-  }
+  int nLayWithClus = countLayerWithClusters();
   if (nLayWithClus < 2) {
-    LOGP(error, "Array with clusters has less than 2 clusters {}", nLayWithClus);
+    LOGP(error, "Only {} layers with clusters, at least 2 needed for seeding", nLayWithClus);
     return 0;
+  }
+  layForSeed[2] = -1; // in case only 2 layers available
+  if (nLayWithClus <= 3) {
+    for (int i = 0; i < mNClusters; i++) {
+      layForSeed[i] = mLayersWithClusters[i];
+    }
+    return nLayWithClus;
   }
   // select layers for seed determination
   if (mSeedOption == kInnermostAsSeed) {
     for (int i = 0; i < 3 && i < nLayWithClus; ++i) {
-      layForSeed[i] = layWithClus[i];
+      layForSeed[i] = mLayersWithClusters[i];
     }
   } else if (mSeedOption == kOutermostAsSeed) {
     for (int i = 0; i < 3 && i < nLayWithClus; ++i) {
-      layForSeed[i] = layWithClus[nLayWithClus - 1 - i];
+      layForSeed[i] = mLayersWithClusters[nLayWithClus - 1 - i];
     }
   } else { // kInMidOutAsSeed
-    layForSeed[0] = layWithClus[0];
-    layForSeed[2] = layWithClus[nLayWithClus - 1];
+    layForSeed[0] = mLayersWithClusters[0];
+    layForSeed[2] = mLayersWithClusters[nLayWithClus - 1];
     if (layForSeed[0] == layForSeed[2]) {
       LOGP(error, "Innermost and outermost clusters coincide");
       return 0;
@@ -99,7 +97,7 @@ int NA6PFastTrackFitter::getLayersForSeed(std::array<int, 3>& layForSeed) const
     int best = -1;
     int bestDist = 999;
     for (int i = 0; i < nLayWithClus; ++i) {
-      int lay = layWithClus[i];
+      int lay = mLayersWithClusters[i];
       if (lay == layForSeed[0] || lay == layForSeed[2]) {
         continue;
       }
@@ -124,58 +122,26 @@ int NA6PFastTrackFitter::getLayersForSeed(std::array<int, 3>& layForSeed) const
   return nSeedLayers;
 }
 
-int NA6PFastTrackFitter::sortLayersForSeed(std::array<int, 3>& layForSeed, int dir) const
-{
-  // Sort according to fitting direction
-  // dir = 1 -> forward (innermost first)
-  // dir = -1 -> backward (outermost first)
-  // Returns the number of valid layers after sorting (2 or 3)
-  int tmpArr[3];
-  int valid = 0;
-  for (int i = 0; i < 3; ++i) {
-    if (layForSeed[i] >= 0 && layForSeed[i] < mNLayers) {
-      tmpArr[valid++] = layForSeed[i];
-    }
-  }
-  if (valid < 2) {
-    LOGP(error, "Less than 2 clusters found in different layers. Seed cannot be computed");
-    return 0;
-  }
-  dir > 0 ? std::sort(tmpArr, tmpArr + valid) : std::sort(tmpArr, tmpArr + valid, std::greater<int>());
-  for (int i = 0; i < 3; ++i) {
-    layForSeed[i] = (i < valid) ? tmpArr[i] : -1;
-  }
-  return valid;
-}
-
 bool NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed, NA6PTrackPar* seed)
 {
   if (!seed) {
     seed = &mSeed;
   }
   seed->invalidate();
-  if (mNClusters < 2) {
-    LOGP(error, "Cannot compute seed with {} clusters", mNClusters);
-    return false;
+  int nSeedLayers = layForSeed[2] >= 0 ? 3 : 2;
+  if (nSeedLayers == 2 && mSeedPoints == kThreePointSeed) {
+    LOGP(error, "Cannot compute seed with the 3-layer option and only {} layers -> resort to 2-point seed", nSeedLayers);
   }
-  if (mNClusters == 2 && mSeedPoints == kThreePointSeed) {
-    LOGP(error, "Cannot compute seed with the 3-cluster option and only {} clusters -> resort to 2-point seed", mNClusters);
-  }
+  auto getLayerInOrder = [&layForSeed, nSeedLayers, dir](int i) {
+    return dir > 0 ? layForSeed[i] : layForSeed[nSeedLayers - 1 - i];
+  };
+
   auto prop = Propagator::Instance();
-  int nSeedLayers = sortLayersForSeed(layForSeed, dir);
-  int jLay = layForSeed[0];
-  if (jLay < 0 || !mClusters[jLay]) {
-    LOGP(error, "First seed layer invalid");
-    return false;
-  }
+  int jLay = getLayerInOrder(0);
   seed->setXYZ(mClusters[jLay]->getXYZ());
   float by = prop->getBy(mClusters[jLay]->getXYZ());
-  bool useTwoPoint = (mSeedPoints == kTwoPointSeed) || (mNClusters == 2) || (nSeedLayers == 2) || (std::abs(by) < NA6PTrackPar::kSmallBend);
-  int kLay = layForSeed[1];
-  if (kLay < 0 || !mClusters[kLay]) {
-    LOGP(error, "Second seed layer invalid");
-    return false;
-  }
+  bool useTwoPoint = (mSeedPoints == kTwoPointSeed) || (nSeedLayers == 2) || (std::abs(by) < NA6PTrackPar::kSmallBend);
+  int kLay = getLayerInOrder(1);
   auto uvec = NA6PLine::getDiff(mClusters[jLay]->getXYZ(), mClusters[kLay]->getXYZ());
   float norm = NA6PLine::getNorm(uvec);
   if (norm > phys_const::kAlmost0F) {
@@ -194,7 +160,7 @@ bool NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed, N
   if (useTwoPoint) {
     return setTwoPointKin();
   }
-  int lLay = layForSeed[2];
+  int lLay = getLayerInOrder(2);
   if (lLay < 0 || !mClusters[lLay]) {
     LOGP(error, "Third seed layer invalid");
     return false;
@@ -281,6 +247,7 @@ void NA6PFastTrackFitter::printSeed() const
     LOGP(info, "Seed not set");
 }
 
+/*
 bool NA6PFastTrackFitter::fitTrackPoints(NA6PTrack& trackToFit, int dir, const NA6PTrackParCov* seed)
 {
   if (mNClusters < 2) {
@@ -305,7 +272,7 @@ bool NA6PFastTrackFitter::fitTrackPoints(NA6PTrack& trackToFit, int dir, const N
   }
   trackToFit.setPID(mPID);
   trackToFit.resetCovariance(-1);
-  int startLay = (dir > 0) ? 0 : mNLayers - 1, endLay = (dir > 0) ? mNLayers : -1, stepLay = (dir > 0) ? 1 : -1;
+  int startLay = (dir > 0) ? 0 : getNLayers() - 1, endLay = (dir > 0) ? getNLayers() : -1, stepLay = (dir > 0) ? 1 : -1;
   int nClFit = 0;
   for (int jLay = startLay; jLay != endLay; jLay += stepLay) {
     if (mClusters[jLay]) {
@@ -329,6 +296,7 @@ bool NA6PFastTrackFitter::fitTrackPoints(NA6PTrack& trackToFit, int dir, const N
   }
   return isGoodFit;
 }
+*/
 
 //=========================================================
 float NA6PFastTrackFitter::fitSeed(NA6PTrackParCov& seed, bool resetCovMat, int dir, NA6PTrackPar* linRef)

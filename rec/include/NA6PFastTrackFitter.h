@@ -40,20 +40,11 @@ class NA6PFastTrackFitter
          kMaximumB = 1,
          kIntegralB = 2 };
 
-  static constexpr int kMaxLayers = 20;
-
   NA6PFastTrackFitter();
   ~NA6PFastTrackFitter(){};
 
   // setters for configurable parameters
   void setMaxChi2Cl(float v = 10) { mMaxChi2Cl = v; }
-
-  void setNLayers(int n)
-  {
-    mNLayers = n;
-    mClusters.resize(n);
-    resetClusters();
-  }
 
   void setParticleHypothesis(int pdg) { mPID.setFromPDG(pdg); }
 
@@ -78,8 +69,8 @@ class NA6PFastTrackFitter
   void setUseBatMidPointForSeed() { mOptionForSeedB = kBatMidPoint; }
   void setUseMaximumBForSeed() { mOptionForSeedB = kMaximumB; }
   void setUseIntegralBForSeed() { mOptionForSeedB = kIntegralB; }
-  int getLayersForSeed(std::array<int, 3>& layForSeed) const;
-  int sortLayersForSeed(std::array<int, 3>& layForSeed, int dir) const;
+  int getLayersForSeed(std::array<int, 3>& layForSeed);
+  int countLayerWithClusters();
   bool computeSeed(int dir, std::array<int, 3>& layForSeed, NA6PTrackPar* seed = nullptr);
   bool computeSeed(int dir, NA6PTrackPar* seed = nullptr);
   bool computeSeedOuter(NA6PTrackPar* seed = nullptr) { return computeSeed(-1, seed); }
@@ -93,13 +84,15 @@ class NA6PFastTrackFitter
   int getNumberOfClusters() const { return mNClusters; }
   int getMinLayerWithCl() const { return mMinLayerWithCl; }
   int getMaxLayerWithCl() const { return mMaxLayerWithCl; }
+  int getNLayers() const { return mClusters.size(); }
 
   void resetClusters()
   {
     mMinLayerWithCl = 0x7fffffff;
     mMaxLayerWithCl = -1;
     mNClusters = 0;
-    std::fill(mClusters.begin(), mClusters.end(), nullptr);
+    mLayersWithClusters.clear();
+    mClusters.clear();
   }
 
   void cleanupAndStartFit()
@@ -115,14 +108,13 @@ class NA6PFastTrackFitter
   float fitSeedOutward(NA6PTrackParCov& seed, bool resetCovMat = true, NA6PTrackPar* linRef = nullptr) { return fitSeed(seed, resetCovMat, 1, linRef); }
   void addClustersToTrack(NA6PTrack& track);
 
-  bool fitTrackPoints(NA6PTrack& trackToFit, int dir = -1, const NA6PTrackParCov* seed = nullptr);
-  bool fitTrackPointsInward(NA6PTrack& trackToFit, const NA6PTrackParCov* seed = nullptr) { return fitTrackPoints(trackToFit, -1, seed); }
-  bool fitTrackPointsOutward(NA6PTrack& trackToFit, const NA6PTrackParCov* seed = nullptr) { return fitTrackPoints(trackToFit, 1, seed); }
+  //  bool fitTrackPoints(NA6PTrack& trackToFit, int dir = -1, const NA6PTrackParCov* seed = nullptr);
+  //  bool fitTrackPointsInward(NA6PTrack& trackToFit, const NA6PTrackParCov* seed = nullptr) { return fitTrackPoints(trackToFit, -1, seed); }
+  //  bool fitTrackPointsOutward(NA6PTrack& trackToFit, const NA6PTrackParCov* seed = nullptr) { return fitTrackPoints(trackToFit, 1, seed); }
   bool constrainTrackToVertex(NA6PTrack& trc, const NA6PVertex& pv) const;
   const auto& getPropOpt() const { return mPropOpt; }
 
  protected:
-  int mNLayers = 5;                   // number of active
   float mMaxChi2Cl = 10.;             // max cluster-track chi2
   bool mIsSeedSet = false;            // flag for set seed
   int mSeedOption = kOutermostAsSeed; // seed option (see enum)
@@ -139,6 +131,7 @@ class NA6PFastTrackFitter
 
   PID mPID;                                      // PID to impose
   std::vector<const NA6PBaseCluster*> mClusters; // array with clusters
+  std::vector<int> mLayersWithClusters;          // array with non-empty layers
   int mMinLayerWithCl = 0x7fffffff;              // lowest layer having clusters
   int mMaxLayerWithCl = -1;                      // highest layer having clusters
   int mNClusters = 0;
@@ -150,10 +143,28 @@ class NA6PFastTrackFitter
 inline void NA6PFastTrackFitter::addCluster(const NA6PBaseCluster& cl)
 {
   int lay = cl.getLayer();
+  if (lay <= getNLayers()) {
+    mClusters.resize(lay + 1);
+  }
   mClusters[lay] = &cl;
   mMinLayerWithCl = std::min(lay, mMinLayerWithCl);
   mMaxLayerWithCl = std::max(lay, mMaxLayerWithCl);
   mNClusters++;
+}
+
+inline int NA6PFastTrackFitter::countLayerWithClusters()
+{
+  // sorted in increasing order, avoiding duplications for eventuak layers with 2 clusters (due to the overlaps)
+  if (mLayersWithClusters.empty()) {
+    int lastLr = -1;
+    for (int il = mMinLayerWithCl; il <= mMaxLayerWithCl; il++) {
+      if (mClusters[il] && il != lastLr) {
+        mLayersWithClusters.push_back(il);
+        lastLr = il;
+      }
+    }
+  }
+  return mLayersWithClusters.size();
 }
 
 #endif

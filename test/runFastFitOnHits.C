@@ -180,7 +180,6 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
 
   NA6PFastTrackFitter* fitter = new NA6PFastTrackFitter();
   fitter->loadGeometry(Form("%s/geometry.root", dirSimu));
-  fitter->setNLayers(nLayers);
   fitter->setMaxChi2Cl(100.);
   fitter->setPropagateToPrimaryVertex(true);
   // fitter->setSeedFromTwoOutermostHits();
@@ -218,8 +217,8 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
       float thetaPart = std::acos(pzPart / momPart);
       float etaPart = -std::log(std::tan(thetaPart / 2.));
       std::array<std::unique_ptr<NA6PBaseCluster>, 6> clusters{};
-      float xclu[5], yclu[5], zclu[5];
-      if (curPart.IsPrimary()) {
+      float xclu[6], yclu[6], zclu[6];
+      if (1 || curPart.IsPrimary()) {
         hEtaGen->Fill(etaPart);
         int maskHits = 0;
         fitter->cleanupAndStartFit();
@@ -244,6 +243,7 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
               if (nLay < 0)
                 continue; // skip hits not in expected z ranges
             }
+            printf("nLay %d nLayers %d\n", nLay, nLayers);
             if (nLay < 0 || nLay >= nLayers)
               continue;              // safety check: skip if layer index out of bounds
             maskHits |= (1 << nLay); // use bitmask instead of counter

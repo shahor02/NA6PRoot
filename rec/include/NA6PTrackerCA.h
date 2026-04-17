@@ -84,7 +84,7 @@ class NA6PTrackerCA
   ~NA6PTrackerCA() = default;
 
   // setters for configurable parameters
-  void setNLayers(int n);
+  void setNLayers(int n) { mNLayers = n; }
   void setStartLayer(int start) { mLayerStart = start; }
   void setMaxNumberOfSharedClusters(int n) { mMaxSharedClusters = n; }
   void setPropagateTracksToPrimaryVertex(bool opt = true) { mPropagateTracksToPrimaryVertex = opt; }

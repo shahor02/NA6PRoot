@@ -34,7 +34,6 @@ bool NA6PMatching::initMatching()
   mTrackFitter->loadGeometry(mGeoFilName.c_str(), mGeoObjName.c_str());
   mTrackFitter->enableMaterialCorrections();
   mTrackFitter->setPropagateToPrimaryVertex(false);
-  mTrackFitter->setNLayers(11);
   mTrackFitter->setParticleHypothesis(PID::Muon); // muon mass hypothesis
   mTrackFitter->setUseIntegralBForSeed();
   configureFromRecoParam(mRecoParFilName);
@@ -257,7 +256,8 @@ bool NA6PMatching::fitAndStoreMatchedTrack(const NA6PTrack& vtTrk,
   NA6PTrack matchedTrack;
   NA6PTrack seed;
   NA6PTrack* seedPtr = nullptr;
-
+  /*
+    // RSTODO
   if (mDoOutwardInwardFit) {
     // RSTODO here again, we copy the whole track just for the refit, consider using only TrackParCov part
     NA6PTrack vtSeed = vtTrk;
@@ -272,7 +272,7 @@ bool NA6PMatching::fitAndStoreMatchedTrack(const NA6PTrack& vtTrk,
     LOGP(warn, "Refit of matched track failed, skipping");
     return false;
   }
-
+  */
   matchedTrack.setParticleID(particleId);
   matchedTrack.setMatchChi2(matchChi2);
 
