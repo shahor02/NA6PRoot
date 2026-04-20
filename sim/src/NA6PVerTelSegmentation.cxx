@@ -2,22 +2,21 @@
 
 #include "NA6PVerTelSegmentation.h"
 
-const float NA6PVerTelSegmentation::DeadXShort = 0.15;    // short end cap
-const float NA6PVerTelSegmentation::DeadXLong = 0.45;     // long end cap   (readout)
-const float NA6PVerTelSegmentation::DeadYBottom = 0.0525; // bottom dead zone
-const float NA6PVerTelSegmentation::DeadYTop = 0.0525;    // top dead zone
-
-const float NA6PVerTelSegmentation::DeadTopBotHalves = 0.012;                    // dead space between top and bottom halves
-const float NA6PVerTelSegmentation::DeadXTile = 0.002;                           // dead space between tiles in X (apart from DeadXDataBackbone after each 3 tiles)
-const float NA6PVerTelSegmentation::DeadXDataBackbone = 0.006;                   // dead space between segments
-const float NA6PVerTelSegmentation::XSizeTot = 12.9996 + DeadXShort + DeadXLong; // 13.5996;
-const float NA6PVerTelSegmentation::YSizeTot = 13.5898 + DeadYBottom + DeadYTop; // 13.6948; // readout side
-const int NA6PVerTelSegmentation::NXTiles = 36;
-const int NA6PVerTelSegmentation::NXSegments = 12; // group of 3 tiles
-const int NA6PVerTelSegmentation::NYSensors = 7;
-const float NA6PVerTelSegmentation::DYSens = YSizeTot / NYSensors;
-const float NA6PVerTelSegmentation::DXSegment = (XSizeTot - DeadXShort - DeadXLong) / NXSegments;
-const float NA6PVerTelSegmentation::DXTile = (DXSegment - DeadXDataBackbone) / 3;
+void NA6PVerTelSegmentation::setStaggered(bool val)
+{
+  mStaggered = val;
+  if (val) {
+    mDeadXLongEff = DeadXLong + DeadXShort;
+    mDeadXShortEff = 0.f;
+    mDeadYTopEff = DeadYTop + DeadYBottom;
+    mDeadYBottomEff = 0.f;
+  } else {
+    mDeadXLongEff = DeadXLong;
+    mDeadXShortEff = DeadXShort;
+    mDeadYTopEff = DeadYTop;
+    mDeadYBottomEff = DeadYBottom;
+  }
+}
 
 int NA6PVerTelSegmentation::isInAcc(float x, float y) const
 {
@@ -26,29 +25,29 @@ int NA6PVerTelSegmentation::isInAcc(float x, float y) const
   float absOffY = std::abs(mOffsY) - mInterChipGap / 2;
   if ((x < -absOffX && y < absOffY) ||
       (x > -absOffX && y < -absOffY)) {
+    // flip signs for Q3 and Q4
     x = -x;
     y = -y;
   }
 
   x -= mOffsX;
-  if (x < 0.) {
+  if (x < 0.) { // Q2 + Q4
     y += mOffsY - mInterChipGap / 2;
     x += XSizeTot + mInterChipGap / 2; // relate to chip local left/bottom corner
-  } else {
+  } else {                             // Q1 + Q3
     y -= mOffsY + mInterChipGap / 2;
-    y = YSizeTot - y;
     x = (XSizeTot + mInterChipGap / 2) - x; // relate to chip local left/bottom corner
   }
 
   if (x < 0 || x > XSizeTot || y < 0 || y > YSizeTot)
     return 0;
 
-  if (x < DeadXLong || x > XSizeTot - DeadXShort || y < DeadYBottom || y > YSizeTot - DeadYTop)
+  if (x < mDeadXLongEff || x > XSizeTot - mDeadXShortEff || y < mDeadYBottomEff || y > YSizeTot - mDeadYTopEff)
     return -1;
-  x -= DeadXLong;
+  x -= mDeadXLongEff;
   int sens = int(y / DYSens);
   y -= sens * DYSens;
-  if (y < DeadYBottom || y > DYSens - DeadYTop)
+  if (y < mDeadYBottomEff || y > DYSens - mDeadYTopEff)
     return -1;
   int topbot = int(y / (DYSens / 2));
   y -= topbot * (DYSens / 2);
