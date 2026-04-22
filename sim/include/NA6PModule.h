@@ -14,7 +14,7 @@ class NA6PModule
 {
  public:
   static constexpr int MaxActiveID = 9;    // max number of active modules
-  static constexpr int MaxNonSensID = 100; // non-sensors can be assigned mVolIDOffset <= volID < mVolIDOffset + MaxNonSensID
+  static constexpr int MaxNonSensID = 300; // non-sensors can be assigned mVolIDOffset <= volID < mVolIDOffset + MaxNonSensID
   static constexpr int MaxVolID = 1000;    // sensor can be assigne mVolIDOffset + MaxNonSensID <= volID < MaxVolID
 
   NA6PModule(std::string name) : mName(name) {}

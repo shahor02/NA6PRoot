@@ -36,6 +36,11 @@ void NA6PAbsorber::createMaterials()
     matPool[nameM] = new TGeoMaterial(nameM.c_str(), 12.01, 6, 2.267);
     NA6PTGeoHelper::instance().addMedium(nameM, "", kGray + 2);
   }
+  nameM = addName("SyntGraphite");
+  if (matPool.find(nameM) == matPool.end()) {
+    matPool[nameM] = new TGeoMaterial(nameM.c_str(), 12.01, 6, 1.9);
+    NA6PTGeoHelper::instance().addMedium(nameM, "", kBlue - 5);
+  }
   nameM = addName("Tungsten");
   if (matPool.find(nameM) == matPool.end()) {
     matPool[nameM] = new TGeoMaterial(nameM.c_str(), 183.84, 74, 19.3);
@@ -92,15 +97,74 @@ void NA6PAbsorber::createGeometry(TGeoVolume* world)
     } else {
       slice = new TGeoTube((slnm + "SH").c_str(), 0.0, param.dimXAbsorber[isl] / 2, param.thicknessAbsorber[isl] / 2);
     }
-    if (param.radPlug[isl] > 0 && !param.medAbsorberPlug[isl].empty()) {
-      auto hole = new TGeoTube((slnm + "_H").c_str(), 0.0, param.radPlug[isl], param.thicknessAbsorber[isl]);
-      slice = new TGeoCompositeShape((slnm + "_HS").c_str(), new TGeoSubtraction(slice, hole)); // slice with plug hole
-      auto slnmP = fmt::format("AbsSlPlug{}{}", isl, param.medAbsorber[isl]);
-      auto* plug = new TGeoTube((slnmP + "_SH").c_str(), param.radPlugInt[isl], param.radPlug[isl], param.thicknessAbsorber[isl] / 2);
-      auto* plugVol = new TGeoVolume(slnmP.c_str(), plug, NA6PTGeoHelper::instance().getMedium(addName(param.medAbsorberPlug[isl])));
-      plugVol->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName(param.medAbsorberPlug[isl])));
-      world->AddNode(plugVol, composeNonSensorVolID(isl + 50), new TGeoTranslation(0.0, 0.0, zplace + param.thicknessAbsorber[isl] / 2));
-    }
+
+if (param.radAir[isl] > 0) {
+
+  double zpos = zplace + param.thicknessAbsorber[isl] / 2;
+
+  // --- 1. Create hole in absorber (up to AIR radius)
+  auto hole = new TGeoTube(
+    (slnm + "_H").c_str(),
+    0.0,
+    param.radAir[isl],
+    param.thicknessAbsorber[isl]
+  );
+
+  slice = new TGeoCompositeShape(
+    (slnm + "_HS").c_str(),
+    new TGeoSubtraction(slice, hole)
+  );
+
+  // --- 2. AIR volume (fills the hole)
+  auto* airShape = new TGeoTube(
+    (slnm + "_AIR_SH").c_str(),
+    0.0,
+    param.radAir[isl],
+    param.thicknessAbsorber[isl] / 2
+  );
+
+  auto* airVol = new TGeoVolume(
+    (slnm + "_AIR").c_str(),
+    airShape,
+    NA6PTGeoHelper::instance().getMedium("Air")
+  );
+
+  airVol->SetLineColor(kBlue - 10);
+
+  world->AddNode(
+    airVol,
+    composeNonSensorVolID(isl + 100),
+    new TGeoTranslation(0.0, 0.0, zpos)
+  );
+
+  // --- 3. PLUG (inside air)
+  if (!param.medAbsorberPlug[isl].empty() && param.radPlug[isl] > 0) {
+
+    auto* plugShape = new TGeoTube(
+      (slnm + "_PLUG_SH").c_str(),
+      param.radPlugInt[isl],   // inner hole
+      param.radPlug[isl],      // plug outer radius
+      param.thicknessAbsorber[isl] / 2
+    );
+
+    auto* plugVol = new TGeoVolume(
+      (slnm + "_PLUG").c_str(),
+      plugShape,
+      NA6PTGeoHelper::instance().getMedium(addName(param.medAbsorberPlug[isl]))
+    );
+
+    plugVol->SetLineColor(
+      NA6PTGeoHelper::instance().getMediumColor(addName(param.medAbsorberPlug[isl]))
+    );
+
+    // place plug INSIDE air (correct hierarchy)
+    airVol->AddNode(
+      plugVol,
+      composeNonSensorVolID(isl + 200),
+      new TGeoTranslation(0.0, 0.0, 0.0)
+    );
+  }
+}
     auto sliceVol = new TGeoVolume(slnm.c_str(), slice, NA6PTGeoHelper::instance().getMedium(addName(param.medAbsorber[isl])));
     sliceVol->SetLineColor(NA6PTGeoHelper::instance().getMediumColor(addName(param.medAbsorber[isl])));
     world->AddNode(sliceVol, composeNonSensorVolID(isl), new TGeoTranslation(0.0, 0.0, zplace + param.thicknessAbsorber[isl] / 2));
