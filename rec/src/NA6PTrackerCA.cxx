@@ -23,7 +23,7 @@ NA6PTrackerCA::NA6PTrackerCA()
 {
   // RSTODO create init method for the fitter
   mTrackFitter = std::make_unique<NA6PFastTrackFitter>();
-  mTrackFitter->setPropagateToPrimaryVertex(false); // RSREM
+  mTrackFitter->setPropagateToPrimaryVertex(false);
 }
 
 //______________________________________________________________________

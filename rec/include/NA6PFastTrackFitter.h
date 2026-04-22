@@ -71,6 +71,7 @@ class NA6PFastTrackFitter
   void setUseIntegralBForSeed() { mOptionForSeedB = kIntegralB; }
   int getLayersForSeed(std::array<int, 3>& layForSeed);
   int countLayerWithClusters();
+  bool computeSeedFromMoments(int dir, const std::array<int, 3>& layForSeed, NA6PTrackPar* seed) const;
   bool computeSeed(int dir, std::array<int, 3>& layForSeed, NA6PTrackPar* seed = nullptr);
   bool computeSeed(int dir, NA6PTrackPar* seed = nullptr);
   bool computeSeedOuter(NA6PTrackPar* seed = nullptr) { return computeSeed(-1, seed); }
@@ -143,7 +144,7 @@ class NA6PFastTrackFitter
 inline void NA6PFastTrackFitter::addCluster(const NA6PBaseCluster& cl)
 {
   int lay = cl.getLayer();
-  if (lay <= getNLayers()) {
+  if (lay >= getNLayers()) {
     mClusters.resize(lay + 1);
   }
   mClusters[lay] = &cl;

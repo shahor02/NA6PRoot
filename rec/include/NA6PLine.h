@@ -62,6 +62,20 @@ struct NA6PLine {
     return {end[0] + start[0], end[1] + start[1], end[2] + start[2]};
   }
 
+  template <typename T1, typename T2>
+  static void add(std::array<T1, 3>& p, const std::array<T2, 3>& d)
+  {
+    for (int i = 0; i < 3; i++)
+      p[i] += d[i];
+  }
+
+  template <typename T1, typename T2>
+  static void subtract(std::array<T1, 3>& p, const std::array<T2, 3>& d)
+  {
+    for (int i = 0; i < 3; i++)
+      p[i] -= d[i];
+  }
+
   template <typename T>
   static T getNorm2(const std::array<T, 3>& v)
   {

@@ -122,6 +122,91 @@ int NA6PFastTrackFitter::getLayersForSeed(std::array<int, 3>& layForSeed)
   return nSeedLayers;
 }
 
+bool NA6PFastTrackFitter::computeSeedFromMoments(int dir, const std::array<int, 3>& layForSeed, NA6PTrackPar* seed) const
+{
+  /*
+    Extraction of seed parameters in parabolic approximation for track propagation in Z-dependent By field (XZ bending):
+    x(z) = x_ref + bx_ref * (z - z_ref) + beta * ( z * M0(z_ref,z) - M1(z_ref,z) )
+    y(z) = y_ref + by_ref * (z - z_ref)
+    with beta = (q/pXZ) * k
+    M0_01, M1_01 : signed field moments from z0 to z1
+    M0_02, M1_02 : signed field moments from z0 to z2
+
+    Derivation: start from the stepwise transport equations in the XZ plane, with z_i ordered along the trajectory and constant step size
+    dz = z_i - z_{i-1}, with the local state at step i is (x_i, bx_i), where the slope bx_i = dx/dz at z = z_i.
+
+    The recursive propagation from z_{i-1} to state at z_{i} is:
+    x_i  = x_{i-1} + bx_{i-1} * dz + (beta / 2) * B(z_{i-1}) * dz^2
+    bx_i = bx_{i-1}+ beta * B(z_{i-1}) * dz
+    with beta = (q / p_XZ) * k.
+
+    Iterate from the reference step 0 up to step n:
+    bx_1 = bx_0 + beta * B(z_0) * dz
+    bx_2 = bx_1 + beta * B(z_1) * dz = bx_0 + beta * dz * [ B(z_0) + B(z_1) ]
+    ...
+    =>  bx_n = bx_0 + beta * dz * sum_{j=0}^{n-1} B(z_j)                                          | (1)
+
+    Similarly, iterating position x_i from 0 to n we get:
+    x_n = x_0 + dz * sum_{i=1}^{n} bx_{i-1} + (beta/2) * dz^2 * sum_{i=1}^{n} B(z_{i-1})
+    Substituting bx_{i-1} by (1) and reordering:
+    =>  x_n = x_0 + bx_0 * (z_n - z_0) + beta * dz^2 * sum_{j=0}^{n-1} [ n - j - 1/2 ] * B(z_j)   | (2)
+
+    In the limit of small dz swith to integrals == moments of the field:
+    x(z) = x_0 + bx_0 * (z - z_0) + beta * [ z * M0(z_0, z) - M1(z_0, z) ]                        | (3)
+    with
+    M0(z_0, z) = integral_{z_0}^{z} B(s) ds
+    M1(z_0, z) = integral_{z_0}^{z} s * B(s) ds
+  */
+
+  const auto& xyz0 = mClusters[layForSeed[0]]->getXYZ();
+  const auto& xyz1 = mClusters[layForSeed[1]]->getXYZ();
+  const auto& xyz2 = mClusters[layForSeed[2]]->getXYZ();
+  const auto d01 = NA6PLine::getDiff(xyz1, xyz0), d02 = NA6PLine::getDiff(xyz2, xyz0);
+  double M0_01, M0_02, M1_01, M1_02; // field moments
+
+  auto getFieldMomenta = [](double& mom0, double& mom1, const std::array<float, 3>& pos, const std::array<float, 3>& df, const int nSteps = 5) {
+    const auto vStep = NA6PLine::getScaled(df, 1.f / nSteps);
+    auto posFQuery = NA6PLine::getSum(pos, NA6PLine::getScaled(vStep, 0.5f));
+    auto prop = Propagator::Instance();
+    mom0 = mom1 = 0.;
+    for (int i = 0; i < nSteps; i++) {
+      float by = prop->getBy(posFQuery);
+      mom0 += by;
+      mom1 += by * posFQuery[2];
+      NA6PLine::add(posFQuery, vStep);
+    }
+    mom0 *= vStep[2];
+    mom1 *= vStep[2];
+  };
+  getFieldMomenta(M0_01, M1_01, xyz0, d01);
+  getFieldMomenta(M0_02, M1_02, xyz1, NA6PLine::getDiff(xyz2, xyz1)); // at this stage momenta for 1-2 interval
+  M0_02 += M0_01;
+  M1_02 += M1_01;
+
+  // Field-dependent regressors: F_i = z_i * M0(0,i) - M1(0,i)
+  const auto F1 = xyz1[2] * M0_01 - M1_01, F2 = xyz2[2] * M0_02 - M1_02;
+  const auto dz1f2 = d01[2] * F2, dz2f1 = d02[2] * F1; // (z1-z0)*F2 - (z2-z0)*F1
+  const auto det = dz1f2 - dz2f1, scale = std::fabs(dz1f2) + std::fabs(dz2f1) + 1.0, detI = 1. / det;
+  auto bx_ref = (d01[0] * F2 - d02[0] * F1) * detI;
+  float beta = (d01[2] * d02[0] - d02[2] * d01[0]) * detI;
+  float qOverPXZ = beta / NA6PTrackPar::kB2C;
+
+  // YZ fit: y_i = y0 + by0 * (z - z0)
+  // by_0 = [ (z1-z0)*(y1-y0) + (z2-z0)*(y2-y0) ] / [ d1^2 + d2^2 ]
+  float denY = d01[2] * d01[2] + d02[2] * d02[2];
+  float by_ref = (d01[2] * d01[1] + d02[2] * d02[1]) / denY;
+  if (dir < 0) { // for backward going seed recalculate slop in bending direction at the last point
+    bx_ref += beta * M0_02;
+  }
+
+  seed->setXYZ(dir > 0 ? xyz0 : xyz1); // assign reference point
+  seed->setQ2Pxz(qOverPXZ);
+  // convert slopes bx = px/pz and by = py/pz to tx = px/pxz and ty = py/pxz
+  seed->setTx(bx_ref / std::sqrt(1.f + bx_ref * bx_ref));
+  seed->setTy(by_ref * seed->getCosPsi());
+  return true;
+}
+
 bool NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed, NA6PTrackPar* seed)
 {
   if (!seed) {
