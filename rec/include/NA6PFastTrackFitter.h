@@ -16,6 +16,7 @@
 #define NA6P_FAST_TRACK_FITTER_H
 
 #include <string>
+#include <utility>
 #include <Rtypes.h>
 #include "NA6PBaseCluster.h"
 #include "NA6PTrack.h"
@@ -31,14 +32,8 @@ class NA6PFastTrackFitter
 {
 
  public:
-  enum { kTwoPointSeed = 0,
-         kThreePointSeed = 1 };
-  enum { kOutermostAsSeed = 0,
-         kInnermostAsSeed = 1,
-         kInMidOutAsSeed = 2 };
-  enum { kBatMidPoint = 0,
-         kMaximumB = 1,
-         kIntegralB = 2 };
+  enum { kEdgeClusters = 0,
+         kInMidOutAsSeed = 1 };
 
   NA6PFastTrackFitter();
   ~NA6PFastTrackFitter(){};
@@ -61,17 +56,10 @@ class NA6PFastTrackFitter
   }
   void setSeed(const float* pos, const float* mom, int charge = 1);
   void unsetSeed() { mSeed.invalidate(); }
-  void setSeedFromTwoHits() { mSeedPoints = kTwoPointSeed; }
-  void setSeedFromThreeHits() { mSeedPoints = kThreePointSeed; }
-  void setSeedFromOutermostHits() { mSeedOption = kOutermostAsSeed; }
-  void setSeedFromInnermostHits() { mSeedOption = kInnermostAsSeed; }
-  void setSeedFromInMidOutHits() { mSeedOption = kInMidOutAsSeed; }
-  void setUseBatMidPointForSeed() { mOptionForSeedB = kBatMidPoint; }
-  void setUseMaximumBForSeed() { mOptionForSeedB = kMaximumB; }
-  void setUseIntegralBForSeed() { mOptionForSeedB = kIntegralB; }
-  int getLayersForSeed(std::array<int, 3>& layForSeed);
+  void setSeedOptionEdge() { mSeedOption = kEdgeClusters; }
+  void setSeedOptionMaxLeverArm() { mSeedOption = kInMidOutAsSeed; }
+  int getLayersForSeed(int dir, std::array<int, 3>& layForSeed);
   int countLayerWithClusters();
-  bool computeSeedFromMoments(int dir, const std::array<int, 3>& layForSeed, NA6PTrackPar* seed) const;
   bool computeSeed(int dir, std::array<int, 3>& layForSeed, NA6PTrackPar* seed = nullptr);
   bool computeSeed(int dir, NA6PTrackPar* seed = nullptr);
   bool computeSeedOuter(NA6PTrackPar* seed = nullptr) { return computeSeed(-1, seed); }
@@ -107,6 +95,8 @@ class NA6PFastTrackFitter
   float fitSeed(NA6PTrackParCov& seed, bool resetCovMat = true, int dir = -1, NA6PTrackPar* linRef = nullptr);
   float fitSeedInward(NA6PTrackParCov& seed, bool resetCovMat = true, NA6PTrackPar* linRef = nullptr) { return fitSeed(seed, resetCovMat, -1, linRef); }
   float fitSeedOutward(NA6PTrackParCov& seed, bool resetCovMat = true, NA6PTrackPar* linRef = nullptr) { return fitSeed(seed, resetCovMat, 1, linRef); }
+  std::pair<double, double> getFieldMomenta(const std::array<float, 3>& pos, const std::array<float, 3>& df, const int nSteps = 5) const;
+
   void addClustersToTrack(NA6PTrack& track);
 
   //  bool fitTrackPoints(NA6PTrack& trackToFit, int dir = -1, const NA6PTrackParCov* seed = nullptr);
@@ -115,12 +105,13 @@ class NA6PFastTrackFitter
   bool constrainTrackToVertex(NA6PTrack& trc, const NA6PVertex& pv) const;
   const auto& getPropOpt() const { return mPropOpt; }
 
+  void setMostProbableP(float v) { mMostProbableP = v; }
+  float getMostProbableP() const { return mMostProbableP; }
+
  protected:
+  float mMostProbableP = 5.f;         // most probable momentum to set at 0 field
   float mMaxChi2Cl = 10.;             // max cluster-track chi2
-  bool mIsSeedSet = false;            // flag for set seed
-  int mSeedOption = kOutermostAsSeed; // seed option (see enum)
-  int mSeedPoints = kThreePointSeed;  // number of hits used for seed
-  int mOptionForSeedB = kBatMidPoint; // option for B field usage in seed
+  int mSeedOption = kInMidOutAsSeed;  // seed option (see enum)
 
   NA6PTrackPar mSeed{};
 

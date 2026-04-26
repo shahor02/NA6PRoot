@@ -61,9 +61,9 @@ bool NA6PFastTrackFitter::constrainTrackToVertex(NA6PTrack& trc, const NA6PVerte
   return true;
 }
 
-int NA6PFastTrackFitter::getLayersForSeed(std::array<int, 3>& layForSeed)
+int NA6PFastTrackFitter::getLayersForSeed(int dir, std::array<int, 3>& layForSeed)
 {
-  // define layers to be used in seed calculation depending on the options
+  // define layers to be used in seed calculation depending on the options, in the order of track fit direction (dir>0 : forward)
   int nLayWithClus = countLayerWithClusters();
   if (nLayWithClus < 2) {
     LOGP(error, "Only {} layers with clusters, at least 2 needed for seeding", nLayWithClus);
@@ -74,56 +74,75 @@ int NA6PFastTrackFitter::getLayersForSeed(std::array<int, 3>& layForSeed)
     for (int i = 0; i < mNClusters; i++) {
       layForSeed[i] = mLayersWithClusters[i];
     }
+    if (dir < 0) {
+      std::swap(layForSeed[0], layForSeed[nLayWithClus - 1]);
+    }
     return nLayWithClus;
   }
   // select layers for seed determination
-  if (mSeedOption == kInnermostAsSeed) {
-    for (int i = 0; i < 3 && i < nLayWithClus; ++i) {
-      layForSeed[i] = mLayersWithClusters[i];
+  if (mSeedOption == kEdgeClusters) {
+    if (dir > 0) {
+      for (int i = 0; i < 3 && i < nLayWithClus; ++i) {
+        layForSeed[i] = mLayersWithClusters[i];
+      }
+    } else {
+      for (int i = 0; i < 3 && i < nLayWithClus; ++i) {
+        layForSeed[i] = mLayersWithClusters[nLayWithClus - 1 - i];
+      }
     }
-  } else if (mSeedOption == kOutermostAsSeed) {
-    for (int i = 0; i < 3 && i < nLayWithClus; ++i) {
-      layForSeed[i] = mLayersWithClusters[nLayWithClus - 1 - i];
-    }
-  } else { // kInMidOutAsSeed
+  } else { // max lever arm
     layForSeed[0] = mLayersWithClusters[0];
     layForSeed[2] = mLayersWithClusters[nLayWithClus - 1];
-    if (layForSeed[0] == layForSeed[2]) {
-      LOGP(error, "Innermost and outermost clusters coincide");
-      return 0;
-    }
-    int mid = (layForSeed[0] + layForSeed[2]) / 2;
-    // Find closest layer to midpoint
-    int best = -1;
-    int bestDist = 999;
-    for (int i = 0; i < nLayWithClus; ++i) {
-      int lay = mLayersWithClusters[i];
-      if (lay == layForSeed[0] || lay == layForSeed[2]) {
-        continue;
-      }
-      int dist = std::abs(lay - mid);
+    int mid = (layForSeed[0] + layForSeed[2]) / 2, best = -1, bestDist = 999; // Find closest layer to midpoint
+    for (int i = 1; i < nLayWithClus - 1; ++i) {
+      int dist = std::abs(mLayersWithClusters[i] - mid);
       if (dist < bestDist) {
         bestDist = dist;
-        best = lay;
+        best = mLayersWithClusters[i];
       }
     }
     layForSeed[1] = best;
-    if (best == -1) {
-      LOGP(warning, "Cannot find middle layer between {} and {}", layForSeed[0], layForSeed[2]);
+    if (dir < 0) {
+      std::swap(layForSeed[0], layForSeed[2]);
     }
   }
-  // count layers
-  int nSeedLayers = 0;
-  for (int i = 0; i < 3; ++i) {
-    if (layForSeed[i] >= 0) {
-      ++nSeedLayers;
-    }
-  }
-  return nSeedLayers;
+  return 3;
 }
 
-bool NA6PFastTrackFitter::computeSeedFromMoments(int dir, const std::array<int, 3>& layForSeed, NA6PTrackPar* seed) const
+std::pair<double, double> NA6PFastTrackFitter::getFieldMomenta(const std::array<float, 3>& pos, const std::array<float, 3>& df, const int nSteps) const
 {
+  // calcualte By 1st and 2nd momenta between 2 points defined by the start position and the difference end-start.
+  const auto vStep = NA6PLine::getScaled(df, 1.f / nSteps);
+  auto posFQuery = NA6PLine::getSum(pos, NA6PLine::getScaled(vStep, 0.5f));
+  auto prop = Propagator::Instance();
+  double mom0 = 0, mom1 = 0.;
+  for (int i = 0; i < nSteps; i++) {
+    float by = prop->getBy(posFQuery);
+    mom0 += by;
+    mom1 += by * posFQuery[2];
+    NA6PLine::add(posFQuery, vStep);
+  }
+  return {mom0 * vStep[2], mom1 * vStep[2]};
+}
+
+bool NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed, NA6PTrackPar* seed)
+{
+  // layers are provided in increasing order if dir>0 (forward fit) and decreasing if dir<0 (backward fit), seed is defined at 1st provided cluster position
+  if (!seed) {
+    seed = &mSeed;
+  }
+  int nSeedLayers = layForSeed[2] >= 0 ? 3 : 2;
+  const auto &xyz0 = mClusters[layForSeed[0]]->getXYZ(), xyz1 = mClusters[layForSeed[1]]->getXYZ();
+  seed->setXYZ(xyz0);
+  const auto dpos01 = NA6PLine::getDiff(xyz0, xyz1); // c1 - c0
+  if (nSeedLayers == 2) {                            // straight line seed only
+    auto pxzI = (dir > 0 ? 1.f : -1.f) / std::hypot(dpos01[0], dpos01[2]);
+    seed->setTx(dpos01[0] * pxzI);
+    seed->setTy(dpos01[1] * pxzI);
+    seed->setQ2Pxz(1.f / mMostProbableP);
+    return true;
+  }
+  const auto& xyz2 = mClusters[layForSeed[2]]->getXYZ();
   /*
     Extraction of seed parameters in parabolic approximation for track propagation in Z-dependent By field (XZ bending):
     x(z) = x_ref + bx_ref * (z - z_ref) + beta * ( z * M0(z_ref,z) - M1(z_ref,z) )
@@ -157,145 +176,26 @@ bool NA6PFastTrackFitter::computeSeedFromMoments(int dir, const std::array<int, 
     M0(z_0, z) = integral_{z_0}^{z} B(s) ds
     M1(z_0, z) = integral_{z_0}^{z} s * B(s) ds
   */
-
-  const auto& xyz0 = mClusters[layForSeed[0]]->getXYZ();
-  const auto& xyz1 = mClusters[layForSeed[1]]->getXYZ();
-  const auto& xyz2 = mClusters[layForSeed[2]]->getXYZ();
-  const auto d01 = NA6PLine::getDiff(xyz1, xyz0), d02 = NA6PLine::getDiff(xyz2, xyz0);
-  double M0_01, M0_02, M1_01, M1_02; // field moments
-
-  auto getFieldMomenta = [](double& mom0, double& mom1, const std::array<float, 3>& pos, const std::array<float, 3>& df, const int nSteps = 5) {
-    const auto vStep = NA6PLine::getScaled(df, 1.f / nSteps);
-    auto posFQuery = NA6PLine::getSum(pos, NA6PLine::getScaled(vStep, 0.5f));
-    auto prop = Propagator::Instance();
-    mom0 = mom1 = 0.;
-    for (int i = 0; i < nSteps; i++) {
-      float by = prop->getBy(posFQuery);
-      mom0 += by;
-      mom1 += by * posFQuery[2];
-      NA6PLine::add(posFQuery, vStep);
-    }
-    mom0 *= vStep[2];
-    mom1 *= vStep[2];
-  };
-  getFieldMomenta(M0_01, M1_01, xyz0, d01);
-  getFieldMomenta(M0_02, M1_02, xyz1, NA6PLine::getDiff(xyz2, xyz1)); // at this stage momenta for 1-2 interval
-  M0_02 += M0_01;
-  M1_02 += M1_01;
+  const auto dpos12 = NA6PLine::getDiff(xyz1, xyz2), dpos02 = NA6PLine::getDiff(xyz0, xyz2);
+  ;                                                                                    // c2 - c1 and c2 - c0
+  const auto M01 = getFieldMomenta(xyz0, dpos01), M12 = getFieldMomenta(xyz1, dpos12); // field moments
 
   // Field-dependent regressors: F_i = z_i * M0(0,i) - M1(0,i)
-  const auto F1 = xyz1[2] * M0_01 - M1_01, F2 = xyz2[2] * M0_02 - M1_02;
-  const auto dz1f2 = d01[2] * F2, dz2f1 = d02[2] * F1; // (z1-z0)*F2 - (z2-z0)*F1
+  const auto F1 = xyz1[2] * M01.first - M01.second, F2 = xyz2[2] * (M01.first + M12.first) - (M01.second + M12.second);
+  const auto dz1f2 = dpos01[2] * F2, dz2f1 = dpos02[2] * F1; // (z1-z0)*F2 - (z2-z0)*F1
   const auto det = dz1f2 - dz2f1, scale = std::fabs(dz1f2) + std::fabs(dz2f1) + 1.0, detI = 1. / det;
-  auto bx_ref = (d01[0] * F2 - d02[0] * F1) * detI;
-  float beta = (d01[2] * d02[0] - d02[2] * d01[0]) * detI;
+  auto bx_ref = (dpos01[0] * F2 - dpos02[0] * F1) * detI;
+  float beta = (dpos01[2] * dpos02[0] - dpos02[2] * dpos01[0]) * detI;
   float qOverPXZ = beta / NA6PTrackPar::kB2C;
 
   // YZ fit: y_i = y0 + by0 * (z - z0)
   // by_0 = [ (z1-z0)*(y1-y0) + (z2-z0)*(y2-y0) ] / [ d1^2 + d2^2 ]
-  float denY = d01[2] * d01[2] + d02[2] * d02[2];
-  float by_ref = (d01[2] * d01[1] + d02[2] * d02[1]) / denY;
-  if (dir < 0) { // for backward going seed recalculate slop in bending direction at the last point
-    bx_ref += beta * M0_02;
-  }
-
-  seed->setXYZ(dir > 0 ? xyz0 : xyz1); // assign reference point
+  float denY = dpos01[2] * dpos01[2] + dpos02[2] * dpos02[2];
+  float by_ref = (dpos01[2] * dpos01[1] + dpos02[2] * dpos02[1]) / denY;
   seed->setQ2Pxz(qOverPXZ);
   // convert slopes bx = px/pz and by = py/pz to tx = px/pxz and ty = py/pxz
   seed->setTx(bx_ref / std::sqrt(1.f + bx_ref * bx_ref));
   seed->setTy(by_ref * seed->getCosPsi());
-  return true;
-}
-
-bool NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed, NA6PTrackPar* seed)
-{
-  if (!seed) {
-    seed = &mSeed;
-  }
-  seed->invalidate();
-  int nSeedLayers = layForSeed[2] >= 0 ? 3 : 2;
-  if (nSeedLayers == 2 && mSeedPoints == kThreePointSeed) {
-    LOGP(error, "Cannot compute seed with the 3-layer option and only {} layers -> resort to 2-point seed", nSeedLayers);
-  }
-  auto getLayerInOrder = [&layForSeed, nSeedLayers, dir](int i) {
-    return dir > 0 ? layForSeed[i] : layForSeed[nSeedLayers - 1 - i];
-  };
-
-  auto prop = Propagator::Instance();
-  int jLay = getLayerInOrder(0);
-  seed->setXYZ(mClusters[jLay]->getXYZ());
-  float by = prop->getBy(mClusters[jLay]->getXYZ());
-  bool useTwoPoint = (mSeedPoints == kTwoPointSeed) || (nSeedLayers == 2) || (std::abs(by) < NA6PTrackPar::kSmallBend);
-  int kLay = getLayerInOrder(1);
-  auto uvec = NA6PLine::getDiff(mClusters[jLay]->getXYZ(), mClusters[kLay]->getXYZ());
-  float norm = NA6PLine::getNorm(uvec);
-  if (norm > phys_const::kAlmost0F) {
-    auto normI = uvec[2] < 0 ? -1.f / norm : 1. / norm; // Enforce track direction along +z
-    for (int i = 0; i < 3; i++) {
-      uvec[i] *= normI;
-    }
-  }
-  auto setTwoPointKin = [&uvec, &seed]() {
-    auto pxz = std::hypot(uvec[0], uvec[2]);
-    seed->setTx(uvec[0] / pxz);
-    seed->setTy(uvec[1] / pxz);
-    seed->setQ2Pxz(1.f / pxz); // RSCHECK
-    return true;
-  };
-  if (useTwoPoint) {
-    return setTwoPointKin();
-  }
-  int lLay = getLayerInOrder(2);
-  if (lLay < 0 || !mClusters[lLay]) {
-    LOGP(error, "Third seed layer invalid");
-    return false;
-  }
-  if (dir < 0) {
-    std::swap(jLay, lLay); // swap lLay and jLay to order the layers from innermost to outermost
-  }
-  auto *clJ = mClusters[jLay], *clK = mClusters[kLay], *clL = mClusters[lLay];
-  float x1 = clJ->getX(), z1 = clJ->getZ(), x2 = clK->getX(), z2 = clK->getZ(), x3 = clL->getX(), z3 = clL->getZ();
-  if (mOptionForSeedB == kBatMidPoint) {
-    by = prop->getBy(clK->getXYZ());         // get magnetic field in the middle point
-  } else if (mOptionForSeedB == kMaximumB) { // use maximum magnetic field among the 3 hits
-    by = std::max({prop->getBy(clJ->getXYZ()), prop->getBy(clK->getXYZ()), prop->getBy(clL->getXYZ())});
-  } else { // integral of field
-    constexpr int nSteps = 10;
-    auto point = clJ->getXYZ();
-    const auto &midPoint = clK->getXYZ(), &lastPoint = clL->getXYZ();
-    std::array<float, 3> step = NA6PLine::getScaled(NA6PLine::getDiff(midPoint, lastPoint), 1.f / nSteps);
-    float stepL = NA6PLine::getNorm(step), aveField = 0.f, totLength = 0.f;
-    for (int js = 0; js <= nSteps; js++) {
-      aveField += prop->getBy(point) * stepL;
-      totLength += stepL;
-      for (int k = 0; k < 3; k++) {
-        point[k] += step[k];
-      }
-    }
-    by = aveField / totLength;
-  }
-  // circle fit: compute center (cx, cz) and radius
-  float determ = 2.0 * (x1 * (z2 - z3) + x2 * (z3 - z1) + x3 * (z1 - z2));
-  float cx = 0.0, cz = 0.0, radius = 1e6;
-  if (std::abs(determ) > phys_const::kAlmost0F) {
-    float a1 = x1 * x1 + z1 * z1;
-    float a2 = x2 * x2 + z2 * z2;
-    float a3 = x3 * x3 + z3 * z3;
-    cx = (a1 * (z2 - z3) + a2 * (z3 - z1) + a3 * (z1 - z2)) / determ;
-    cz = (a1 * (x3 - x2) + a2 * (x1 - x3) + a3 * (x2 - x1)) / determ;
-    radius = std::sqrt((x1 - cx) * (x1 - cx) + (z1 - cz) * (z1 - cz));
-  }
-
-  if (radius > 1e5) {
-    return setTwoPointKin();
-  }
-  float pxzI = 1. / std::abs(NA6PTrackPar::kB2C * by * radius); // radius is in cm, By in kG, pxz GeV/c
-  float ntI = 1.f / std::hypot(uvec[0], uvec[2]);
-  float crossy = (x2 - x1) * (z3 - z2) - (z2 - z1) * (x3 - x2);
-  int qSign = (crossy * by > 0) ? +1 : -1;
-  seed->setTx(uvec[0] * ntI);
-  seed->setTy(uvec[1] * ntI);
-  seed->setQ2Pxz((crossy * by > 0) ? pxzI : -pxzI);
   return true;
 }
 
@@ -307,20 +207,12 @@ bool NA6PFastTrackFitter::computeSeed(int dir, NA6PTrackPar* seed)
     seed = &mSeed;
   }
   std::array<int, 3> layForSeed = {-1, -1, -1};
-  int origSeedOption = mSeedOption;
-  if (dir == 1 && mSeedOption == kOutermostAsSeed) {
-    mSeedOption = kInnermostAsSeed;
-  }
-  if (dir == -1 && mSeedOption == kInnermostAsSeed) {
-    mSeedOption = kOutermostAsSeed;
-  }
-  int nSeedLayers = getLayersForSeed(layForSeed);
+  int nSeedLayers = getLayersForSeed(dir, layForSeed);
   if (nSeedLayers < 2) {
     seed->invalidate();
     LOGP(error, "Cannot compute seed with {} seeding layers", nSeedLayers);
     return false;
   }
-  mSeedOption = origSeedOption;
   return computeSeed(dir, layForSeed, seed);
 }
 

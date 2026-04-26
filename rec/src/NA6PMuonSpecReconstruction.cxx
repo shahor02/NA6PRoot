@@ -32,7 +32,6 @@ bool NA6PMuonSpecReconstruction::initTracker()
   mMSTracker = new NA6PTrackerCA();
   mMSTracker->configureFromRecoParamMS(mRecoParFilName);
   mMSTracker->setParticleHypothesis(13); // muon mass hypothesis
-  mMSTracker->setUseIntegralBForSeed();
   createTracksOutput();
   return true;
 }

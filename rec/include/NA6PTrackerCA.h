@@ -107,8 +107,6 @@ class NA6PTrackerCA
   void setParticleHypothesisPDG(int pdg) { mPID = PID::PDG2PID(pdg); }
   void setParticleHypothesis(PID pid) { mPID = pid; }
 
-  void setUseIntegralBForSeed() { mTrackFitter->setUseIntegralBForSeed(); }
-  void setUseBatMidPointForSeed() { mTrackFitter->setUseBatMidPointForSeed(); }
   void setMaxPropagationStep(float step) { mTrackFitter->setMaxPropagationStep(step); }
   void configureFromRecoParamVT(const std::string& filename = "");
   void configureFromRecoParamMS(const std::string& filename = "");

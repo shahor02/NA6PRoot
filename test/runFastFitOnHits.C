@@ -218,7 +218,7 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
       float etaPart = -std::log(std::tan(thetaPart / 2.));
       std::array<std::unique_ptr<NA6PBaseCluster>, 6> clusters{};
       float xclu[6], yclu[6], zclu[6];
-      if (1 || curPart.IsPrimary()) {
+      if (curPart.IsPrimary()) {
         hEtaGen->Fill(etaPart);
         int maskHits = 0;
         fitter->cleanupAndStartFit();
