@@ -171,7 +171,7 @@ bool Propagator::propagateToZ(NA6PTrackParCov& track, float zToGo, const Propaga
       if (matCorr != MatCorrType::USEMatCorrNONE) {
         auto xyz1 = linRef.getXYZ();
         auto mb = this->getMeanMaterial(xyz0, xyz1);
-        if (!track.correctForMaterial(mb.meanX2X0, (dir > 0 ? -mb.meanRho : mb.meanRho) * mb.meanL, linRef)) {
+        if (!track.correctForMaterial(mb.meanX2X0, (dir > 0 ? -mb.meanRho : mb.meanRho) * mb.meanL, mb.meanRho, mb.meanZ, mb.meanZ2A, linRef)) {
           res = false;
         }
       }
@@ -218,7 +218,7 @@ bool Propagator::propagateToZ(NA6PTrackPar& track, float zToGo, const Propagator
       if (matCorr != MatCorrType::USEMatCorrNONE) {
         auto xyz1 = track.getXYZ();
         auto mb = this->getMeanMaterial(xyz0, xyz1);
-        if (!track.correctForELoss((dir > 0 ? -mb.meanRho : mb.meanRho)) * mb.meanL) {
+        if (!track.correctForELoss((dir > 0 ? -mb.meanRho : mb.meanRho) * mb.meanL, mb.meanRho, mb.meanZ, mb.meanZ2A)) {
           res = false;
         }
       }

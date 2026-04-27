@@ -182,14 +182,16 @@ bool NA6PTrackPar::getPosDirGlo(std::array<float, 7>& posdirp) const
   return true;
 }
 
-bool NA6PTrackPar::correctForELoss(float xrho, bool anglecorr)
+bool NA6PTrackPar::correctForELoss(float xrho, float density, float atomicZ, float zOverA, bool anglecorr)
 {
   //------------------------------------------------------------------
   // This function corrects the track parameters for the energy loss in crossed material.
   // "xrho" - is the product length*density (g/cm^2).
   //     It should be passed as negative when propagating tracks
   //     from the intreaction point to the outside of the central barrel.
-  // "dedx" - mean enery loss (GeV/(g/cm^2), if <=kCalcdEdxAuto : calculate on the fly
+  // "density" - mean density (g/cm^3)
+  // "atomicZ" - mean Z
+  // "zOverA" - mean Z/A
   // "anglecorr" - switch for the angular correction
   //------------------------------------------------------------------
   constexpr float kMinP = 0.01f; // kill below this momentum
@@ -205,9 +207,10 @@ bool NA6PTrackPar::correctForELoss(float xrho, bool anglecorr)
     }
     int charge2 = 1; // in case we introduce charge > 1 particle: getAbsCharge() * getAbsCharge();
     float p = getP(), p0 = p, p2 = p * p, e2 = p2 + getPID().getMass2(), massInv = 1. / m, bg = p * massInv;
-    float e = std::sqrt(e2), ekin = e - m, dedx = getdEdxBBOpt(bg);
+    float mI = (atomicZ < 13.f) ? (12.f * atomicZ + 7.f) * 1.e-9f : (9.76f * atomicZ + 58.8f * std::pow(atomicZ, -0.19f)) * 1.e-9f;
+    float e = std::sqrt(e2), ekin = e - m, dedx = BetheBlochSolid(bg, density, 0.2f, 3.f, mI, zOverA);
 #ifdef _BB_NONCONST_CORR_
-    float dedxDer = 0., dedx1 = dedx;
+    float dedxDer = 0.f, dedx1 = dedx;
 #endif
     if (charge2 != 1) {
       dedx *= charge2;
@@ -221,7 +224,7 @@ bool NA6PTrackPar::correctForELoss(float xrho, bool anglecorr)
       dE /= na;
       xrho /= na;
 #ifdef _BB_NONCONST_CORR_
-      dedxDer = getBetheBlochSolidDerivativeApprox(dedx1, bg); // require correction for non-constantness of dedx vs betagamma
+      dedxDer = getBetheBlochSolidDerivative(dedx1, bg, mI); // require correction for non-constantness of dedx vs betagamma
       if (charge2 != 1) {
         dedxDer *= charge2;
       }
@@ -247,7 +250,7 @@ bool NA6PTrackPar::correctForELoss(float xrho, bool anglecorr)
         bg = p * massInv;
         dedx = getdEdxBBOpt(bg);
 #ifdef _BB_NONCONST_CORR_
-        dedxDer = getBetheBlochSolidDerivativeApprox(dedx, bg);
+        dedxDer = getBetheBlochSolidDerivative(dedx, bg, mI);
 #endif
         if (charge2 != 1) {
           dedx *= charge2;
@@ -309,62 +312,20 @@ float NA6PTrackPar::BetheBlochSolid(float bg, float rho, float kp1, float kp2, f
   return dedx > 0. ? dedx : 0.;
 }
 
-float NA6PTrackPar::BetheBlochSolidOpt(float bg)
+float NA6PTrackPar::BetheBlochSolidDerivative(float dedx, float bg, float meanZA)
 {
   //
-  // This is the parameterization of the Bethe-Bloch formula inspired by Geant with hardcoded constants and better optimization
-  //
-  // bg  - beta*gamma
-  // rho - density [g/cm^3]
-  // kp1 - density effect first junction point
-  // kp2 - density effect second junction point
-  // meanI - mean excitation energy [GeV]
-  // meanZA - mean Z/A
-  //
-  // The default values for the kp* parameters are for silicon.
-  // The returned value is in [GeV/(g/cm^2)].
-  //
-  //  constexpr float rho = 2.33;
-  //  constexpr float meanI = 173e-9;
-  //  constexpr float me = 0.511e-3;    // [GeV/c^2]
-
-  constexpr float mK = 0.307075e-3; // [GeV*cm^2/g]
-  constexpr float kp1 = 0.20 * 2.303;
-  constexpr float kp2 = 3.00 * 2.303;
-  constexpr float meanZA = 0.49848;
-  constexpr float lhwI = -1.7175226;         // std::log(28.816 * 1e-9 * std::sqrt(rho * meanZA) / meanI);
-  constexpr float log2muTomeanI = 8.6839805; // std::log( 2. * me / meanI);
-
-  float bg2 = bg * bg, beta2 = bg2 / (1. + bg2);
-
-  //*** Density effect
-  float d2 = 0.;
-  const float x = std::log(bg);
-  if (x > kp2) {
-    d2 = lhwI - 0.5f + x;
-  } else if (x > kp1) {
-    float r = (kp2 - x) / (kp2 - kp1);
-    d2 = lhwI - 0.5 + x + (0.5 - lhwI - kp1) * r * r * r;
-  }
-  auto dedx = mK * meanZA / beta2 * (log2muTomeanI + x + x - beta2 - d2);
-  return dedx > 0. ? dedx : 0.;
-}
-
-float NA6PTrackPar::BetheBlochSolidDerivative(float dedx, float bg)
-{
-  //
-  // This is approximate derivative of the BB over betagamm, NO check for the consistency of the provided dedx and bg is done
+  // This is approximate derivative of the BB over betagamma, NO check for the consistency of the provided dedx and bg is done
   // Charge 1 particle is assumed for the provied dedx. For charge > 1 particles dedx/q^2 should be provided and obtained value must be scaled by q^2
   // The call should be usually done as
-  // auto dedx = BetheBlochSolidOpt(bg);
+  // auto dedx = BetheBlochSolid(bg, rho, kp1, kp2, meanI, meanZA);
   // // if derivative needed
   // auto ddedx = BetheBlochSolidDerivative(dedx, bg, bg*bg)
   //
-  // dedx - precalculate dedx for bg
+  // dedx - precalculated dedx for bg
   // bg  - beta*gamma
   //
   constexpr float mK = 0.307075e-3; // [GeV*cm^2/g]
-  constexpr float meanZA = 0.49848;
   auto bg2 = bg * bg;
   auto t1 = 1 + bg2;
   //  auto derH = (mK * meanZA * (t1+bg2) - dedx*bg2)/(bg*t1);

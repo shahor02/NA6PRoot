@@ -677,7 +677,7 @@ void NA6PTrackParCov::checkCovariance()
 #endif
 }
 
-bool NA6PTrackParCov::correctForMaterial(float x2x0, float xrho, bool anglecorr)
+bool NA6PTrackParCov::correctForMaterial(float x2x0, float xrho, float density, float atomicZ, float zOverA, bool anglecorr)
 {
   //------------------------------------------------------------------
   // This function corrects the track parameters for the crossed material.
@@ -685,7 +685,9 @@ bool NA6PTrackParCov::correctForMaterial(float x2x0, float xrho, bool anglecorr)
   // "xrho" - is the product length*density (g/cm^2).
   //     It should be passed as negative when propagating tracks
   //     from the intreaction point to the outside of the central barrel.
-  // "dedx" - mean enery loss (GeV/(g/cm^2), if <=kCalcdEdxAuto : calculate on the fly
+  // "density" - mean density (g/cm^3)
+  // "atomicZ" - mean Z
+  // "zOverA" - mean Z/A
   // "anglecorr" - switch for the angular correction
   //------------------------------------------------------------------
   constexpr float kMSConst2 = 0.0136f * 0.0136f;
@@ -700,12 +702,13 @@ bool NA6PTrackParCov::correctForMaterial(float x2x0, float xrho, bool anglecorr)
   }
   auto m = getPID().getMass();
   int charge2 = 1; // in case we introduce charge > 1 particle: getAbsCharge() * getAbsCharge();
-  float p = getP(), p0 = p, p02 = p * p, e2 = p02 + getPID().getMass2(), massInv = 1. / m, bg = p * massInv, dETot = 0.;
+  float p = getP(), p0 = p, p02 = p * p, e2 = p02 + getPID().getMass2(), massInv = 1.f / m, bg = p * massInv, dETot = 0.f;
   float e = std::sqrt(e2), e0 = e;
   if (m > 0 && xrho != 0.f) {
-    float ekin = e - m, dedx = getdEdxBBOpt(bg);
+    float mI = (atomicZ < 13.f) ? (12.f * atomicZ + 7.f) * 1.e-9f : (9.76f * atomicZ + 58.8f * std::pow(atomicZ, -0.19f)) * 1.e-9f;
+    float ekin = e - m, dedx = BetheBlochSolid(bg, density, 0.2f, 3.f, mI, zOverA);
 #ifdef _BB_NONCONST_CORR_
-    float dedxDer = 0., dedx1 = dedx;
+    float dedxDer = 0.f, dedx1 = dedx;
 #endif
     if (charge2 != 1) {
       dedx *= charge2;
@@ -719,7 +722,7 @@ bool NA6PTrackParCov::correctForMaterial(float x2x0, float xrho, bool anglecorr)
       dE /= na;
       xrho /= na;
 #ifdef _BB_NONCONST_CORR_
-      dedxDer = getBetheBlochSolidDerivativeApprox(dedx1, bg); // require correction for non-constantness of dedx vs betagamma
+      dedxDer = getBetheBlochSolidDerivativeApprox(dedx1, bg, mI); // require correction for non-constantness of dedx vs betagamma
       if (charge2 != 1) {
         dedxDer *= charge2;
       }
@@ -745,7 +748,7 @@ bool NA6PTrackParCov::correctForMaterial(float x2x0, float xrho, bool anglecorr)
         bg = p * massInv;
         dedx = getdEdxBBOpt(bg);
 #ifdef _BB_NONCONST_CORR_
-        dedxDer = getBetheBlochSolidDerivativeApprox(dedx, bg);
+        dedxDer = getBetheBlochSolidDerivativeApprox(dedx, bg, mI);
 #endif
         if (charge2 != 1) {
           dedx *= charge2;
@@ -805,7 +808,7 @@ bool NA6PTrackParCov::correctForMaterial(float x2x0, float xrho, bool anglecorr)
   return true;
 }
 
-bool NA6PTrackParCov::correctForMaterial(float x2x0, float xrho, NA6PTrackPar& linRef, bool anglecorr)
+bool NA6PTrackParCov::correctForMaterial(float x2x0, float xrho, float density, float atomicZ, float zOverA, NA6PTrackPar& linRef, bool anglecorr)
 {
   //------------------------------------------------------------------
   // This function corrects the track parameters for the crossed material.
@@ -831,7 +834,8 @@ bool NA6PTrackParCov::correctForMaterial(float x2x0, float xrho, NA6PTrackPar& l
   float p = linRef.getP(), p0 = p, p02 = p * p, e2 = p02 + getPID().getMass2(), massInv = 1. / m, bg = p * massInv, dETot = 0.;
   float e = std::sqrt(e2), e0 = e;
   if (m > 0 && xrho != 0.f) {
-    float ekin = e - m, dedx = getdEdxBBOpt(bg);
+    float mI = (atomicZ < 13.f) ? (12.f * atomicZ + 7.f) * 1.e-9f : (9.76f * atomicZ + 58.8f * std::pow(atomicZ, -0.19f)) * 1.e-9f;
+    float ekin = e - m, dedx = BetheBlochSolid(bg, density, 0.2, 3, mI, zOverA);
 #ifdef _BB_NONCONST_CORR_
     float dedxDer = 0., dedx1 = dedx;
 #endif
@@ -847,7 +851,7 @@ bool NA6PTrackParCov::correctForMaterial(float x2x0, float xrho, NA6PTrackPar& l
       dE /= na;
       xrho /= na;
 #ifdef _BB_NONCONST_CORR_
-      dedxDer = getBetheBlochSolidDerivativeApprox(dedx1, bg); // require correction for non-constantness of dedx vs betagamma
+      dedxDer = getBetheBlochSolidDerivativeApprox(dedx1, bg, mI); // require correction for non-constantness of dedx vs betagamma
       if (charge2 != 1) {
         dedxDer *= charge2;
       }
@@ -873,7 +877,7 @@ bool NA6PTrackParCov::correctForMaterial(float x2x0, float xrho, NA6PTrackPar& l
         bg = p * massInv;
         dedx = getdEdxBBOpt(bg);
 #ifdef _BB_NONCONST_CORR_
-        dedxDer = getBetheBlochSolidDerivativeApprox(dedx, bg);
+        dedxDer = getBetheBlochSolidDerivativeApprox(dedx, bg, mI);
 #endif
         if (charge2 != 1) {
           dedx *= charge2;

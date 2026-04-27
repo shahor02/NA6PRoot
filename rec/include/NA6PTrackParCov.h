@@ -118,8 +118,8 @@ class NA6PTrackParCov : public NA6PTrackPar
   bool update(const NA6PTrackParCov& rhs, const MatrixD5Sym& covInv);
   bool update(const NA6PTrackParCov& rhs);
 
-  bool correctForMaterial(float x2x0, float xrho, bool anglecorr = false);
-  bool correctForMaterial(float x2x0, float xrho, NA6PTrackPar& linRef, bool anglecorr = false);
+  bool correctForMaterial(float x2x0, float xrho, float density, float atomicZ, float zOverA, bool anglecorr = false);
+  bool correctForMaterial(float x2x0, float xrho, float density, float atomicZ, float zOverA, NA6PTrackPar& linRef, bool anglecorr = false);
 
   void resetCovariance(float s2 = -1.);
   void checkCovariance();

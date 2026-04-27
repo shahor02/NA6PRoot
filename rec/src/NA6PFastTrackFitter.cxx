@@ -184,18 +184,11 @@ bool NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed, N
   const auto F1 = xyz1[2] * M01.first - M01.second, F2 = xyz2[2] * (M01.first + M12.first) - (M01.second + M12.second);
   const auto dz1f2 = dpos01[2] * F2, dz2f1 = dpos02[2] * F1; // (z1-z0)*F2 - (z2-z0)*F1
   const auto det = dz1f2 - dz2f1, scale = std::fabs(dz1f2) + std::fabs(dz2f1) + 1.0, detI = 1. / det;
-  auto bx_ref = (dpos01[0] * F2 - dpos02[0] * F1) * detI;
-  float beta = (dpos01[2] * dpos02[0] - dpos02[2] * dpos01[0]) * detI;
-  float qOverPXZ = beta / NA6PTrackPar::kB2C;
-
   // YZ fit: y_i = y0 + by0 * (z - z0)
   // by_0 = [ (z1-z0)*(y1-y0) + (z2-z0)*(y2-y0) ] / [ d1^2 + d2^2 ]
-  float denY = dpos01[2] * dpos01[2] + dpos02[2] * dpos02[2];
-  float by_ref = (dpos01[2] * dpos01[1] + dpos02[2] * dpos02[1]) / denY;
-  seed->setQ2Pxz(qOverPXZ);
-  // convert slopes bx = px/pz and by = py/pz to tx = px/pxz and ty = py/pxz
-  seed->setTx(bx_ref / std::sqrt(1.f + bx_ref * bx_ref));
-  seed->setTy(by_ref * seed->getCosPsi());
+  seed->setQ2Pxz((dpos01[2] * dpos02[0] - dpos02[2] * dpos01[0]) * detI / NA6PTrackPar::kB2C);
+  seed->setTx((dpos01[0] * F2 - dpos02[0] * F1) * detI);
+  seed->setTy((dpos01[2] * dpos01[1] + dpos02[2] * dpos02[1]) / (dpos01[2] * dpos01[2] + dpos02[2] * dpos02[2]));
   return true;
 }
 
