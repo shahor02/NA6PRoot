@@ -12,6 +12,7 @@
 #include "NA6PVerTelCluster.h"
 #include "NA6PMuonSpecCluster.h"
 #include "NA6PLine.h"
+#include "Seeder.h"
 
 NA6PFastTrackFitter::NA6PFastTrackFitter()
 {
@@ -133,9 +134,9 @@ bool NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed, N
   }
   int nSeedLayers = layForSeed[2] >= 0 ? 3 : 2;
   const auto &xyz0 = mClusters[layForSeed[0]]->getXYZ(), xyz1 = mClusters[layForSeed[1]]->getXYZ();
-  seed->setXYZ(xyz0);
-  const auto dpos01 = NA6PLine::getDiff(xyz0, xyz1); // c1 - c0
-  if (nSeedLayers == 2) {                            // straight line seed only
+  if (nSeedLayers == 2) {                              // straight line seed only
+    const auto dpos01 = NA6PLine::getDiff(xyz0, xyz1); // c1 - c0
+    seed->setXYZ(xyz0);
     auto pxzI = (dir > 0 ? 1.f : -1.f) / std::hypot(dpos01[0], dpos01[2]);
     seed->setTx(dpos01[0] * pxzI);
     seed->setTy(dpos01[1] * pxzI);
@@ -143,53 +144,7 @@ bool NA6PFastTrackFitter::computeSeed(int dir, std::array<int, 3>& layForSeed, N
     return true;
   }
   const auto& xyz2 = mClusters[layForSeed[2]]->getXYZ();
-  /*
-    Extraction of seed parameters in parabolic approximation for track propagation in Z-dependent By field (XZ bending):
-    x(z) = x_ref + bx_ref * (z - z_ref) + beta * ( z * M0(z_ref,z) - M1(z_ref,z) )
-    y(z) = y_ref + by_ref * (z - z_ref)
-    with beta = (q/pXZ) * k
-    M0_01, M1_01 : signed field moments from z0 to z1
-    M0_02, M1_02 : signed field moments from z0 to z2
-
-    Derivation: start from the stepwise transport equations in the XZ plane, with z_i ordered along the trajectory and constant step size
-    dz = z_i - z_{i-1}, with the local state at step i is (x_i, bx_i), where the slope bx_i = dx/dz at z = z_i.
-
-    The recursive propagation from z_{i-1} to state at z_{i} is:
-    x_i  = x_{i-1} + bx_{i-1} * dz + (beta / 2) * B(z_{i-1}) * dz^2
-    bx_i = bx_{i-1}+ beta * B(z_{i-1}) * dz
-    with beta = (q / p_XZ) * k.
-
-    Iterate from the reference step 0 up to step n:
-    bx_1 = bx_0 + beta * B(z_0) * dz
-    bx_2 = bx_1 + beta * B(z_1) * dz = bx_0 + beta * dz * [ B(z_0) + B(z_1) ]
-    ...
-    =>  bx_n = bx_0 + beta * dz * sum_{j=0}^{n-1} B(z_j)                                          | (1)
-
-    Similarly, iterating position x_i from 0 to n we get:
-    x_n = x_0 + dz * sum_{i=1}^{n} bx_{i-1} + (beta/2) * dz^2 * sum_{i=1}^{n} B(z_{i-1})
-    Substituting bx_{i-1} by (1) and reordering:
-    =>  x_n = x_0 + bx_0 * (z_n - z_0) + beta * dz^2 * sum_{j=0}^{n-1} [ n - j - 1/2 ] * B(z_j)   | (2)
-
-    In the limit of small dz swith to integrals == moments of the field:
-    x(z) = x_0 + bx_0 * (z - z_0) + beta * [ z * M0(z_0, z) - M1(z_0, z) ]                        | (3)
-    with
-    M0(z_0, z) = integral_{z_0}^{z} B(s) ds
-    M1(z_0, z) = integral_{z_0}^{z} s * B(s) ds
-  */
-  const auto dpos12 = NA6PLine::getDiff(xyz1, xyz2), dpos02 = NA6PLine::getDiff(xyz0, xyz2);
-  ;                                                                                    // c2 - c1 and c2 - c0
-  const auto M01 = getFieldMomenta(xyz0, dpos01), M12 = getFieldMomenta(xyz1, dpos12); // field moments
-
-  // Field-dependent regressors: F_i = z_i * M0(0,i) - M1(0,i)
-  const auto F1 = xyz1[2] * M01.first - M01.second, F2 = xyz2[2] * (M01.first + M12.first) - (M01.second + M12.second);
-  const auto dz1f2 = dpos01[2] * F2, dz2f1 = dpos02[2] * F1; // (z1-z0)*F2 - (z2-z0)*F1
-  const auto det = dz1f2 - dz2f1, scale = std::fabs(dz1f2) + std::fabs(dz2f1) + 1.0, detI = 1. / det;
-  // YZ fit: y_i = y0 + by0 * (z - z0)
-  // by_0 = [ (z1-z0)*(y1-y0) + (z2-z0)*(y2-y0) ] / [ d1^2 + d2^2 ]
-  seed->setQ2Pxz((dpos01[2] * dpos02[0] - dpos02[2] * dpos01[0]) * detI / NA6PTrackPar::kB2C);
-  seed->setTx((dpos01[0] * F2 - dpos02[0] * F1) * detI);
-  seed->setTy((dpos01[2] * dpos01[1] + dpos02[2] * dpos02[1]) / (dpos01[2] * dpos01[2] + dpos02[2] * dpos02[2]));
-  return true;
+  return Seeder::create(*seed, dir > 0, xyz0, xyz1, xyz2, mSeedImprovePrec);
 }
 
 bool NA6PFastTrackFitter::computeSeed(int dir, NA6PTrackPar* seed)
@@ -217,58 +172,6 @@ void NA6PFastTrackFitter::printSeed() const
     LOGP(info, "Seed not set");
 }
 
-/*
-bool NA6PFastTrackFitter::fitTrackPoints(NA6PTrack& trackToFit, int dir, const NA6PTrackParCov* seed)
-{
-  if (mNClusters < 2) {
-    LOGP(error, "Cannot fit track with only {} clusters\n", mNClusters);
-    return false;
-  }
-  bool isGoodFit = true;
-  auto prop = Propagator::Instance();
-  trackToFit.reset();
-  if (seed) {
-    // Seed provided as a track from previous pass
-    ((NA6PTrackParCov&)trackToFit) = *seed;
-  } else {
-    if (!mSeed.isValid()) { // Set seed from clusters in the outer (inner) layers if not set from outside
-      dir > 0 ? computeSeedInner() : computeSeedOuter();
-    }
-    if (mSeed.isValid()) {
-      ((NA6PTrackPar&)trackToFit) = mSeed;
-    } else {
-      LOGP(warn, "Track seed not computed properly, will run the fit w/o seed");
-    }
-  }
-  trackToFit.setPID(mPID);
-  trackToFit.resetCovariance(-1);
-  int startLay = (dir > 0) ? 0 : getNLayers() - 1, endLay = (dir > 0) ? getNLayers() : -1, stepLay = (dir > 0) ? 1 : -1;
-  int nClFit = 0;
-  for (int jLay = startLay; jLay != endLay; jLay += stepLay) {
-    if (mClusters[jLay]) {
-      if (nClFit == 0) { // 1st cluster, just assign track to its position
-        trackToFit.setXYZ(mClusters[jLay]->getXYZ());
-      } else {
-        if (!prop->propagateToZ(trackToFit, mClusters[jLay]->getZ(), mPropOpt)) {
-          isGoodFit = false;
-          break;
-        }
-      }
-      if (!trackToFit.updateTrack(*mClusters[jLay], mMaxChi2Cl)) {
-        isGoodFit = false;
-        break;
-      }
-      nClFit++;
-    }
-  }
-  if (isGoodFit && dir < 0 && mPropagateToPrimVert && mIsPrimVertSet && !prop->propagateToZ(trackToFit, mPrimVertZ, mPropOpt)) {
-    isGoodFit = false;
-  }
-  return isGoodFit;
-}
-*/
-
-//=========================================================
 float NA6PFastTrackFitter::fitSeed(NA6PTrackParCov& seed, bool resetCovMat, int dir, NA6PTrackPar* linRef)
 {
   // fit track (already seeded but not necessarily at the position of the 1st cluster to fit.

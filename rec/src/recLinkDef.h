@@ -25,6 +25,7 @@
 #pragma link C++ class std::vector < NA6PVertex> + ;
 #pragma link C++ class NA6PLine + ;
 #pragma link C++ class NA6PHelixHelper + ;
+#pragma link C++ class Seeder + ;
 
 #pragma link C++ class NA6PReconstruction + ;
 #pragma link C++ class NA6PVerTelReconstruction + ;

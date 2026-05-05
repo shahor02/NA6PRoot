@@ -108,9 +108,13 @@ class NA6PFastTrackFitter
   void setMostProbableP(float v) { mMostProbableP = v; }
   float getMostProbableP() const { return mMostProbableP; }
 
+  float getSeedImprovePrec() const { return mSeedImprovePrec; }
+  void setSeedImprovePrec(float v) { mSeedImprovePrec = v; }
+
  protected:
   float mMostProbableP = 5.f;         // most probable momentum to set at 0 field
   float mMaxChi2Cl = 10.;             // max cluster-track chi2
+  float mSeedImprovePrec = 0.01;      // try to improve fast seed precision if estimated error exceeds this (if >0)
   int mSeedOption = kInMidOutAsSeed;  // seed option (see enum)
 
   NA6PTrackPar mSeed{};
