@@ -37,6 +37,7 @@ class NA6PGenHisto : public NA6PGenerator
   const TH2* getPtYHistogram() const { return mPtYHisto; }
   const TH1* getPtHistogram() const { return mPtHisto; }
   const TH1* getYHistogram() const { return mYHisto; }
+
  protected:
   int mPDGCode = 0;
   float mMult = -1.f;

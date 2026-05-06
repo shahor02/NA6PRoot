@@ -68,11 +68,9 @@ void NA6PGenHisto::generate()
   for (int i = 0; i < nPart; ++i) {
     double pt = 0;
     double y = 0;
-    if (mPtYHisto)
-    {
+    if (mPtYHisto) {
       mPtYHisto->GetRandom2(pt, y);
-    }
-    else {
+    } else {
       pt = mPtHisto->GetRandom();
       y = mYHisto->GetRandom();
     }

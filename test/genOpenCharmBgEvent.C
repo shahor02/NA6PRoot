@@ -178,10 +178,10 @@ NA6PGenerator* addBgEventGenerator(NA6PGenCocktail* genCocktail, int NSignalinAc
     hPtY->SetDirectory(nullptr);
     hY->SetDirectory(nullptr);
     hPt->SetDirectory(nullptr);
-    
+
     delete hPtYProj;
 
-    auto gen = new NA6PGenHisto(partName, pdg, NSignalinAcc, false, hPt, hY, 0); //in this example the yCM shift is set to 0 because the y-distribution is already shifted
+    auto gen = new NA6PGenHisto(partName, pdg, NSignalinAcc, false, hPt, hY, 0); // in this example the yCM shift is set to 0 because the y-distribution is already shifted
     genCocktail->addGenerator(gen);
   };
 
