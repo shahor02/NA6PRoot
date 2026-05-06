@@ -80,6 +80,7 @@ struct NA6PLayoutParam : public na6p::conf::ConfigurableParamHelper<NA6PLayoutPa
   float dimYAbsorber[MaxAbsorberSlices] = {39.5f, 52.f, 80.f, 120.f, 170.f, 200.f, 220.f, /*wall*/ 550.f, 550.f, 550.f};      // size in Y if >0
   float radPlug[MaxAbsorberSlices] = {2.47f, 2.47f, 4.0f, 5.48f, 11.f, 11.f, 11.f, 0.f, 0.f, 0.f};                            // radius of the plug
   float radPlugInt[MaxAbsorberSlices] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f};                            // radius of the plug
+  float radAir[MaxAbsorberSlices] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f};     // radius of the residual air surrounding the plug
   float killParticlesBelowEAbsorber[MaxAbsorberSlices] = {0.1, 0.1, 0.1, 0.1, 0.05, 0.01, 0.005, /*wall*/ 0.01, 0.01, 0.001}; // kill entering particles with momentum below this (for speed up)
   std::string medAbsorber[MaxAbsorberSlices] = {"BeO", "BeO", "BeO", "BeO", "Graphite", "Graphite", "Graphite", /*wall*/ "Graphite", "Graphite", "Graphite"};
   std::string medAbsorberPlug[MaxAbsorberSlices] = {"Tungsten", "Tungsten", "Tungsten", "Tungsten", "Tungsten", "Tungsten", ""};
