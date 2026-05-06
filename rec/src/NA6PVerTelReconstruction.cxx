@@ -39,15 +39,15 @@ bool NA6PVerTelReconstruction::initVertexer()
   if (mRecoParFilName == "")
     LOGP(info, "Initializing vertexer with default parameters");
   else
-    LOGP(info, "Initializing vertexer from file {}", mRecoParFilName.c_str());
-  mVTTrackletVertexer->configureFromRecoParam(mRecoParFilName.c_str());
+    LOGP(info, "Initializing vertexer from file {}", mRecoParFilName);
+  mVTTrackletVertexer->configureFromRecoParam(mRecoParFilName);
   createVerticesOutput();
   return true;
 }
 
 bool NA6PVerTelReconstruction::initTracker()
 {
-  NA6PReconstruction::init(mGeoFilName.c_str(), mGeoObjName.c_str());
+  NA6PReconstruction::init(mGeoFilName, mGeoObjName);
   if (!mVTTracker)
     mVTTracker = new NA6PTrackerCA();
   mVTTracker->setNLayers(5);
@@ -55,8 +55,8 @@ bool NA6PVerTelReconstruction::initTracker()
   if (mRecoParFilName == "")
     LOGP(info, "Initializing tracker with default parameters");
   else
-    LOGP(info, "Initializing tracker from file {}", mRecoParFilName.c_str());
-  mVTTracker->configureFromRecoParamVT(mRecoParFilName.c_str());
+    LOGP(info, "Initializing tracker from file {}", mRecoParFilName);
+  mVTTracker->configureFromRecoParamVT(mRecoParFilName);
   createTracksOutput();
   return true;
 }

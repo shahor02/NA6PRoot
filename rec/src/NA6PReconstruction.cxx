@@ -6,10 +6,11 @@
 #include <TSystem.h>
 #include "MagneticField.h"
 #include "NA6PReconstruction.h"
+#include "Propagator.h"
 
 ClassImp(NA6PReconstruction)
 
-  bool NA6PReconstruction::init(const char* filename, const char* geoname)
+  bool NA6PReconstruction::init(const std::string& filename, const std::string& geoname)
 {
   // initialize magnetic field
   if (mIsInitialized) {
@@ -17,29 +18,14 @@ ClassImp(NA6PReconstruction)
     return true;
   }
   if (TGeoGlobalMagField::Instance()->GetField() == nullptr) {
-    auto magField = new MagneticField();
-    magField->loadField();
-    magField->setAsGlobalField();
+    Propagator::loadField();
   }
   // load geometry
-  if (gGeoManager) {
-    LOGP(info, "Geometry was already loaded");
-    mIsInitialized = true;
-    return true;
-  }
-  if (gSystem->Exec(Form("ls -l %s > /dev/null", filename)) != 0) {
-    LOGP(error, "filename {} does not exist", filename);
+  if (!gGeoManager && !Propagator::loadGeometry(filename, geoname)) {
     return false;
   }
-  TFile* f = TFile::Open(filename);
-  gGeoManager = (TGeoManager*)f->Get(geoname);
-  if (gGeoManager) {
-    mIsInitialized = true;
-    return true;
-  } else {
-    LOGP(error, "No geometry with name {} found in file {}", geoname, filename);
-    return false;
-  }
+  mIsInitialized = true;
+  return true;
 }
 
 void NA6PReconstruction::createClustersOutput()

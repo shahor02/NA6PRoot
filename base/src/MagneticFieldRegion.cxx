@@ -237,7 +237,8 @@ void MagneticFieldRegion::cacheValues(const std::string& line, std::vector<float
   }
 }
 
-void MagneticFieldRegion::interpolateField(int i, int j, int k, float x, float y, float z, double* bxbybz) const
+template <typename T>
+void MagneticFieldRegion::interpolateField(int i, int j, int k, float x, float y, float z, T* bxbybz) const
 {
   float x0 = mXMin + i * mDX;
   float y0 = mYMin + j * mDY;
@@ -274,7 +275,8 @@ void MagneticFieldRegion::interpolateField(int i, int j, int k, float x, float y
   }
 }
 
-void MagneticFieldRegion::interpolateFieldAdd(int i, int j, int k, float x, float y, float z, double* bxbybz) const
+template <typename T>
+void MagneticFieldRegion::interpolateFieldAdd(int i, int j, int k, float x, float y, float z, T* bxbybz) const
 {
   float x0 = mXMin + i * mDX;
   float y0 = mYMin + j * mDY;
@@ -328,3 +330,8 @@ void MagneticFieldRegion::setRefPosition(float x, float y, float z)
   rep += fmt::format("{:.1f}<Z<{:.1f} ", mBoxPos[2][0], mBoxPos[2][1]);
   LOGP(info, "Adding Field {} in {}", mName, rep);
 }
+
+template void MagneticFieldRegion::interpolateField(int i, int j, int k, float x, float y, float z, float* bxbybz) const;
+template void MagneticFieldRegion::interpolateField(int i, int j, int k, float x, float y, float z, double* bxbybz) const;
+template void MagneticFieldRegion::interpolateFieldAdd(int i, int j, int k, float x, float y, float z, float* bxbybz) const;
+template void MagneticFieldRegion::interpolateFieldAdd(int i, int j, int k, float x, float y, float z, double* bxbybz) const;

@@ -180,7 +180,6 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
 
   NA6PFastTrackFitter* fitter = new NA6PFastTrackFitter();
   fitter->loadGeometry(Form("%s/geometry.root", dirSimu));
-  fitter->setNLayers(nLayers);
   fitter->setMaxChi2Cl(100.);
   fitter->setPropagateToPrimaryVertex(true);
   // fitter->setSeedFromTwoOutermostHits();
@@ -217,8 +216,8 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
       float phiPart = curPart.Phi();
       float thetaPart = std::acos(pzPart / momPart);
       float etaPart = -std::log(std::tan(thetaPart / 2.));
-      std::array<std::unique_ptr<NA6PBaseCluster>, 5> clusters{nullptr, nullptr, nullptr, nullptr, nullptr};
-      float xclu[5], yclu[5], zclu[5];
+      std::array<std::unique_ptr<NA6PBaseCluster>, 6> clusters{};
+      float xclu[6], yclu[6], zclu[6];
       if (curPart.IsPrimary()) {
         hEtaGen->Fill(etaPart);
         int maskHits = 0;
@@ -244,6 +243,7 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
               if (nLay < 0)
                 continue; // skip hits not in expected z ranges
             }
+            printf("nLay %d nLayers %d\n", nLay, nLayers);
             if (nLay < 0 || nLay >= nLayers)
               continue;              // safety check: skip if layer index out of bounds
             maskHits |= (1 << nLay); // use bitmask instead of counter
@@ -273,23 +273,26 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
         for (int nLay = 0; nLay < (int)clusters.size(); ++nLay) {
           if (clusters[nLay]) {
             std::cout << "Adding cluster at layer " << nLay << " for track " << jp << "\n";
-            fitter->addCluster(nLay, *clusters[nLay]);
+            fitter->addCluster(*clusters[nLay]);
           }
         }
 
         // Uncomment the next lines to use the MC truth as seed for the track
-        //	float xyz0[3]={xclu[nLayers-1],yclu[nLayers-1],zclu[nLayers-1]};
-        //	float pxyz0[3]={curPart.Px(),curPart.Py(),curPart.Pz()};
-        //	printf("Initialize seed at %f %f %f p = %f %f %f\n",xyz0[0],xyz0[1],xyz0[2],pxyz0[0],pxyz0[1],pxyz0[2]);
-        //	int sign = curPart.GetPdgCode() > 0 ? 1 : -1;
-        //	fitter->setSeed(xyz0,pxyz0,sign);
+        // float xyz0[3]={xclu[nLayers-1],yclu[nLayers-1],zclu[nLayers-1]};
+        // float pxyz0[3]={curPart.Px(),curPart.Py(),curPart.Pz()};
+        // printf("Initialize seed at %f %f %f p = %f %f %f\n",xyz0[0],xyz0[1],xyz0[2],pxyz0[0],pxyz0[1],pxyz0[2]);
+        // int sign = curPart.GetPdgCode() > 0 ? 1 : -1;
+        // fitter->setSeed(xyz0,pxyz0,sign);
 
-        NA6PTrack currTr;
         TParticle trFit;
-        float chiFit = -1.;
-        if (fitter->fitTrackPoints(currTr)) {
+        NA6PTrack currTr;
+        float chiFit = 0.f;
+        if (fitter->computeSeed(-1, &currTr) && (chiFit = fitter->fitSeed(currTr)) >= 0.f) {
+          //  if (fitter->fitTrackPoints(currTr)) {
           std::cout << "Track fit done.\n";
-          //	fitter->propagateToZ(&currTr,zvert);
+          fitter->addClustersToTrack(currTr);
+          currTr.setChi2(chiFit);
+          // fitter->propagateToZ(&currTr,zvert);
           hIsGood->Fill(1);
           int nClusters = currTr.getNHits();
           hNclu->Fill(nClusters);
@@ -299,30 +302,26 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
           } else
             std::cout << "Fitted track with " << nClusters << " hits\n";
           chiFit = currTr.getChi2();
-          //	  printf("chi2 = %f  chi2/ndf = %f\n",chiFit,currTr.GetNormChi2());
-          double pxyz[3];
-          currTr.getPXYZ(pxyz);
-          float pxtr = pxyz[0];
-          float pytr = pxyz[1];
-          float pztr = pxyz[2];
+          //   printf("chi2 = %f  chi2/ndf = %f\n",chiFit,currTr.GetNormChi2());
+          auto pxyz = currTr.getPXYZ();
           float momtr = currTr.getP();
-          float phitr = std::atan2(pytr, pxtr);
-          float thetatr = std::acos(pztr / momtr);
-          float etatr = -std::log(std::tan(thetatr / 2.));
-          float impparX = currTr.getXLab() - xvert;
-          float impparY = currTr.getYLab() - yvert;
+          float phitr = currTr.getPhi();
+          float thetatr = currTr.getTheta();
+          float etatr = currTr.getEta();
+          float impparX = currTr.getX() - xvert;
+          float impparY = currTr.getY() - yvert;
           hEtaReco->Fill(etatr);
-          hDeltaPx->Fill(pxtr - pxPart);
-          hDeltaPy->Fill(pytr - pyPart);
-          hDeltaPz->Fill(pztr - pzPart);
+          hDeltaPx->Fill(pxyz[0] - pxPart);
+          hDeltaPy->Fill(pxyz[1] - pyPart);
+          hDeltaPz->Fill(pxyz[2] - pzPart);
           hDeltaP->Fill(momtr - momPart);
-          hDeltaPxVsP->Fill(momtr, pxtr - pxPart);
-          hDeltaPyVsP->Fill(momtr, pytr - pyPart);
-          hDeltaPzVsP->Fill(momtr, pztr - pzPart);
+          hDeltaPxVsP->Fill(momtr, pxyz[0] - pxPart);
+          hDeltaPyVsP->Fill(momtr, pxyz[1] - pyPart);
+          hDeltaPzVsP->Fill(momtr, pxyz[2] - pzPart);
           hDeltaPVsP->Fill(momtr, momtr - momPart);
-          hRelDeltaPxVsP->Fill(momtr, (pxtr - pxPart) / pxPart);
-          hRelDeltaPyVsP->Fill(momtr, (pytr - pyPart) / pyPart);
-          hRelDeltaPzVsP->Fill(momtr, (pztr - pzPart) / pzPart);
+          hRelDeltaPxVsP->Fill(momtr, (pxyz[0] - pxPart) / pxPart);
+          hRelDeltaPyVsP->Fill(momtr, (pxyz[1] - pyPart) / pyPart);
+          hRelDeltaPzVsP->Fill(momtr, (pxyz[2] - pzPart) / pzPart);
           hRelDeltaPVsP->Fill(momtr, (momtr - momPart) / momPart);
           hDeltaPhi->Fill(phitr - phiPart);
           hDeltaEta->Fill(etatr - etaPart);
@@ -331,12 +330,10 @@ void runFastFitOnHitsTemplate(int firstEv = 0,
           hImpParXVsP->Fill(momtr, impparX * 1e4);
           hImpParYVsP->Fill(momtr, impparY * 1e4);
           hChi2NDF->Fill(chiFit);
-          double pos[3], mom[3];
-          currTr.getPXYZ(mom);
           TLorentzVector v;
-          v.SetXYZM(mom[0], mom[1], mom[2], 0.14);
+          v.SetXYZM(pxyz[0], pxyz[1], pxyz[2], 0.14);
           trFit.SetMomentum(v);
-          trFit.SetProductionVertex(currTr.getXLab(), currTr.getYLab(), currTr.getZLab(), 0);
+          trFit.SetProductionVertex(currTr.getX(), currTr.getY(), currTr.getZ(), 0);
         } else {
           hIsGood->Fill(0);
         }

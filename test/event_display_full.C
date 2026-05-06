@@ -172,44 +172,43 @@ for (int lr = cfg.layerMin; lr < cfg.layerMax; ++lr) {
     const auto* clu = evClusters[ic];
 
     std::cout
-        << "    layer " << clu->getLayer()
-        << "  size " << clu->getClusterSize()
-        << "  X " << clu->getXLab()
-        << "  Y " << clu->getYLab()
-        << "  Z " << clu->getZLab()
-        << "  particle ID " << clu->getParticleID()
-        << "\n";
+      << "    layer " << clu->getLayer()
+      << "  size " << clu->getClusterSize()
+      << "  X " << clu->getX()
+      << "  Y " << clu->getY()
+      << "  Z " << clu->getZ()
+      << "  particle ID " << clu->getParticleID()
+      << "\n";
 }
-    // ---- MC printout 
-    int n = TMath::Abs(tr->getParticleID());
+// ---- MC printout
+int n = TMath::Abs(tr->getParticleID());
 
-    if (ev >= 0 &&
-        ev < (int)gMCParticles.size() &&
-        n >= 0 &&
-        n < (int)gMCParticles[ev].size()) {
+if (ev >= 0 &&
+    ev < (int)gMCParticles.size() &&
+    n >= 0 &&
+    n < (int)gMCParticles[ev].size()) {
 
-        const TParticle* p = gMCParticles[ev][n].get();
+  const TParticle* p = gMCParticles[ev][n].get();
 
-        if (tr->getParticleID() < 0)
-            std::cout << "WARNING: cluster mismatch\n";
+  if (tr->getParticleID() < 0)
+    std::cout << "WARNING: cluster mismatch\n";
 
-        std::cout
-            << "[MC PARTICLE (index = " << n << ")]\n"
-            << "  PDG = " << p->GetPdgCode() << "\n"
-            << "  p = (" << p->Px()
-            << ", " << p->Py()
-            << ", " << p->Pz() << ")\n"
-            << "  E = " << p->Energy() << "\n"
-            << "  vtx = ("
-            << p->Vx() << ", "
-            << p->Vy() << ", "
-            << p->Vz() << ")"
-            << std::endl;
-    }
-    else {
-        std::cout << "[MC PARTICLE] invalid ParticleID = "
-                  << n << std::endl;
-    }
+  std::cout
+    << "[MC PARTICLE (index = " << n << ")]\n"
+    << "  PDG = " << p->GetPdgCode() << "\n"
+    << "  p = (" << p->Px()
+    << ", " << p->Py()
+    << ", " << p->Pz() << ")\n"
+    << "  E = " << p->Energy() << "\n"
+    << "  vtx = ("
+    << p->Vx() << ", "
+    << p->Vy() << ", "
+    << p->Vz() << ")"
+    << std::endl;
+} else {
+  std::cout << "[MC PARTICLE] invalid ParticleID = "
+            << n << std::endl;
+}
 
     std::cout << std::endl;
     gEve->Redraw3D(kFALSE);
@@ -242,14 +241,14 @@ case EveObjType::Hit: {
         auto* clu =
             static_cast<const NA6PBaseCluster*>(ud->ptr);
         std::cout
-            << "[CLUSTER]\n"
-            << "  layer = " << clu->getLayer()
-            << "  size  = " << clu->getClusterSize()
-            << "\n"
-            << "  X = " << clu->getXLab()
-            << "  Y = " << clu->getYLab()
-            << "  Z = " << clu->getZLab()
-            << std::endl;
+          << "[CLUSTER]\n"
+          << "  layer = " << clu->getLayer()
+          << "  size  = " << clu->getClusterSize()
+          << "\n"
+          << "  X = " << clu->getX()
+          << "  Y = " << clu->getY()
+          << "  Z = " << clu->getZ()
+          << std::endl;
         break;
     }
 
@@ -270,7 +269,6 @@ case EveObjType::TrackT: {
     DumpTrack(tr, ud->event, kMatched);
     break;
 }
-        
     }
 }
 ClassDef(EvePicker, 0);
@@ -304,7 +302,7 @@ void DrawHits(const std::vector<HitType>& hits,
                 evIdx
            )
         );
-	
+
         gEve->AddElement(hitEve);
     }
 }
@@ -326,10 +324,9 @@ void DrawClusters(const std::vector<ClusterType>& clusters,
 
         auto* eveClu = new TEvePointSet(1);
         eveClu->SetNextPoint(
-            cluPtr->getXLab(),
-            cluPtr->getYLab(),
-            cluPtr->getZLab()
-        );
+          cluPtr->getX(),
+          cluPtr->getY(),
+          cluPtr->getZ());
 
         eveClu->SetMarkerStyle(20);
         eveClu->SetMarkerSize(1.5);
@@ -351,16 +348,16 @@ void DrawClusters(const std::vector<ClusterType>& clusters,
 }
 
 void event_display_full(int firstEv = 0, int nEv = 1,
-                       const char *fgeo = "geometry.root",
-		       const char *fini = "na6pLayout.ini",
-		       const char *fkine = "MCKine.root",
-		       const char *fhitsM = "HitsMuonSpecModular.root",
-		       const char *fclustersM = "ClustersMuonSpec.root",
-		       const char *ftracksM = "TracksMuonSpec.root",
-		       const char *fhitsV = "HitsVerTel.root",
-		       const char *fclustersV = "ClustersVerTel.root",
-		       const char *ftracksV = "TracksVerTel.root",
-		       const char *ftracksT = "TracksMatching.root")
+                        const char* fgeo = "geometry.root",
+                        const char* fini = "na6pLayout.ini",
+                        const char* fkine = "MCKine.root",
+                        const char* fhitsM = "HitsMuonSpecModular.root",
+                        const char* fclustersM = "ClustersMuonSpec.root",
+                        const char* ftracksM = "TracksMuonSpec.root",
+                        const char* fhitsV = "HitsVerTel.root",
+                        const char* fclustersV = "ClustersVerTel.root",
+                        const char* ftracksV = "TracksVerTel.root",
+                        const char* ftracksT = "TracksMatching.root")
 {
 // ------------------------------------------------------
 // EVE initialization (only once)
@@ -386,8 +383,8 @@ if (!geomLoaded) {
 
 auto &param = NA6PLayoutParam::Instance();
 if(fini) param.updateFromFile(fini,"",true);
-const int nVTstations = param.nVerTelPlanes;  
-const int nMSstations = param.nMSPlanes;  
+const int nVTstations = param.nVerTelPlanes;
+const int nMSstations = param.nMSPlanes;
 
 // ------------------------------------------------------
 // Clear previous event
@@ -501,7 +498,7 @@ for (int iEv = firstEv; iEv < firstEv + nEv; iEv++) {
     ttV->GetEntry(iEv);
     ttT->GetEntry(iEv);
     tk->GetEntry(iEv);
-    
+
     gClusterEve.emplace_back();
     gClusterOrigColor.emplace_back();
     gClusterOrigSize.emplace_back();
@@ -523,11 +520,11 @@ for (int iEv = firstEv; iEv < firstEv + nEv; iEv++) {
 
     DrawClusters(clustersM, kMuonSpec, evIdx);
     DrawClusters(clustersV, kVerTel, evIdx);
-    
+
     cout << " Number of reconstructed tracks MS " <<  msTracks.size() << endl;
-    
+
     for(auto& track : msTracks) {
-    
+
         gAllTracksM.emplace_back(std::make_unique<NA6PTrack>(track));
         auto* trPtr = gAllTracksM.back().get();
 
@@ -535,13 +532,13 @@ for (int iEv = firstEv; iEv < firstEv + nEv; iEv++) {
         eveTrack->SetLineColor(kBlue);
         eveTrack->SetLineWidth(2);
         eveTrack->SetPickable(kTRUE);
-    
+
         double xyz[3];
         track.getXYZ(xyz);
         NA6PFastTrackFitter fitter;
         for(int np = (int)param.posMSPlaneZ[0]-10; np < (int)param.posMSPlaneZ[nMSstations-1]+10; np++){
           fitter.propagateToZ(&track,0.+np);
-          eveTrack->SetNextPoint(track.getXLab(), track.getYLab(), track.getZLab());
+          eveTrack->SetNextPoint(track.getX(), track.getY(), track.getZ());
         }
 
         eveTrack->SetUserData(
@@ -552,9 +549,9 @@ for (int iEv = firstEv; iEv < firstEv + nEv; iEv++) {
     }
 
     cout << " Number of reconstructed tracks VT " <<  vtTracks.size() << endl;
-    
+
     for(auto& track : vtTracks) {
-    
+
         gAllTracksV.emplace_back(std::make_unique<NA6PTrack>(track));
         auto* trPtr = gAllTracksV.back().get();
 
@@ -562,13 +559,13 @@ for (int iEv = firstEv; iEv < firstEv + nEv; iEv++) {
         eveTrack->SetLineColor(kRed);
         eveTrack->SetLineWidth(1);
         eveTrack->SetPickable(kTRUE);
-    
+
         double xyz[3];
         track.getXYZ(xyz);
         NA6PFastTrackFitter fitter;
         for(int np = (int)param.posVerTelPlaneZ[0]-1; np < (int)param.posVerTelPlaneZ[nVTstations-1]+2; np++){
           fitter.propagateToZ(&track,0.+np);
-          eveTrack->SetNextPoint(track.getXLab(), track.getYLab(), track.getZLab());
+          eveTrack->SetNextPoint(track.getX(), track.getY(), track.getZ());
         }
 
         eveTrack->SetUserData(
@@ -579,14 +576,14 @@ for (int iEv = firstEv; iEv < firstEv + nEv; iEv++) {
     }
 
     cout << " Number of matched tracks " <<  maTracks.size() << endl;
-    
+
     for(auto& track : maTracks) {
-    
+
         gAllTracksT.emplace_back(std::make_unique<NA6PTrack>(track));
         auto* trPtr = gAllTracksT.back().get();
-	
-	TEveLine *eveTrack = new TEveLine();
- 	eveTrack->SetLineColor(kOrange);
+
+        TEveLine* eveTrack = new TEveLine();
+        eveTrack->SetLineColor(kOrange);
         eveTrack->SetLineWidth(3);
         eveTrack->SetPickable(kTRUE);
 
@@ -595,7 +592,7 @@ for (int iEv = firstEv; iEv < firstEv + nEv; iEv++) {
         NA6PFastTrackFitter fitter;
         for(int np = 0; np < (int)param.posMSPlaneZ[nMSstations-1]+20; np++){
           fitter.propagateToZ(&track,0.+np);
-          eveTrack->SetNextPoint(track.getXLab(), track.getYLab(), track.getZLab());
+          eveTrack->SetNextPoint(track.getX(), track.getY(), track.getZ());
         }
 
         eveTrack->SetUserData(
@@ -627,4 +624,3 @@ void HighlightClusterIndex(int ev, int idx)
     gClusterEve[ev][idx]->SetMarkerColor(kYellow);
     gClusterEve[ev][idx]->SetMarkerSize(2.5);
 }
-

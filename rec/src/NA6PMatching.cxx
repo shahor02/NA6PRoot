@@ -34,9 +34,7 @@ bool NA6PMatching::initMatching()
   mTrackFitter->loadGeometry(mGeoFilName.c_str(), mGeoObjName.c_str());
   mTrackFitter->enableMaterialCorrections();
   mTrackFitter->setPropagateToPrimaryVertex(false);
-  mTrackFitter->setNLayers(11);
-  mTrackFitter->setParticleHypothesis(13); // muon mass hypothesis
-  mTrackFitter->setUseIntegralBForSeed();
+  mTrackFitter->setParticleHypothesis(PID::Muon); // muon mass hypothesis
   configureFromRecoParam(mRecoParFilName);
   createTracksOutput();
   return true;
@@ -153,12 +151,14 @@ double NA6PMatching::computeChi2(const double* par1, const double* cov1,
 void NA6PMatching::propToZMatching(std::vector<NA6PTrack>& tracks, double z, bool outer)
 {
   for (auto& track : tracks) {
-    if (abs(track.getZLabOuter() - z) < 1e-6)
+    if (abs(track.getOuterParam().getZ() - z) < 1e-6) {
       continue;
-    if (outer) {
-      mTrackFitter->propagateToZOuter(&track, z);
-    } else
-      mTrackFitter->propagateToZ(&track, z);
+    }
+    if (outer) { // RSTODO results of the propagation is not checked
+      Propagator::Instance()->propagateToZ(track.getOuterParam(), z, mTrackFitter->getPropOpt());
+    } else {
+      Propagator::Instance()->propagateToZ(track, z, mTrackFitter->getPropOpt());
+    }
   }
 };
 
@@ -167,7 +167,7 @@ void NA6PMatching::addClustersToFitter(const NA6PTrack& trk, const auto* clusPtr
   uint32_t cmap = trk.getClusterMap();
   for (int lr = 0; lr < NA6PTrack::kMaxLr; ++lr) {
     if (cmap & (1u << lr)) {
-      mTrackFitter->addCluster(lr, (*clusPtr)[trk.getClusterIndex(lr)]);
+      mTrackFitter->addCluster((*clusPtr)[trk.getClusterIndex(lr)]);
     }
   }
 }
@@ -176,17 +176,14 @@ std::tuple<int, bool, double> NA6PMatching::findBestChi2Match(
   const NA6PTrack& msTrack,
   const std::vector<size_t>& validVerTelIndices)
 {
-  const auto msPar = msTrack.getTrackExtParam().getParameter();
-  const auto msCov = msTrack.getTrackExtParam().getCovariance();
-  const int msCharge = msTrack.getCharge();
+  const int msCharge = msTrack.getCharge(), msPartId = msTrack.getParticleID();
   const float msP = msTrack.getP();
-  const int msPartId = msTrack.getParticleID();
-
+  // RSTODO why using P? The natural would be to use getQ2Pxz: measured momentum in the bending plane, or at least getQ2P()
   auto lower = std::partition_point(validVerTelIndices.begin(), validVerTelIndices.end(),
-                                    [&](size_t vIdx) { return (*hVerTelTrackPtr)[vIdx].getPOuter() > msP + mPMatchWindow; });
+                                    [&](size_t vIdx) { return (*hVerTelTrackPtr)[vIdx].getOuterParam().getP() > msP + mPMatchWindow; });
 
   auto upper = std::partition_point(lower, validVerTelIndices.end(),
-                                    [&](size_t vIdx) { return (*hVerTelTrackPtr)[vIdx].getPOuter() >= msP - mPMatchWindow; });
+                                    [&](size_t vIdx) { return (*hVerTelTrackPtr)[vIdx].getOuterParam().getP() >= msP - mPMatchWindow; });
 
   float bestChi2 = mMaxChi2Match;
   int bestIdx = -1;
@@ -195,14 +192,11 @@ std::tuple<int, bool, double> NA6PMatching::findBestChi2Match(
   for (auto it = lower; it != upper; ++it) {
     size_t vIdx = *it;
     const auto& vtTrack = (*hVerTelTrackPtr)[vIdx];
-
-    if (vtTrack.getCharge() * msCharge < 0)
+    if (vtTrack.getCharge() != msCharge) {
       continue;
-
-    const auto vtPar = vtTrack.getOuterParam().getParameter();
-    const auto vtCov = vtTrack.getOuterParam().getCovariance();
-    const double chi2 = computeChi2(msPar, msCov, vtPar, vtCov);
-
+    }
+    // RSTODO this is quite expensive operation, consider doing preliminare rejections based on the abs. differences or pulls
+    const auto chi2 = msTrack.getPredictedChi2(vtTrack.getOuterParam());
     if (chi2 < bestChi2) {
       bestChi2 = chi2;
       bestIdx = vIdx;
@@ -221,9 +215,9 @@ std::unordered_map<int, int> NA6PMatching::buildMCMatchingIndex()
   for (size_t i = 0; i < hVerTelTrackPtr->size(); ++i) {
     const auto& vt = (*hVerTelTrackPtr)[i];
     int pid = vt.getParticleID();
-    if (pid <= 0 || vt.getNHits() < mMinVTHits)
+    if (pid <= 0 || vt.getNHits() < mMinVTHits) {
       continue;
-
+    }
     // Prefer track with more hits if there are duplicates with same particle ID
     auto it = vtByPid.find(pid);
     if (it == vtByPid.end() || vt.getNHits() > (*hVerTelTrackPtr)[it->second].getNHits()) {
@@ -261,23 +255,15 @@ bool NA6PMatching::fitAndStoreMatchedTrack(const NA6PTrack& vtTrk,
   NA6PTrack matchedTrack;
   NA6PTrack seed;
   NA6PTrack* seedPtr = nullptr;
-
+  /*
+    // RSTODO
   if (mDoOutwardInwardFit) {
-
+    // RSTODO here again, we copy the whole track just for the refit, consider using only TrackParCov part
     NA6PTrack vtSeed = vtTrk;
-
-  const float zFirstVTCluster =
-      (*hVerTelClusPtr)[vtTrk.getClusterIndex(0)].getZLab();
-
-    if (vtSeed.getZLab() != zFirstVTCluster) {
-      mTrackFitter->propagateToZ(&vtSeed, zFirstVTCluster);
-    }
-
     if (!mTrackFitter->fitTrackPointsOutward(seed, &vtSeed)) {
       LOGP(warn, "Fit of matched track failed, skipping");
       return false;
     }
-
     seedPtr = &seed;
   }
 
@@ -285,12 +271,13 @@ bool NA6PMatching::fitAndStoreMatchedTrack(const NA6PTrack& vtTrk,
     LOGP(warn, "Refit of matched track failed, skipping");
     return false;
   }
-
+  */
   matchedTrack.setParticleID(particleId);
   matchedTrack.setMatchChi2(matchChi2);
 
-  if (mPropagateTracksToPrimaryVertex) {
-    mTrackFitter->propagateToZ(&matchedTrack, mPrimaryVertex->getZ());
+  // RSTODO is not this done internally in the mTrackFitter?
+  if (mPropagateTracksToPrimaryVertex && mPrimaryVertex) {
+    Propagator::Instance()->propagateToZ(matchedTrack, mPrimaryVertex->getZ(), mTrackFitter->getPropOpt());
   }
 
   mMatchedTracks.push_back(std::move(matchedTrack));
@@ -348,8 +335,11 @@ void NA6PMatching::runMatching()
     return;
   }
   clearTracks();
-  mMatchedTracks.reserve(hMuonSpecTrackPtr->size());
-  LOGP(info, "Process event with nVTTracks {} nMSTracks {}, primary vertex in z = {} cm", hVerTelTrackPtr->size(), hMuonSpecTrackPtr->size(), mPrimaryVertex->getZ());
+  mMatchedTracks.reserve(hMuonSpecTrackPtr ? hMuonSpecTrackPtr->size() : 0);
+  LOGP(info, "Process event with nVTTracks {} nMSTracks {}, primary vertex in z = {} cm",
+       hVerTelTrackPtr ? hVerTelTrackPtr->size() : 0,
+       hMuonSpecTrackPtr ? hMuonSpecTrackPtr->size() : 0,
+       mPrimaryVertex ? mPrimaryVertex->getZ() : -999.);
 
   if (mMCMatching) {
     runMCMatching();

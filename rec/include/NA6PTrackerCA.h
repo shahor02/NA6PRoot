@@ -50,6 +50,16 @@ struct TrackCandidate {
   int outerLayer;
   int outerCellIndex;
   std::vector<int> cluIDs;
+  int getCluIDsWOGaps(std::vector<int>& dest) const // fill vectors of cluster IDs w/o gaps. RSTOD: check if cluIDs has actually gaps
+  {
+    dest.clear();
+    for (const auto cid : cluIDs) {
+      if (cid >= 0) {
+        dest.push_back(cid);
+      }
+    }
+    return dest.size();
+  }
 };
 
 struct TrackFitted {
@@ -71,10 +81,10 @@ class NA6PTrackerCA
   static constexpr int kMaxIterationsCA = 10;
 
   NA6PTrackerCA();
-  ~NA6PTrackerCA();
+  ~NA6PTrackerCA() = default;
 
   // setters for configurable parameters
-  void setNLayers(int n);
+  void setNLayers(int n) { mNLayers = n; }
   void setStartLayer(int start) { mLayerStart = start; }
   void setMaxNumberOfSharedClusters(int n) { mMaxSharedClusters = n; }
   void setPropagateTracksToPrimaryVertex(bool opt = true) { mPropagateTracksToPrimaryVertex = opt; }
@@ -94,22 +104,10 @@ class NA6PTrackerCA
                           float maxChi2ndfCells,
                           float maxChi2ndfTracks,
                           int minNClusTracks);
-  void setParticleHypothesis(int pdg);
-  void setUseIntegralBForSeed()
-  {
-    if (mTrackFitter)
-      mTrackFitter->setUseIntegralBForSeed();
-  }
-  void setUseBatMidPointForSeed()
-  {
-    if (mTrackFitter)
-      mTrackFitter->setUseBatMidPointForSeed();
-  }
-  void setMaxStepForMaterialRecording(double step)
-  {
-    if (mTrackFitter)
-      mTrackFitter->setMaxStepForMaterialRecording(step);
-  }
+  void setParticleHypothesisPDG(int pdg) { mPID = PID::PDG2PID(pdg); }
+  void setParticleHypothesis(PID pid) { mPID = pid; }
+
+  void setMaxPropagationStep(float step) { mTrackFitter->setMaxPropagationStep(step); }
   void configureFromRecoParamVT(const std::string& filename = "");
   void configureFromRecoParamMS(const std::string& filename = "");
   void setVerbosity(bool opt = true) { mVerbose = opt; }
@@ -123,7 +121,7 @@ class NA6PTrackerCA
   std::vector<NA6PTrack> getTracks();
   template <typename ClusterType>
   std::vector<std::pair<ClusterType, ClusterType>> findTracklets(int jFirstLay, int jLastLay, std::vector<ClusterType>& cluArr, const NA6PVertex* primVert);
-  NA6PFastTrackFitter* getTrackFitter() { return mTrackFitter; }
+  NA6PFastTrackFitter* getTrackFitter() { return mTrackFitter.get(); }
 
  protected:
   // methods used in tracking
@@ -157,14 +155,14 @@ class NA6PTrackerCA
                          float maxChi2TrClu,
                          float maxChi2NDF);
   template <typename ClusterType>
-  float computeTrackToClusterChi2(const NA6PTrack& track,
+  float computeTrackToClusterChi2(const NA6PTrackParCov& track,
                                   const ClusterType& clu);
   template <typename ClusterType>
-  bool fitTrackPointsFast(const std::vector<int>& cluIDs,
-                          const std::vector<ClusterType>& cluArr,
-                          NA6PTrack& fitTrack,
-                          float maxChi2TrClu,
-                          float maxChi2NDF);
+  float fitTrackPointsFast(const std::vector<int>& cluIDs,
+                           const std::vector<ClusterType>& cluArr,
+                           NA6PTrackParCov& fitTrack,
+                           float maxChi2TrClu,
+                           float maxChi2NDF);
   template <typename ClusterType>
   void findCellsNeighbours(const std::vector<CellCandidate>& cells,
                            const std::vector<int>& firstIndex,
@@ -205,10 +203,11 @@ class NA6PTrackerCA
                   int requiredClus = -1);
 
  private:
+  PID mPID{};
   int mNLayers = 5;
   int mLayerStart = 0;
   float mPrimVertPos[3] = {};
-  NA6PFastTrackFitter* mTrackFitter = nullptr;
+  std::unique_ptr<NA6PFastTrackFitter> mTrackFitter;
   std::vector<bool> mIsClusterUsed = {};
   std::vector<TrackFitted> mFinalTracks = {};
   int mMaxSharedClusters = 0;

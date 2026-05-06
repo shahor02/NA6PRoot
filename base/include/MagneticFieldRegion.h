@@ -84,8 +84,10 @@ class MagneticFieldRegion
 
  private:
   void cacheValues(const std::string& line, std::vector<float>& cachev);
-  void interpolateField(int i, int j, int k, float x, float y, float z, double* bxbybz) const;
-  void interpolateFieldAdd(int i, int j, int k, float x, float y, float z, double* bxbybz) const;
+  template <typename T = float>
+  void interpolateField(int i, int j, int k, float x, float y, float z, T* bxbybz) const;
+  template <typename T = float>
+  void interpolateFieldAdd(int i, int j, int k, float x, float y, float z, T* bxbybz) const;
   float getFieldComponent(int i, int j, int k, int dim) const
   {
     //    int index = i * ny * nz + j * nz + k;
