@@ -31,12 +31,20 @@ class NA6PVerTelSegmentation
   static constexpr float DeadXDataBackbone = 0.006;                   // dead space between every segment (triplet of tiles)
   static constexpr float XSizeTot = 12.9996 + DeadXShort + DeadXLong; // 13.5996;
   static constexpr float YSizeTot = 13.5898 + DeadYBottom + DeadYTop; // 13.6948; // readout side
-  static constexpr int NXTiles = 36;                                  // tiles (3 tiles per segment)
-  static constexpr int NXSegments = 12;                               // group of 3 tiles
+  static constexpr int NXSegments = 12;                               // number of segments per row
+  static constexpr int NTilesPerSegment = 3;                          // number of tiles per segment
+  static constexpr int NSegmentsPerRSU = 2;                           // segments per RSU (along x)
+  static constexpr int NXTiles = NXSegments * NTilesPerSegment;       // tiles per row
   static constexpr int NYSensors = 7;                                 // number of rows along y
   static constexpr float DXSegment = (XSizeTot - DeadXShort - DeadXLong) / NXSegments;
-  static constexpr float DXTile = (DXSegment - DeadXDataBackbone) / 3;
+  static constexpr float DXTile = (DXSegment - DeadXDataBackbone) / NTilesPerSegment;
   static constexpr float DYSens = YSizeTot / NYSensors;
+  static constexpr float ActiveDX = DXTile - DeadXTile;
+  static constexpr float ActiveDYSens = DYSens - DeadYBottom - DeadYTop;
+  static constexpr float ActiveDYHalf = ActiveDYSens / 2;
+  static constexpr float ActiveDYTile = ActiveDYHalf - DeadTopBotHalves / 2;
+  static constexpr int NRowsPerTile = 460;
+  static constexpr int NColsPerTile = 162;
 
   NA6PVerTelSegmentation() = default;
 
@@ -45,7 +53,15 @@ class NA6PVerTelSegmentation
   void setInterChipGap(float val) { mInterChipGap = val; }
   void setStaggered(bool val);
 
-  int isInAcc(float x, float y) const;
+  bool localToIndices(float xloc, float yloc, int& rsu, int& tile, int& row, int& col) const;
+  int isInAcc(float xglo, float yglo) const;
+  bool indicesToLocal(int rsu, int tile, int row, int col, float& xloc, float& yloc) const;
+
+ private:
+  bool computePixelIndices(float xloc, float yloc,
+                           float deadYBottom, float deadYTop,
+                           int& rsu, int& tile,
+                           int& row, int& col) const;
 
  protected:
   float mOffsX = 0.3;
