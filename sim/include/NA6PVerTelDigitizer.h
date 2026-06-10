@@ -16,6 +16,7 @@
 #define NA6P_VERTEL_DIGITIZER_H
 
 #include "NA6PVerTelPreDigitContainer.h"
+#include "NA6PVerTelSegmentation.h"
 #include <Rtypes.h>
 #include <TGeoMatrix.h>
 
@@ -35,9 +36,12 @@ class NA6PVerTelDigitizer
   void process(const std::vector<NA6PVerTelHit>& hits, int layer = -1);
   void processHit(NA6PVerTelHit hit);
 
+  void getHitLocalCoord(NA6PVerTelHit hit, double xyzLocS[3], double xyzLocE[3]);
+
  protected:
   int mNumberOfModules = 0;                          ///< number of modules
   std::vector<NA6PVerTelPreDigitContainer> mModules; ///< Array of module pre-digits containers
+  NA6PVerTelSegmentation mSegmentation;              ///< segmentation class
   std::vector<TGeoHMatrix> mMatrices{};              ///< local-to-global transforms
   std::vector<float> mModuleHalfX;                   ///< Module half length along x
   std::vector<float> mModuleHalfY;                   ///< Module half length along y

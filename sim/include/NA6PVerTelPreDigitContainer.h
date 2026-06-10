@@ -60,6 +60,9 @@ class NA6PVerTelPreDigitContainer
   ~NA6PVerTelPreDigitContainer() = default;
 
   std::map<ULong64_t, PreDigit>& getPreDigits() { return mPreDigits; }
+  PreDigit* findDigit(ULong64_t key);
+  void addDigit(ULong64_t key, UShort_t rs, UShort_t tl, UShort_t rw, UShort_t cl, float ch, int lbl);
+
   UShort_t getDetectorIndex() const { return mDetectorIndex; }
 
   void setDetectorIndex(UShort_t ind) { mDetectorIndex = ind; }
@@ -96,5 +99,18 @@ class NA6PVerTelPreDigitContainer
 
   ClassDefNV(NA6PVerTelPreDigitContainer, 1);
 };
+
+//_______________________________________________________________________
+inline PreDigit* NA6PVerTelPreDigitContainer::findDigit(ULong64_t key)
+{
+  // finds the digit corresponding to global key
+  auto digitentry = mPreDigits.find(key);
+  return digitentry != mPreDigits.end() ? &(digitentry->second) : nullptr;
+}
+//_______________________________________________________________________
+inline void NA6PVerTelPreDigitContainer::addDigit(ULong64_t key, UShort_t rs, UShort_t tl, UShort_t rw, UShort_t cl, float ch, int lbl)
+{
+  mPreDigits.emplace(std::make_pair(key, PreDigit(rs, tl, rw, cl, ch, lbl)));
+}
 
 #endif

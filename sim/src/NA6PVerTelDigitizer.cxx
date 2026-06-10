@@ -101,24 +101,57 @@ void NA6PVerTelDigitizer::process(const std::vector<NA6PVerTelHit>& hits, int la
   }
 }
 
+void NA6PVerTelDigitizer::getHitLocalCoord(NA6PVerTelHit hit, double xyzLocS[3], double xyzLocE[3])
+{
+  auto modID = hit.getDetectorID();
+  auto& matrix = mMatrices[modID];
+
+  double xyzGloS[3] = {hit.getXIn(), hit.getYIn(), hit.getZIn()};
+  double xyzGloE[3] = {hit.getXOut(), hit.getYOut(), hit.getZOut()};
+
+  matrix.MasterToLocal(xyzGloS, xyzLocS);
+  xyzLocS[0] += mModuleHalfX[modID];
+  xyzLocS[1] += mModuleHalfY[modID];
+  matrix.MasterToLocal(xyzGloE, xyzLocE);
+  xyzLocE[0] += mModuleHalfX[modID];
+  xyzLocE[1] += mModuleHalfY[modID];
+  if (modID % kNModulesPerLayer == 1) {
+    // swap x
+    xyzLocS[0] = mModuleHalfX[modID] * 2. - xyzLocS[0];
+    xyzLocE[0] = mModuleHalfX[modID] * 2. - xyzLocE[0];
+  } else if (modID % kNModulesPerLayer == 2) {
+    // swap x and y
+    xyzLocS[0] = mModuleHalfX[modID] * 2. - xyzLocS[0];
+    xyzLocS[1] = mModuleHalfY[modID] * 2. - xyzLocS[1];
+    xyzLocE[0] = mModuleHalfX[modID] * 2. - xyzLocE[0];
+    xyzLocE[1] = mModuleHalfY[modID] * 2. - xyzLocE[1];
+  } else if (modID % kNModulesPerLayer == 3) {
+    // swap y
+    xyzLocS[1] = mModuleHalfY[modID] * 2. - xyzLocS[1];
+    xyzLocE[1] = mModuleHalfY[modID] * 2. - xyzLocE[1];
+  }
+}
+
 void NA6PVerTelDigitizer::processHit(NA6PVerTelHit hit)
 {
   auto modID = hit.getDetectorID();
-  printf("modID = %d\n", modID);
   auto& mod = mModules[modID];
   if (mod.isDisabled()) {
     LOGP(info, "Skipping disabled module {}", modID);
     return;
   }
-  auto& matrix = mMatrices[modID];
-
-  double xyzGloS[3] = {hit.getXIn(), hit.getYIn(), hit.getZIn()};
-  double xyzGloE[3] = {hit.getXOut(), hit.getYOut(), hit.getZOut()};
-  printf("Global coordinates = %f %f %f\n", xyzGloS[0], xyzGloS[1], xyzGloS[2]);
-
   double xyzLocS[3], xyzLocE[3];
-  matrix.MasterToLocal(xyzGloS, xyzLocS);
-  xyzLocS[0] += mModuleHalfX[modID];
-  xyzLocS[1] += mModuleHalfY[modID];
-  printf("Local coordinates: %f %f %f\n", xyzLocS[0], xyzLocS[1], xyzLocS[2]);
+  getHitLocalCoord(hit, xyzLocS, xyzLocE);
+  int rsu, tile, row, col;
+  bool digOk = mSegmentation.localToIndices(xyzLocS[0], xyzLocS[1], rsu, tile, row, col);
+  if (digOk) {
+    auto key = mod.getOrderingKey(rsu, tile, row, col);
+    PreDigit* pd = mod.findDigit(key);
+    if (!pd) {
+      mod.addDigit(key, rsu, tile, row, col, hit.getHitValue(), hit.getTrackID());
+    } else { // there is already a digit at this slot, account as PreDigitExtra contribution
+      pd->charge += hit.getHitValue();
+      // to be added: treat multiple particles (getTrackID) in the same pre-digit
+    }
+  }
 }

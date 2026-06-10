@@ -18,9 +18,6 @@
 #pragma link C++ class NA6PVerTelHit + ;
 #pragma link C++ class std::vector < NA6PVerTelHit> + ;
 
-#pragma link C++ class NA6PVerTelSegmentation + ;
-#pragma link C++ class std::vector < NA6PVerTelSegmentation> + ;
-
 #pragma link C++ class NA6PMuonSpecHit + ;
 #pragma link C++ class std::vector < NA6PMuonSpecHit> + ;
 
@@ -40,6 +37,9 @@
 #pragma link C++ class NA6PGenHepMC + ;
 #pragma link C++ class NA6PGenHisto + ;
 #pragma link C++ class NA6PGenCocktail + ;
+
+#pragma link C++ class NA6PVerTelSegmentation + ;
+#pragma link C++ class NA6PVerTelDigitizer + ;
 
 #pragma link C++ class std::vector < TParticle> + ;
 
