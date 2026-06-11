@@ -53,15 +53,15 @@ class NA6PVerTelSegmentation
   void setInterChipGap(float val) { mInterChipGap = val; }
   void setStaggered(bool val);
 
-  bool localToIndices(float xloc, float yloc, int& rsu, int& tile, int& row, int& col) const;
+  bool localToIndices(float xloc, float yloc, UShort_t& rsu, UShort_t& tile, UShort_t& row, UShort_t& col) const;
   int isInAcc(float xglo, float yglo) const;
-  bool indicesToLocal(int rsu, int tile, int row, int col, float& xloc, float& yloc) const;
+  bool indicesToLocal(UShort_t rsu, UShort_t tile, UShort_t row, UShort_t col, float& xloc, float& yloc) const;
 
  private:
   bool computePixelIndices(float xloc, float yloc,
                            float deadYBottom, float deadYTop,
-                           int& rsu, int& tile,
-                           int& row, int& col) const;
+                           UShort_t& rsu, UShort_t& tile,
+                           UShort_t& row, UShort_t& col) const;
 
  protected:
   float mOffsX = 0.3;

@@ -16,9 +16,13 @@
 #define NA6P_VERTEL_DIGITIZER_H
 
 #include "NA6PVerTelPreDigitContainer.h"
+#include "NA6PVerTelDigit.h"
 #include "NA6PVerTelSegmentation.h"
 #include <Rtypes.h>
 #include <TGeoMatrix.h>
+
+class TFile;
+class TTree;
 
 // steers hits -> digits step
 
@@ -28,7 +32,10 @@ class NA6PVerTelDigitizer
   static constexpr int kNModulesPerLayer = 4;
 
   NA6PVerTelDigitizer() = default;
+  NA6PVerTelDigitizer(const std::string& name) : mName(name) {}
   ~NA6PVerTelDigitizer() = default;
+
+  const std::string& getName() const { return mName; }
 
   static int detID2Layer(int detID) { return detID / kNModulesPerLayer; }
 
@@ -36,15 +43,27 @@ class NA6PVerTelDigitizer
   void process(const std::vector<NA6PVerTelHit>& hits, int layer = -1);
   void processHit(NA6PVerTelHit hit);
 
+  size_t getNDigits() const { return mDigits.size(); }
+  void createDigitsOutput();
+  void closeDigitsOutput();
+  void writeDigits();
+  void clearDigits() { mDigits.clear(); }
+  const auto& getDigits() const { return mDigits; }
+
   void getHitLocalCoord(NA6PVerTelHit hit, double xyzLocS[3], double xyzLocE[3]);
 
  protected:
+  std::string mName{"VerTel"};                       ///< detector name
   int mNumberOfModules = 0;                          ///< number of modules
   std::vector<NA6PVerTelPreDigitContainer> mModules; ///< Array of module pre-digits containers
   NA6PVerTelSegmentation mSegmentation;              ///< segmentation class
   std::vector<TGeoHMatrix> mMatrices{};              ///< local-to-global transforms
   std::vector<float> mModuleHalfX;                   ///< Module half length along x
   std::vector<float> mModuleHalfY;                   ///< Module half length along y
+  std::vector<NA6PVerTelDigit> mDigits, *hDigitsPtr = &mDigits;
+  TFile* mDigitsFile = nullptr;
+  TTree* mDigitsTree = nullptr;
+
   ClassDefNV(NA6PVerTelDigitizer, 1);
 };
 

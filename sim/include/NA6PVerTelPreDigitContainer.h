@@ -16,19 +16,22 @@
 #define NA6P_VERTEL_PREDIGITCONTAINER_H
 
 #include <Rtypes.h>
+#include "NA6PVerTelDigit.h"
 
 // container of pre-digits per module
 
 struct PreDigit {
-  UShort_t rsu = 0;    ///< RSU index in the detector [0, 41]
-  UShort_t tile = 0;   ///< Tile index in the RSU [0, 11]
-  UShort_t row = 0;    ///< Pixel row in the tile [0, 459]
-  UShort_t col = 0;    ///< Pixel column in the tile [0, 161]
+  VTPixID pixID;       ///< pixel identifier from NA6PVerTelDigit
   float charge = 0.f;  ///< collected charg in pixel
   int particleID = -1; ///< label of MC particle
 
-  PreDigit(UShort_t rs = 0, UShort_t tl = 0, UShort_t rw = 0, UShort_t cl = 0, float ch = 0.f, int lbl = 0)
-    : rsu(rs), tile(tl), row(rw), col(cl), charge(ch), particleID(lbl) {}
+  PreDigit(UShort_t rs = 0, UShort_t tl = 0, UShort_t rw = 0, UShort_t cl = 0, float ch = 0.f, int lbl = -1) : charge(ch), particleID(lbl)
+  {
+    pixID.rsu = rs;
+    pixID.tile = tl;
+    pixID.row = rw;
+    pixID.col = cl;
+  }
 
   ClassDefNV(PreDigit, 1);
 };
@@ -36,25 +39,12 @@ struct PreDigit {
 class NA6PVerTelPreDigitContainer
 {
  public:
-  static constexpr int kColBits = 10; // 0-161,  max 1023
-  static constexpr int kRowBits = 10; // 0-459,  max 1023
-  static constexpr int kTileBits = 4; // 0-11,   max 15
-  static constexpr int kRsuBits = 6;  // 0-41,   max 63
-  static constexpr int kRofBits = 34; // reserved for future use
+  static constexpr int kRofShift = 8 * sizeof(uint32_t); // shift by VTPixID size
 
-  static constexpr ULong64_t kColMask = (1ULL << kColBits) - 1;
-  static constexpr ULong64_t kRowMask = (1ULL << kRowBits) - 1;
-  static constexpr ULong64_t kTileMask = (1ULL << kTileBits) - 1;
-  static constexpr ULong64_t kRsuMask = (1ULL << kRsuBits) - 1;
-  static constexpr ULong64_t kRofMask = (1ULL << kRofBits) - 1;
-
-  static constexpr int kRowShift = kColBits;
-  static constexpr int kTileShift = kRowShift + kRowBits;
-  static constexpr int kRsuShift = kTileShift + kTileBits;
-  static constexpr int kRofShift = kRsuShift + kRsuBits;
-
-  static_assert(kColBits + kRowBits + kTileBits + kRsuBits + kRofBits == 64,
-                "Key bit fields must sum to exactly 64 bits");
+  static_assert(VTPixID::kColBits + VTPixID::kRowBits +
+                    VTPixID::kTileBits + VTPixID::kRsuBits <=
+                  kRofShift,
+                "VTPixID bit fields must fit within kRofShift in the 64-bit key");
 
   NA6PVerTelPreDigitContainer(UShort_t idx = 0) : mDetectorIndex(idx){};
   ~NA6PVerTelPreDigitContainer() = default;
@@ -64,29 +54,33 @@ class NA6PVerTelPreDigitContainer
   void addDigit(ULong64_t key, UShort_t rs, UShort_t tl, UShort_t rw, UShort_t cl, float ch, int lbl);
 
   UShort_t getDetectorIndex() const { return mDetectorIndex; }
-
   void setDetectorIndex(UShort_t ind) { mDetectorIndex = ind; }
 
   bool isEmpty() const { return mPreDigits.empty(); }
   static ULong64_t getOrderingKey(UShort_t rsu, UShort_t tile, UShort_t row, UShort_t col)
   {
-    return (static_cast<ULong64_t>(rsu) << kRsuShift) |
-           (static_cast<ULong64_t>(tile) << kTileShift) |
-           (static_cast<ULong64_t>(row) << kRowShift) |
-           static_cast<ULong64_t>(col);
+    VTPixID id;
+    id.rsu = rsu;
+    id.tile = tile;
+    id.row = row;
+    id.col = col;
+    return static_cast<ULong64_t>(id.pack());
   }
-  static UShort_t key2col(ULong64_t key) { return static_cast<UShort_t>(key & kColMask); }
-  static UShort_t key2row(ULong64_t key) { return static_cast<UShort_t>((key >> kRowShift) & kRowMask); }
-  static UShort_t key2tile(ULong64_t key) { return static_cast<UShort_t>((key >> kTileShift) & kTileMask); }
-  static UShort_t key2rsu(ULong64_t key) { return static_cast<UShort_t>((key >> kRsuShift) & kRsuMask); }
+
+  static UShort_t key2col(ULong64_t key) { return key2pixID(key).col; }
+  static UShort_t key2row(ULong64_t key) { return key2pixID(key).row; }
+  static UShort_t key2tile(ULong64_t key) { return key2pixID(key).tile; }
+  static UShort_t key2rsu(ULong64_t key) { return key2pixID(key).rsu; }
+
   static void unpackKey(ULong64_t key,
                         UShort_t& rsu, UShort_t& tile,
                         UShort_t& row, UShort_t& col)
   {
-    col = key2col(key);
-    row = key2row(key);
-    tile = key2tile(key);
-    rsu = key2rsu(key);
+    VTPixID id = key2pixID(key);
+    rsu = id.rsu;
+    tile = id.tile;
+    row = id.row;
+    col = id.col;
   }
 
   bool isDisabled() const { return mDisabled; }
@@ -96,6 +90,12 @@ class NA6PVerTelPreDigitContainer
   UShort_t mDetectorIndex = 0;              ///< Detector index
   bool mDisabled = false;                   ///< flag to disable module
   std::map<ULong64_t, PreDigit> mPreDigits; ///< Map of fired pixels
+
+ private:
+  static VTPixID key2pixID(ULong64_t key)
+  {
+    return VTPixID::unpack(static_cast<uint32_t>(key & 0xFFFFFFFF));
+  }
 
   ClassDefNV(NA6PVerTelPreDigitContainer, 1);
 };

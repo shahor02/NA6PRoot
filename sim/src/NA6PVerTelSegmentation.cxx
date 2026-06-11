@@ -20,8 +20,8 @@ void NA6PVerTelSegmentation::setStaggered(bool val)
 
 bool NA6PVerTelSegmentation::computePixelIndices(float xloc, float yloc,
                                                  float deadYBottom, float deadYTop,
-                                                 int& rsu, int& tile,
-                                                 int& row, int& col) const
+                                                 UShort_t& rsu, UShort_t& tile,
+                                                 UShort_t& row, UShort_t& col) const
 {
   int sens = int(yloc / DYSens);
   yloc -= sens * DYSens;
@@ -47,10 +47,10 @@ bool NA6PVerTelSegmentation::computePixelIndices(float xloc, float yloc,
   // map segm [0-11] and topbot [0-1] and tileIdx [0-2] to rsu [0-41] and tile [0-11]
   int rsuX = segm / NSegmentsPerRSU;
   int segInRsu = segm % NSegmentsPerRSU;
-  rsu = sens * (NXSegments / NSegmentsPerRSU) + rsuX;
-  tile = topbot * (NSegmentsPerRSU * NTilesPerSegment) + segInRsu * NTilesPerSegment + tileIdx;
-  col = static_cast<int>(xloc / ActiveDX * NColsPerTile);
-  row = static_cast<int>(yloc / ActiveDYTile * NRowsPerTile);
+  rsu = static_cast<UShort_t>(sens * (NXSegments / NSegmentsPerRSU) + rsuX);
+  tile = static_cast<UShort_t>(topbot * (NSegmentsPerRSU * NTilesPerSegment) + segInRsu * NTilesPerSegment + tileIdx);
+  col = static_cast<UShort_t>(xloc / ActiveDX * NColsPerTile);
+  row = static_cast<UShort_t>(yloc / ActiveDYTile * NRowsPerTile);
   return true;
 }
 
@@ -84,11 +84,11 @@ int NA6PVerTelSegmentation::isInAcc(float xglo, float yglo) const
 
   float xloc = xglo;
   float yloc = yglo;
-  int rsu, tile, row, col;
+  UShort_t rsu, tile, row, col;
   return computePixelIndices(xloc, yloc, mDeadYBottomEff, mDeadYTopEff, rsu, tile, row, col) ? 1 : -1;
 }
 
-bool NA6PVerTelSegmentation::localToIndices(float xloc, float yloc, int& rsu, int& tile, int& row, int& col) const
+bool NA6PVerTelSegmentation::localToIndices(float xloc, float yloc, UShort_t& rsu, UShort_t& tile, UShort_t& row, UShort_t& col) const
 {
   rsu = tile = row = col = -1;
   if (xloc < 0 || xloc > XSizeTot || yloc < 0 || yloc > YSizeTot)
@@ -100,22 +100,22 @@ bool NA6PVerTelSegmentation::localToIndices(float xloc, float yloc, int& rsu, in
   xloc -= DeadXShort;
 
   bool isOk = computePixelIndices(xloc, yloc, DeadYBottom, DeadYTop, rsu, tile, row, col);
-  if (!isOk || col < 0 || col >= NColsPerTile || row < 0 || row >= NRowsPerTile) {
+  if (!isOk || col >= NColsPerTile || row >= NRowsPerTile) {
     return false;
   }
   return true;
 }
 
-bool NA6PVerTelSegmentation::indicesToLocal(int rsu, int tile, int row, int col, float& xloc, float& yloc) const
+bool NA6PVerTelSegmentation::indicesToLocal(UShort_t rsu, UShort_t tile, UShort_t row, UShort_t col, float& xloc, float& yloc) const
 {
   xloc = yloc = -9999.f;
-  if (rsu < 0 || rsu >= NYSensors * (NXSegments / NSegmentsPerRSU))
+  if (rsu >= NYSensors * (NXSegments / NSegmentsPerRSU))
     return false;
-  if (tile < 0 || tile >= NTilesPerSegment * NSegmentsPerRSU * 2)
+  if (tile >= NTilesPerSegment * NSegmentsPerRSU * 2)
     return false;
-  if (row < 0 || row >= NRowsPerTile)
+  if (row >= NRowsPerTile)
     return false;
-  if (col < 0 || col >= NColsPerTile)
+  if (col >= NColsPerTile)
     return false;
 
   float xInTile = (col + 0.5f) * ActiveDX / NColsPerTile;

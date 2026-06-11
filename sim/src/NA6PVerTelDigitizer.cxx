@@ -6,14 +6,14 @@
 #include <TGeoNode.h>
 #include <TGeoBBox.h>
 #include <TGeoManager.h>
+#include <TFile.h>
+#include <TTree.h>
 
 #include "NA6PLayoutParam.h"
 #include "NA6PVerTelHit.h"
 #include "NA6PVerTelDigitizer.h"
 
-ClassImp(NA6PVerTelDigitizer)
-
-  void NA6PVerTelDigitizer::init(const char* filename, const char* geoname)
+void NA6PVerTelDigitizer::init(const char* filename, const char* geoname)
 {
   const auto& param = NA6PLayoutParam::Instance();
   mNumberOfModules = param.nVerTelPlanes * kNModulesPerLayer;
@@ -81,10 +81,42 @@ ClassImp(NA6PVerTelDigitizer)
       LOGP(error, "Matrix not loaded for module {}", im);
     }
   }
+  createDigitsOutput();
+}
+
+void NA6PVerTelDigitizer::createDigitsOutput()
+{
+  auto nm = fmt::format("Digits{}.root", getName());
+  mDigitsFile = TFile::Open(nm.c_str(), "recreate");
+  mDigitsTree = new TTree(fmt::format("digits{}", getName()).c_str(), fmt::format("{} Digits", getName()).c_str());
+  mDigitsTree->Branch(getName().c_str(), &hDigitsPtr);
+  LOGP(info, "Will store {} hits in {}", getName(), nm);
+}
+
+void NA6PVerTelDigitizer::closeDigitsOutput()
+{
+  if (mDigitsTree && mDigitsFile) {
+    mDigitsFile->cd();
+    mDigitsTree->Write();
+    delete mDigitsTree;
+    mDigitsTree = nullptr;
+    mDigitsFile->Close();
+    delete mDigitsFile;
+    mDigitsFile = nullptr;
+  }
+}
+
+void NA6PVerTelDigitizer::writeDigits()
+{
+  if (mDigitsTree) {
+    mDigitsTree->Fill();
+  }
+  LOGP(info, "Saved {} clustersdigits in tree with {} entries", mDigits.size(), mDigitsTree->GetEntries());
 }
 
 void NA6PVerTelDigitizer::process(const std::vector<NA6PVerTelHit>& hits, int layer)
 {
+  clearDigits();
   int nHits = hits.size();
   std::vector<int> hitIdx(nHits);
   std::iota(std::begin(hitIdx), std::end(hitIdx), 0);
@@ -142,7 +174,7 @@ void NA6PVerTelDigitizer::processHit(NA6PVerTelHit hit)
   }
   double xyzLocS[3], xyzLocE[3];
   getHitLocalCoord(hit, xyzLocS, xyzLocE);
-  int rsu, tile, row, col;
+  UShort_t rsu, tile, row, col;
   bool digOk = mSegmentation.localToIndices(xyzLocS[0], xyzLocS[1], rsu, tile, row, col);
   if (digOk) {
     auto key = mod.getOrderingKey(rsu, tile, row, col);
