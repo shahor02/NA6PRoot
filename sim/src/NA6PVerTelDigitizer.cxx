@@ -19,6 +19,7 @@ void NA6PVerTelDigitizer::init(const char* filename, const char* geoname)
   mNumberOfModules = param.nVerTelPlanes * kNModulesPerLayer;
   mModules.resize(mNumberOfModules);
   mMatrices.resize(mNumberOfModules);
+  mThresholds.assign(mNumberOfModules, kDefaultThresholdEl);
 
   if (!gGeoManager) {
     TFile* f = TFile::Open(filename);
@@ -111,7 +112,7 @@ void NA6PVerTelDigitizer::writeDigits()
   if (mDigitsTree) {
     mDigitsTree->Fill();
   }
-  LOGP(info, "Saved {} clustersdigits in tree with {} entries", mDigits.size(), mDigitsTree->GetEntries());
+  LOGP(info, "Saved {} digits in tree with {} entries", mDigits.size(), mDigitsTree->GetEntries());
 }
 
 void NA6PVerTelDigitizer::process(const std::vector<NA6PVerTelHit>& hits, int layer)
@@ -131,6 +132,8 @@ void NA6PVerTelDigitizer::process(const std::vector<NA6PVerTelHit>& hits, int la
                })) {
     processHit(hits[i]);
   }
+  finalizeDigits();
+  writeDigits();
 }
 
 void NA6PVerTelDigitizer::getHitLocalCoord(NA6PVerTelHit hit, double xyzLocS[3], double xyzLocE[3])
@@ -180,10 +183,35 @@ void NA6PVerTelDigitizer::processHit(NA6PVerTelHit hit)
     auto key = mod.getOrderingKey(rsu, tile, row, col);
     PreDigit* pd = mod.findDigit(key);
     if (!pd) {
-      mod.addDigit(key, rsu, tile, row, col, hit.getHitValue(), hit.getTrackID());
+      mod.addDigit(key, rsu, tile, row, col, hit.getHitValue() * kGeVToEl, hit.getTrackID());
     } else { // there is already a digit at this slot, account as PreDigitExtra contribution
-      pd->charge += hit.getHitValue();
+      pd->charge += hit.getHitValue() * kGeVToEl;
       // to be added: treat multiple particles (getTrackID) in the same pre-digit
     }
+  }
+}
+
+void NA6PVerTelDigitizer::finalizeDigits()
+{
+  for (int jMod = 0; jMod < mNumberOfModules; ++jMod) {
+    auto& mod = mModules[jMod];
+    if (mod.isDisabled()) {
+      LOGP(info, "Skipping disabled module {}", jMod);
+      continue;
+    }
+    auto& buffer = mod.getPreDigits();
+    if (buffer.empty()) {
+      continue;
+    }
+    auto itBeg = buffer.begin();
+    auto iter = itBeg;
+    for (; iter != buffer.end(); ++iter) {
+      const auto& preDig = iter->second;
+      if (preDig.charge >= mThresholds[jMod]) {
+        mDigits.emplace_back(static_cast<uint16_t>(jMod), preDig.pixID, preDig.particleID);
+        auto dig = mDigits.back();
+      }
+    }
+    buffer.erase(itBeg, iter); // erase processed entries; iter == end() for now
   }
 }

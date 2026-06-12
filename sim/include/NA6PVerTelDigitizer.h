@@ -30,6 +30,10 @@ class NA6PVerTelDigitizer
 {
  public:
   static constexpr int kNModulesPerLayer = 4;
+  static constexpr float kDefaultThresholdkeV = 0.4f;
+  static constexpr float kDefaultThresholdEl = 100.f;
+  static constexpr float kGeVTokeV = 1.e6;
+  static constexpr float kGeVToEl = 2.76e8;
 
   NA6PVerTelDigitizer() = default;
   NA6PVerTelDigitizer(const std::string& name) : mName(name) {}
@@ -42,6 +46,7 @@ class NA6PVerTelDigitizer
   void init(const char* filename = "geometry.root", const char* geoname = "NA6P");
   void process(const std::vector<NA6PVerTelHit>& hits, int layer = -1);
   void processHit(NA6PVerTelHit hit);
+  void finalizeDigits();
 
   size_t getNDigits() const { return mDigits.size(); }
   void createDigitsOutput();
@@ -52,6 +57,15 @@ class NA6PVerTelDigitizer
 
   void getHitLocalCoord(NA6PVerTelHit hit, double xyzLocS[3], double xyzLocE[3]);
 
+  void SetThreshold(int modID, float thr)
+  {
+    if (modID < 0 || modID >= mNumberOfModules) {
+      LOGP(error, "Module ID [] out of range", modID);
+    } else {
+      mThresholds[modID] = thr;
+    }
+  }
+
  protected:
   std::string mName{"VerTel"};                       ///< detector name
   int mNumberOfModules = 0;                          ///< number of modules
@@ -60,6 +74,7 @@ class NA6PVerTelDigitizer
   std::vector<TGeoHMatrix> mMatrices{};              ///< local-to-global transforms
   std::vector<float> mModuleHalfX;                   ///< Module half length along x
   std::vector<float> mModuleHalfY;                   ///< Module half length along y
+  std::vector<float> mThresholds;                    ///< Module threshold
   std::vector<NA6PVerTelDigit> mDigits, *hDigitsPtr = &mDigits;
   TFile* mDigitsFile = nullptr;
   TTree* mDigitsTree = nullptr;

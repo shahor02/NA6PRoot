@@ -4,7 +4,12 @@
 #include <fmt/format.h>
 #include <fairlogger/Logger.h>
 
-NA6PVerTelDigit::NA6PVerTelDigit(UShort_t detID, UShort_t rsu, UShort_t tile, UShort_t row, UShort_t col, int pid) : mDetectorID(detID), mParticleID(pid)
+NA6PVerTelDigit::NA6PVerTelDigit(uint16_t detID, const VTPixID& id, int pid)
+  : mDetectorID(detID), mPixID(id), mParticleID(pid)
+{
+}
+
+NA6PVerTelDigit::NA6PVerTelDigit(uint16_t detID, uint32_t rsu, uint32_t tile, uint32_t row, uint32_t col, int pid) : mDetectorID(detID), mParticleID(pid)
 {
   mPixID.rsu = rsu;
   mPixID.tile = tile;

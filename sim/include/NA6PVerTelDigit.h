@@ -18,6 +18,10 @@
 #include <Rtypes.h>
 
 // object for VT digits
+// NOTE: VTPixID uses C++ bit fields which ROOT cannot stream correctly.
+// Do not access mPixID branches directly via TTree::Scan() or TTree::Draw().
+// Always use the getters (getRSU(), getTile(), getRow(), getCol())
+// to access pixel indices.
 
 struct VTPixID {
 
@@ -59,30 +63,31 @@ class NA6PVerTelDigit
 {
  public:
   NA6PVerTelDigit() = default;
-  NA6PVerTelDigit(UShort_t detID, UShort_t rsu, UShort_t tile,
-                  UShort_t row, UShort_t col, int pid = -1);
+  NA6PVerTelDigit(uint16_t detID, const VTPixID& id, int pid = -1);
+  NA6PVerTelDigit(uint16_t detID, uint32_t rsu, uint32_t tile,
+                  uint32_t row, uint32_t col, int pid = -1);
 
-  UShort_t getDetectorID() const { return mDetectorID; }
+  uint16_t getDetectorID() const { return mDetectorID; }
   const VTPixID& getPixID() const { return mPixID; }
-  UShort_t getRSU() const { return mPixID.rsu; }
-  UShort_t getTile() const { return mPixID.tile; }
-  UShort_t getRow() const { return mPixID.row; }
-  UShort_t getCol() const { return mPixID.col; }
+  uint32_t getRSU() const { return mPixID.rsu; }
+  uint32_t getTile() const { return mPixID.tile; }
+  uint32_t getRow() const { return mPixID.row; }
+  uint32_t getCol() const { return mPixID.col; }
   int getParticleID() const { return mParticleID; }
 
-  void setDetectorID(int id) { mDetectorID = id; }
+  void setDetectorID(uint16_t id) { mDetectorID = id; }
   void setPixID(const VTPixID& id) { mPixID = id; }
-  void setRSU(int id) { mPixID.rsu = id; }
-  void setTile(int id) { mPixID.tile = id; }
-  void setRow(int id) { mPixID.row = id; }
-  void setCol(int id) { mPixID.col = id; }
+  void setRSU(uint32_t id) { mPixID.rsu = id; }
+  void setTile(uint32_t id) { mPixID.tile = id; }
+  void setRow(uint32_t id) { mPixID.row = id; }
+  void setCol(uint32_t id) { mPixID.col = id; }
   void setParticleID(int id) { mParticleID = id; }
 
   void print() const;
   std::string asString() const;
 
  protected:
-  UShort_t mDetectorID = 0; // the detector/sensor id
+  uint16_t mDetectorID = 0; // the detector/sensor id
   VTPixID mPixID;           // pixel identifier
   int mParticleID = -1;     // Particle ID
 
