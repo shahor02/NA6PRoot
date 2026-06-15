@@ -19,7 +19,7 @@ void NA6PVerTelDigitizer::init(const char* filename, const char* geoname)
   mNumberOfModules = param.nVerTelPlanes * kNModulesPerLayer;
   mModules.resize(mNumberOfModules);
   mMatrices.resize(mNumberOfModules);
-  mThresholds.assign(mNumberOfModules, kDefaultThresholdEl);
+  mThresholds.assign(mNumberOfModules * NA6PVerTelSegmentation::NXTiles * NA6PVerTelSegmentation::NYSensors, kDefaultThresholdEl);
 
   if (!gGeoManager) {
     TFile* f = TFile::Open(filename);
@@ -177,17 +177,35 @@ void NA6PVerTelDigitizer::processHit(NA6PVerTelHit hit)
   }
   double xyzLocS[3], xyzLocE[3];
   getHitLocalCoord(hit, xyzLocS, xyzLocE);
-  UShort_t rsu, tile, row, col;
-  bool digOk = mSegmentation.localToIndices(xyzLocS[0], xyzLocS[1], rsu, tile, row, col);
-  if (digOk) {
-    auto key = mod.getOrderingKey(rsu, tile, row, col);
-    PreDigit* pd = mod.findDigit(key);
-    if (!pd) {
-      mod.addDigit(key, rsu, tile, row, col, hit.getHitValue() * kGeVToEl, hit.getTrackID());
-    } else { // there is already a digit at this slot, account as PreDigitExtra contribution
-      pd->charge += hit.getHitValue() * kGeVToEl;
-      // to be added: treat multiple particles (getTrackID) in the same pre-digit
+  // we assume for the time being that the charge is deposited uniformly along all the 50 um Si thickness
+  // -> to be improved once we have a better knowledge of charge collection in MOSAIX
+  double deltaX = xyzLocE[0] - xyzLocS[0];
+  double deltaY = xyzLocE[1] - xyzLocS[1];
+  float pitchX = NA6PVerTelSegmentation::ActiveDX / NA6PVerTelSegmentation::NColsPerTile;
+  float pitchY = NA6PVerTelSegmentation::ActiveDYTile / NA6PVerTelSegmentation::NRowsPerTile;
+  int nSteps = std::max(std::abs(deltaX) / pitchX, std::abs(deltaY) / pitchY);
+  if (nSteps < 1) nSteps = 1;
+  if (nSteps > 100) nSteps = 100;
+  float chargePerStep = hit.getHitValue() * kGeVToEl / nSteps;
+  float stepX = deltaX / nSteps;
+  float stepY = deltaY / nSteps;
+  float x = static_cast<float>(xyzLocS[0]) + 0.5f * stepX;
+  float y = static_cast<float>(xyzLocS[1]) + 0.5f * stepY;
+  for (int iStep = 0; iStep < nSteps; ++iStep) {
+    UShort_t rsu, tile, row, col;
+    bool digOk = mSegmentation.localToIndices(x, y, rsu, tile, row, col);
+    if (digOk) {
+      auto key = mod.getOrderingKey(rsu, tile, row, col);
+      PreDigit* pd = mod.findDigit(key);
+      if (!pd) {
+        mod.addDigit(key, rsu, tile, row, col, chargePerStep, hit.getTrackID());
+      } else { // there is already a digit at this slot, account as PreDigitExtra contribution
+        pd->charge += chargePerStep;
+        // to be added: treat multiple particles (getTrackID) in the same pre-digit
+      }
     }
+    x += stepX;
+    y += stepY;
   }
 }
 
@@ -207,7 +225,8 @@ void NA6PVerTelDigitizer::finalizeDigits()
     auto iter = itBeg;
     for (; iter != buffer.end(); ++iter) {
       const auto& preDig = iter->second;
-      if (preDig.charge >= mThresholds[jMod]) {
+      int jTile = jMod * NA6PVerTelSegmentation::NXTiles * NA6PVerTelSegmentation::NYSensors + NA6PVerTelSegmentation::NTilesPerRSU * preDig.pixID.rsu +  preDig.pixID.tile;
+      if (preDig.charge >= mThresholds[jTile]) {
         mDigits.emplace_back(static_cast<uint16_t>(jMod), preDig.pixID, preDig.particleID);
         auto dig = mDigits.back();
       }

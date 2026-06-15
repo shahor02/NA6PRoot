@@ -74,7 +74,7 @@ class NA6PVerTelDigitizer
   std::vector<TGeoHMatrix> mMatrices{};              ///< local-to-global transforms
   std::vector<float> mModuleHalfX;                   ///< Module half length along x
   std::vector<float> mModuleHalfY;                   ///< Module half length along y
-  std::vector<float> mThresholds;                    ///< Module threshold
+  std::vector<float> mThresholds;                    ///< Threshold (per tile)
   std::vector<NA6PVerTelDigit> mDigits, *hDigitsPtr = &mDigits;
   TFile* mDigitsFile = nullptr;
   TTree* mDigitsTree = nullptr;

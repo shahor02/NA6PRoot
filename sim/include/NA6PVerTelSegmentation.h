@@ -27,13 +27,15 @@ class NA6PVerTelSegmentation
   static constexpr float DeadYBottom = 0.0525;                        // bottom dead zone
   static constexpr float DeadYTop = 0.0525;                           // top dead zone
   static constexpr float DeadTopBotHalves = 0.012;                    // dead space between top and bottom halves
-  static constexpr float DeadXTile = 0.002;                           // dead space between tiles in X
+  static constexpr float DeadXTile = 0.002;                           // dead space between tiles in X (power swicthes)
   static constexpr float DeadXDataBackbone = 0.006;                   // dead space between every segment (triplet of tiles)
   static constexpr float XSizeTot = 12.9996 + DeadXShort + DeadXLong; // 13.5996;
   static constexpr float YSizeTot = 13.5898 + DeadYBottom + DeadYTop; // 13.6948; // readout side
   static constexpr int NXSegments = 12;                               // number of segments per row
   static constexpr int NTilesPerSegment = 3;                          // number of tiles per segment
   static constexpr int NSegmentsPerRSU = 2;                           // segments per RSU (along x)
+  static constexpr int NHalfSensorUnitsPerRSU = 2;                    // top and bottom
+  static constexpr int NTilesPerRSU = NTilesPerSegment * NSegmentsPerRSU * NHalfSensorUnitsPerRSU;
   static constexpr int NXTiles = NXSegments * NTilesPerSegment;       // tiles per row
   static constexpr int NYSensors = 7;                                 // number of rows along y
   static constexpr float DXSegment = (XSizeTot - DeadXShort - DeadXLong) / NXSegments;
@@ -43,8 +45,8 @@ class NA6PVerTelSegmentation
   static constexpr float ActiveDYSens = DYSens - DeadYBottom - DeadYTop;
   static constexpr float ActiveDYHalf = ActiveDYSens / 2;
   static constexpr float ActiveDYTile = ActiveDYHalf - DeadTopBotHalves / 2;
-  static constexpr int NRowsPerTile = 460;
-  static constexpr int NColsPerTile = 162;
+  static constexpr int NRowsPerTile = 444;
+  static constexpr int NColsPerTile = 156;
 
   NA6PVerTelSegmentation() = default;
 
@@ -64,8 +66,8 @@ class NA6PVerTelSegmentation
                            UShort_t& row, UShort_t& col) const;
 
  protected:
-  float mOffsX = 0.3;
-  float mOffsY = -0.3;
+  float mOffsX = 0.29;
+  float mOffsY = -0.31;
   float mInterChipGap = 0.02;
   bool mStaggered = false;
   float mDeadXLongEff = DeadXLong;
