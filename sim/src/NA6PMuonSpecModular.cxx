@@ -20,41 +20,41 @@
 #include <TTree.h>
 
 // place sensors to station - generalized for n modules per side
-void NA6PMuonSpecModular::placeSensors(float sideX, float sideY, float chipDX, float chipDY, float pixChipOffsX, float pixChipOffsY, TGeoVolume* pixelStationVol, TGeoVolume* pixelSensor) {
-    
-    std::vector<float> moduleCenterX, moduleCenterY;
-    int modulesPerSideX = static_cast<int>(sideX / chipDX);
-    int modulesPerSideY = static_cast<int>(sideX / chipDX);
+void NA6PMuonSpecModular::placeSensors(float sideX, float sideY, float chipDX, float chipDY, float pixChipOffsX, float pixChipOffsY, TGeoVolume* pixelStationVol, TGeoVolume* pixelSensor)
+{
 
-    // Generate positions for n x n grid
-    float baseStartX = -(modulesPerSideX - 1) * chipDX / 2.0f;
-    float baseStartY = -(modulesPerSideY - 1) * chipDY / 2.0f;
-    int midPointX = modulesPerSideX / 2;
-    int midPointY = modulesPerSideY / 2;
+  std::vector<float> moduleCenterX, moduleCenterY;
+  int modulesPerSideX = static_cast<int>(sideX / chipDX);
+  int modulesPerSideY = static_cast<int>(sideX / chipDX);
 
-    for (int row = 0; row < modulesPerSideY; ++row) {
-        for (int col = 0; col < modulesPerSideX; ++col) {
-            // Determine offset signs based on quadrant
-            float offsetX = (row + 1 > midPointX) ? pixChipOffsX / 2.0f : -pixChipOffsX / 2.0f;
-            float offsetY = (col + 1 > midPointY) ? -pixChipOffsY / 2.0f : pixChipOffsY / 2.0f;
-            
-            // Calculate position
-            float x = baseStartX + offsetX + col * chipDX;
-            float y = baseStartY + offsetY + row * chipDY;
-            
-            moduleCenterX.push_back(x);
-            moduleCenterY.push_back(y);
-            LOGP(info, "Row {} Col {}: sensor at ({}, {})", row, col, x, y);
-        }
+  // Generate positions for n x n grid
+  float baseStartX = -(modulesPerSideX - 1) * chipDX / 2.0f;
+  float baseStartY = -(modulesPerSideY - 1) * chipDY / 2.0f;
+  int midPointX = modulesPerSideX / 2;
+  int midPointY = modulesPerSideY / 2;
+
+  for (int row = 0; row < modulesPerSideY; ++row) {
+    for (int col = 0; col < modulesPerSideX; ++col) {
+      // Determine offset signs based on quadrant
+      float offsetX = (row + 1 > midPointX) ? pixChipOffsX / 2.0f : -pixChipOffsX / 2.0f;
+      float offsetY = (col + 1 > midPointY) ? -pixChipOffsY / 2.0f : pixChipOffsY / 2.0f;
+
+      // Calculate position
+      float x = baseStartX + offsetX + col * chipDX;
+      float y = baseStartY + offsetY + row * chipDY;
+
+      moduleCenterX.push_back(x);
+      moduleCenterY.push_back(y);
+      LOGP(info, "Row {} Col {}: sensor at ({}, {})", row, col, x, y);
     }
-    
-    // Place the sensors
-    for (size_t ii = 0; ii < moduleCenterX.size(); ++ii) {
-        auto* sensorTransform = new TGeoTranslation(moduleCenterX[ii], moduleCenterY[ii], 0);
-        pixelStationVol->AddNode(pixelSensor, composeSensorVolID(ii), sensorTransform);
-    }
+  }
+
+  // Place the sensors
+  for (size_t ii = 0; ii < moduleCenterX.size(); ++ii) {
+    auto* sensorTransform = new TGeoTranslation(moduleCenterX[ii], moduleCenterY[ii], 0);
+    pixelStationVol->AddNode(pixelSensor, composeSensorVolID(ii), sensorTransform);
+  }
 }
-
 
 void NA6PMuonSpecModular::createMaterials()
 {
@@ -107,14 +107,39 @@ void NA6PMuonSpecModular::createGeometry(TGeoVolume* world)
 void NA6PMuonSpecModular::setAlignableEntries()
 {
   const auto& param = NA6PLayoutParam::Instance();
+  std::string topNodeName = gGeoManager->GetTopNode()->GetName();
   int svolCnt = 0;
   for (int ll = 0; ll < param.nMSPlanes; ++ll) {
-    int id = getActiveID() * 100 + svolCnt;
-    std::string nm = fmt::format("MS_Lr{}_Sens{}", ll, 0);
-    std::string path = fmt::format("/World_1/MS{}Env_{}/MS{}_{}", ll, composeNonSensorVolID(ll), ll, composeSensorVolID(ll));
-    gGeoManager->SetAlignableEntry(nm.c_str(), path.c_str(), id);
-    LOGP(info, "Adding {} {} as alignable sensor {}", nm, path, id);
-    svolCnt++;
+    std::string stationVolName = fmt::format("MS{}", ll);
+    TGeoVolume* stationVol = gGeoManager->GetVolume(stationVolName.c_str());
+    if (!stationVol) {
+      LOGP(error, "Could not find volume {} to extract sensor count!", stationVolName);
+      continue;
+    }
+    int nSensorsInThisPlane = stationVol->GetNdaughters();
+    LOGP(info, "Plane {} has {} alignable sensors.", ll, nSensorsInThisPlane);
+    for (int ii = 0; ii < nSensorsInThisPlane; ++ii) {
+      int id = getActiveID() * 100 + svolCnt;
+      std::string nm = fmt::format("MS_Lr{}_Sens{}", ll, ii);
+      TGeoNode* sensorNode = stationVol->GetNode(ii);
+      if (!sensorNode) {
+        LOGP(error, "Could not retrieve daughter node {} from volume {}", ii, stationVolName);
+        continue;
+      }
+      std::string sensorNodeName = sensorNode->GetName();
+      std::string path = fmt::format("/{}/MS{}Env_{}/MS{}_{}/{}",
+                                     topNodeName,
+                                     ll, composeNonSensorVolID(ll),
+                                     ll, composeNonSensorVolID(ll),
+                                     sensorNodeName);
+      TGeoPNEntry* entry = gGeoManager->SetAlignableEntry(nm.c_str(), path.c_str(), id);
+      if (entry) {
+        LOGP(info, "Successfully added {} {} as alignable sensor {}", nm, path, id);
+      } else {
+        LOGP(error, "FAILED to add alignable entry {} {}", nm, path);
+      }
+      svolCnt++;
+    }
   }
 }
 
@@ -186,7 +211,7 @@ bool NA6PMuonSpecModular::stepManager(int volID)
 }
 
 NA6PMuonSpecModularHit* NA6PMuonSpecModular::addHit(int trackID, int detID, const TVector3& startPos, const TVector3& endPos, const TVector3& startMom, const TVector3& endMom,
-                                      float endTime, float eLoss, unsigned char startStatus, unsigned char endStatus)
+                                                    float endTime, float eLoss, unsigned char startStatus, unsigned char endStatus)
 {
   mHits.emplace_back(trackID, detID, startPos, endPos, startMom, endMom, endTime, eLoss, startStatus, endStatus);
   return &(mHits.back());
