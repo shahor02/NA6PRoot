@@ -559,14 +559,23 @@ void NA6PVerTel::createGeometry(TGeoVolume* world)
 void NA6PVerTel::setAlignableEntries()
 {
   const auto& param = NA6PLayoutParam::Instance();
+  std::string topNodeName = gGeoManager->GetTopNode()->GetName();
   int svolCnt = 0;
   for (int ll = 0; ll < param.nVerTelPlanes; ++ll) {
     for (int ii = 0; ii < 4; ++ii) {
       int id = getActiveID() * 100 + svolCnt;
       std::string nm = fmt::format("VT_Lr{}_Sens{}", ll, ii);
-      std::string path = fmt::format("/World_1/VTContainer_{}/PixelStationVol_{}/PixelSensor_{}", composeNonSensorVolID(0), composeNonSensorVolID(ll), composeSensorVolID(ii));
-      gGeoManager->SetAlignableEntry(nm.c_str(), path.c_str(), id);
-      LOGP(info, "Adding {} {} as alignable sensor {}", nm, path, id);
+      std::string path = fmt::format("/{}/VTContainer_{}/PixelStationVol_Pl{}_{}/PixelSensor_Pl{}_{}",
+                                     topNodeName,
+                                     composeNonSensorVolID(0),
+                                     ll, composeNonSensorVolID(ll),
+                                     ll, composeSensorVolID(ii));
+      TGeoPNEntry* entry = gGeoManager->SetAlignableEntry(nm.c_str(), path.c_str(), id);
+      if (entry) {
+        LOGP(info, "Successfully added {} {} as alignable sensor {}", nm, path, id);
+      } else {
+        LOGP(error, "FAILED to add alignable entry {} {}", nm, path);
+      }
       svolCnt++;
     }
   }
