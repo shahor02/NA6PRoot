@@ -16,71 +16,11 @@
 void NA6PVerTelDigitizer::init(const char* filename, const char* geoname)
 {
   const auto& param = NA6PLayoutParam::Instance();
-  mNumberOfModules = param.nVerTelPlanes * kNModulesPerLayer;
+  mNumberOfModules = param.nVerTelPlanes * NA6PGeometryManager::kNVTModulesPerLayer;
   mModules.resize(mNumberOfModules);
-  mMatrices.resize(mNumberOfModules);
   mThresholds.assign(mNumberOfModules * NA6PVerTelSegmentation::NXTiles * NA6PVerTelSegmentation::NYSensors, kDefaultThresholdEl);
-
-  if (!gGeoManager) {
-    TFile* f = TFile::Open(filename);
-    if (!f || f->IsZombie()) {
-      LOGP(error, "Cannot open geometry file {}", filename);
-      return;
-    }
-    gGeoManager = (TGeoManager*)f->Get(geoname);
-    if (!gGeoManager) {
-      LOGP(error, "No geometry with name {} found in file {}", geoname, filename);
-      f->Close();
-      return;
-    }
-    f->Close();
-  }
-
-  std::vector<bool> isMatrixLoaded;
-  isMatrixLoaded.assign(mNumberOfModules, false);
-  mModuleHalfX.assign(mNumberOfModules, 0.);
-  mModuleHalfY.assign(mNumberOfModules, 0.);
-  TGeoIterator next(gGeoManager->GetTopVolume());
-  TGeoNode* node = nullptr;
-  while ((node = next())) {
-    TString name = node->GetName();
-    if (name.BeginsWith("PixelSensor_")) {
-      Int_t currentLevel = next.GetLevel();
-      if (currentLevel <= 0)
-        continue;
-      TGeoVolume* vol = node->GetVolume();
-      if (!vol) {
-        LOGP(error, "Volume null pointer");
-        continue;
-      }
-      TGeoShape* shape = vol->GetShape();
-      if (!shape) {
-        LOGP(error, "Shape null pointer");
-        continue;
-      }
-      if (shape->IsA() != TGeoBBox::Class()) {
-        LOGP(error, "Module shape is not a TGeoBBox");
-        continue;
-      }
-      TGeoNode* motherNode = next.GetNode(currentLevel - 1);
-      int layer = motherNode->GetNumber() % 10;
-      int modNum = node->GetNumber() % 10;
-      int modIndex = kNModulesPerLayer * layer + modNum;
-      if (modIndex < 0 || modIndex >= mNumberOfModules) {
-        LOGP(error, "Wrong module index {} (layer={}, modNum={})", modIndex, layer, modNum);
-        continue;
-      }
-      mMatrices[modIndex] = *(next.GetCurrentMatrix());
-      TGeoBBox* box = static_cast<TGeoBBox*>(shape);
-      mModuleHalfX[modIndex] = static_cast<float>(box->GetDX());
-      mModuleHalfY[modIndex] = static_cast<float>(box->GetDY());
-      isMatrixLoaded[modIndex] = true;
-    }
-  }
-  for (int im = 0; im < mNumberOfModules; ++im) {
-    if (!isMatrixLoaded[im]) {
-      LOGP(error, "Matrix not loaded for module {}", im);
-    }
+  if(!mGeoManager.loadGeometry(filename, geoname)) {
+    LOGP(fatal, "Load of geometry not successful");
   }
   createDigitsOutput();
 }
@@ -139,31 +79,31 @@ void NA6PVerTelDigitizer::process(const std::vector<NA6PVerTelHit>& hits, int la
 void NA6PVerTelDigitizer::getHitLocalCoord(NA6PVerTelHit hit, double xyzLocS[3], double xyzLocE[3])
 {
   auto modID = hit.getDetectorID();
-  auto& matrix = mMatrices[modID];
+  auto& matrix = mGeoManager.getMatrix(modID);
 
   double xyzGloS[3] = {hit.getXIn(), hit.getYIn(), hit.getZIn()};
   double xyzGloE[3] = {hit.getXOut(), hit.getYOut(), hit.getZOut()};
 
   matrix.MasterToLocal(xyzGloS, xyzLocS);
-  xyzLocS[0] += mModuleHalfX[modID];
-  xyzLocS[1] += mModuleHalfY[modID];
+  xyzLocS[0] += mGeoManager.getModuleHalfX(modID);
+  xyzLocS[1] += mGeoManager.getModuleHalfY(modID);
   matrix.MasterToLocal(xyzGloE, xyzLocE);
-  xyzLocE[0] += mModuleHalfX[modID];
-  xyzLocE[1] += mModuleHalfY[modID];
-  if (modID % kNModulesPerLayer == 1) {
+  xyzLocE[0] += mGeoManager.getModuleHalfX(modID);
+  xyzLocE[1] += mGeoManager.getModuleHalfY(modID);
+  if (modID % NA6PGeometryManager::kNVTModulesPerLayer == 1) {
     // swap x
-    xyzLocS[0] = mModuleHalfX[modID] * 2. - xyzLocS[0];
-    xyzLocE[0] = mModuleHalfX[modID] * 2. - xyzLocE[0];
-  } else if (modID % kNModulesPerLayer == 2) {
+    xyzLocS[0] = mGeoManager.getModuleFullX(modID) - xyzLocS[0];
+    xyzLocE[0] = mGeoManager.getModuleFullX(modID) - xyzLocE[0];
+  } else if (modID % NA6PGeometryManager::kNVTModulesPerLayer == 2) {
     // swap x and y
-    xyzLocS[0] = mModuleHalfX[modID] * 2. - xyzLocS[0];
-    xyzLocS[1] = mModuleHalfY[modID] * 2. - xyzLocS[1];
-    xyzLocE[0] = mModuleHalfX[modID] * 2. - xyzLocE[0];
-    xyzLocE[1] = mModuleHalfY[modID] * 2. - xyzLocE[1];
-  } else if (modID % kNModulesPerLayer == 3) {
+    xyzLocS[0] = mGeoManager.getModuleFullX(modID) - xyzLocS[0];
+    xyzLocS[1] = mGeoManager.getModuleFullY(modID) - xyzLocS[1];
+    xyzLocE[0] = mGeoManager.getModuleFullX(modID) - xyzLocE[0];
+    xyzLocE[1] = mGeoManager.getModuleFullY(modID) - xyzLocE[1];
+  } else if (modID % NA6PGeometryManager::kNVTModulesPerLayer == 3) {
     // swap y
-    xyzLocS[1] = mModuleHalfY[modID] * 2. - xyzLocS[1];
-    xyzLocE[1] = mModuleHalfY[modID] * 2. - xyzLocE[1];
+    xyzLocS[1] = mGeoManager.getModuleFullY(modID) - xyzLocS[1];
+    xyzLocE[1] = mGeoManager.getModuleFullY(modID) - xyzLocE[1];
   }
 }
 

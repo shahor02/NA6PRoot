@@ -15,5 +15,6 @@
 #pragma link C++ class na6p::conf::ConfigurableParamHelper < NA6PBeamParam> + ;
 
 #pragma link C++ class NA6PBeam + ;
+#pragma link C++ class NA6PGeometryManager + ;
 
 #endif

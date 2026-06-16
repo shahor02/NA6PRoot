@@ -18,6 +18,7 @@
 #include "NA6PVerTelPreDigitContainer.h"
 #include "NA6PVerTelDigit.h"
 #include "NA6PVerTelSegmentation.h"
+#include "NA6PGeometryManager.h"
 #include <Rtypes.h>
 #include <TGeoMatrix.h>
 
@@ -29,7 +30,6 @@ class TTree;
 class NA6PVerTelDigitizer
 {
  public:
-  static constexpr int kNModulesPerLayer = 4;
   static constexpr float kDefaultThresholdkeV = 0.4f;
   static constexpr float kDefaultThresholdEl = 100.f;
   static constexpr float kGeVTokeV = 1.e6;
@@ -41,7 +41,7 @@ class NA6PVerTelDigitizer
 
   const std::string& getName() const { return mName; }
 
-  static int detID2Layer(int detID) { return detID / kNModulesPerLayer; }
+  static int detID2Layer(int detID) { return detID / NA6PGeometryManager::kNVTModulesPerLayer; }
 
   void init(const char* filename = "geometry.root", const char* geoname = "NA6P");
   void process(const std::vector<NA6PVerTelHit>& hits, int layer = -1);
@@ -71,9 +71,7 @@ class NA6PVerTelDigitizer
   int mNumberOfModules = 0;                          ///< number of modules
   std::vector<NA6PVerTelPreDigitContainer> mModules; ///< Array of module pre-digits containers
   NA6PVerTelSegmentation mSegmentation;              ///< segmentation class
-  std::vector<TGeoHMatrix> mMatrices{};              ///< local-to-global transforms
-  std::vector<float> mModuleHalfX;                   ///< Module half length along x
-  std::vector<float> mModuleHalfY;                   ///< Module half length along y
+  NA6PGeometryManager mGeoManager;                   ///< geometry manager
   std::vector<float> mThresholds;                    ///< Threshold (per tile)
   std::vector<NA6PVerTelDigit> mDigits, *hDigitsPtr = &mDigits;
   TFile* mDigitsFile = nullptr;
