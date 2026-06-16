@@ -25,8 +25,8 @@
 
 struct VTPixID {
 
-  static constexpr int kColBits = 10; // 0-161,  max 1023
-  static constexpr int kRowBits = 10; // 0-459,  max 1023
+  static constexpr int kColBits = 10; // 0-155,  max 1023
+  static constexpr int kRowBits = 10; // 0-443,  max 1023
   static constexpr int kTileBits = 4; // 0-11,   max 15
   static constexpr int kRsuBits = 6;  // 0-41,   max 63
 
