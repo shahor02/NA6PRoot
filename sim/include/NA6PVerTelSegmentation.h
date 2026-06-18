@@ -16,6 +16,7 @@
 #define NA6P_VERTEL_SEGMENTATION_H
 
 #include <Rtypes.h>
+#include <fairlogger/Logger.h>
 
 // define dead areas and segmentation of the VT modules
 
@@ -36,8 +37,9 @@ class NA6PVerTelSegmentation
   static constexpr int NSegmentsPerRSU = 2;                           // segments per RSU (along x)
   static constexpr int NHalfSensorUnitsPerRSU = 2;                    // top and bottom
   static constexpr int NTilesPerRSU = NTilesPerSegment * NSegmentsPerRSU * NHalfSensorUnitsPerRSU;
-  static constexpr int NXTiles = NXSegments * NTilesPerSegment;       // tiles per row
-  static constexpr int NYSensors = 7;                                 // number of rows along y
+  static constexpr int NXTiles = NXSegments * NTilesPerSegment; // tiles per row
+  static constexpr int NYSensors = 7;                           // number of rows along y
+  static constexpr int NTilesPerModule = NXTiles * NHalfSensorUnitsPerRSU * NYSensors;
   static constexpr float DXSegment = (XSizeTot - DeadXShort - DeadXLong) / NXSegments;
   static constexpr float DXTile = (DXSegment - DeadXDataBackbone) / NTilesPerSegment;
   static constexpr float DYSens = YSizeTot / NYSensors;
@@ -58,6 +60,14 @@ class NA6PVerTelSegmentation
   bool localToIndices(float xloc, float yloc, UShort_t& rsu, UShort_t& tile, UShort_t& row, UShort_t& col) const;
   int isInAcc(float xglo, float yglo) const;
   bool indicesToLocal(UShort_t rsu, UShort_t tile, UShort_t row, UShort_t col, float& xloc, float& yloc) const;
+  static int getTileId(uint32_t mod, uint32_t rsu, uint32_t tile)
+  {
+    if (rsu >= NYSensors * (NXSegments / NSegmentsPerRSU) || tile >= NTilesPerRSU) {
+      LOGP(error, "getTileId: invalid indices mod={} rsu={} tile={}", mod, rsu, tile);
+      return -1;
+    }
+    return mod * NTilesPerModule + rsu * NTilesPerRSU + tile;
+  }
 
  private:
   bool computePixelIndices(float xloc, float yloc,

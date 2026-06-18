@@ -19,7 +19,7 @@ void NA6PVerTelDigitizer::init(const char* filename, const char* geoname)
   mNumberOfModules = param.nVerTelPlanes * NA6PGeometryManager::kNVTModulesPerLayer;
   mModules.resize(mNumberOfModules);
   mThresholds.assign(mNumberOfModules * NA6PVerTelSegmentation::NXTiles * NA6PVerTelSegmentation::NYSensors, kDefaultThresholdEl);
-  if(!mGeoManager.loadGeometry(filename, geoname)) {
+  if (!mGeoManager.loadGeometry(filename, geoname)) {
     LOGP(fatal, "Load of geometry not successful");
   }
   createDigitsOutput();
@@ -124,8 +124,10 @@ void NA6PVerTelDigitizer::processHit(NA6PVerTelHit hit)
   float pitchX = NA6PVerTelSegmentation::ActiveDX / NA6PVerTelSegmentation::NColsPerTile;
   float pitchY = NA6PVerTelSegmentation::ActiveDYTile / NA6PVerTelSegmentation::NRowsPerTile;
   int nSteps = std::max(std::abs(deltaX) / pitchX, std::abs(deltaY) / pitchY);
-  if (nSteps < 1) nSteps = 1;
-  if (nSteps > 100) nSteps = 100;
+  if (nSteps < 1)
+    nSteps = 1;
+  if (nSteps > 100)
+    nSteps = 100;
   float chargePerStep = hit.getHitValue() * kGeVToEl / nSteps;
   float stepX = deltaX / nSteps;
   float stepY = deltaY / nSteps;
@@ -165,10 +167,10 @@ void NA6PVerTelDigitizer::finalizeDigits()
     auto iter = itBeg;
     for (; iter != buffer.end(); ++iter) {
       const auto& preDig = iter->second;
-      int jTile = jMod * NA6PVerTelSegmentation::NXTiles * NA6PVerTelSegmentation::NYSensors + NA6PVerTelSegmentation::NTilesPerRSU * preDig.pixID.rsu +  preDig.pixID.tile;
-      if (preDig.charge >= mThresholds[jTile]) {
+      int jTile = NA6PVerTelSegmentation::getTileId(jMod, preDig.pixID.rsu, preDig.pixID.tile);
+      if (jTile >= 0 && preDig.charge >= mThresholds[jTile]) {
         mDigits.emplace_back(static_cast<uint16_t>(jMod), preDig.pixID, preDig.particleID);
-        auto dig = mDigits.back();
+        // auto& dig = mDigits.back();
       }
     }
     buffer.erase(itBeg, iter); // erase processed entries; iter == end() for now
