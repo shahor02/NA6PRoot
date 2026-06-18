@@ -521,9 +521,13 @@ void NA6PVerTel::createGeometry(TGeoVolume* world)
                                 -pixChipDX / 2 - pixChipOffsX, pixChipDX / 2 - pixChipOffsX};
     std::vector<float> alpdy = {pixChipDYlayer / 2 - pixChipOffsY, pixChipDYlayer / 2 + pixChipOffsY,
                                 -pixChipDYlayer / 2 + pixChipOffsY, -pixChipDYlayer / 2 - pixChipOffsY};
+    std::vector<float> phi = {0., 90., 180., 0.};
+    std::vector<float> theta = {0., 180., 0., 180.};
+    std::vector<float> psi = {0., -90., 0., 0.};
+      
     for (size_t ii = 0; ii < alpdx.size(); ++ii) {
       pixelStationVol->AddNode(pixelSensor, composeSensorVolID(ii),
-                               new TGeoTranslation(alpdx[ii], alpdy[ii], 0));
+                               new TGeoCombiTrans(alpdx[ii], alpdy[ii], 0, new TGeoRotation(Form("rotQ%d", ii + 1), phi[ii], theta[ii], psi[ii])));
     }
     pixelStationVol->AddNode(cbPlate, composeNonSensorVolID(20),
                              new TGeoCombiTrans(0., 0.,
