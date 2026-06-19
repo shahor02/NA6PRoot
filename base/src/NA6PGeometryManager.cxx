@@ -1,3 +1,5 @@
+// NA6PCCopyright
+
 #include <fairlogger/Logger.h>
 #include <TGeoNode.h>
 #include <TGeoPhysicalNode.h>

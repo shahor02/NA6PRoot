@@ -16,5 +16,7 @@
 
 #pragma link C++ class NA6PBeam + ;
 #pragma link C++ class NA6PGeometryManager + ;
+#pragma link C++ class NA6PMCComposedLabel + ;
+#pragma link C++ class NA6PMCTruthContainer-;
 
 #endif

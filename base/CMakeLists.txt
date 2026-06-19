@@ -23,6 +23,8 @@ set(DICTIONARY_HEADERS
   NA6PBeamParam.h
   NA6PBeam.h
   NA6PGeometryManager.h
+  NA6PMCComposedLabel.h
+  NA6PMCTruthContainer.h
   ) # Add all class headers requiring dictionary
   
 set(DICTIONARY_LINKDEF ${THIS_SRC_DIR}/${MOD_NAME}LinkDef.h)
