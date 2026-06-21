@@ -22,6 +22,7 @@ set(DICTIONARY_HEADERS
   MiscUtils.h
   NA6PTreeStream.h
   NA6PTreeStreamRedirector.h
+  HistoManager.h
 ) # Add all class headers requiring dictionary
 
 set(DICTIONARY_LINKDEF ${THIS_SRC_DIR}/${MOD_NAME}LinkDef.h)

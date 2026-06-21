@@ -14,4 +14,6 @@
 #pragma link C++ class NA6PTreeStream + ;
 #pragma link C++ class NA6PTreeStreamRedirector + ;
 
+#pragma link C++ class na6p::HistoManager + ;
+
 #endif
