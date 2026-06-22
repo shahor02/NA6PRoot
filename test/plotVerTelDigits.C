@@ -37,8 +37,8 @@ void plotVerTelDigits(const char* dirSimu = ".")
   td->SetBranchAddress("VerTelMCTruth", &vtMCLabelsPtr);
 
   TH1F* hMCLabelsPerDigit = new TH1F("hMCLabelsPerDigit", ";n MC labels per digit; counts", 11, -0.5, 10.5);
-  TH1F* hMCFirstLabels = new TH1F("hMCFirstLabels", "MC label; counts", 200, 0., 4000.);
-  TH1F* hMCAllLabels = new TH1F("hMCAllLabels", "MC label; counts", 200, 0., 4000.);
+  TH1F* hMCFirstLabels = new TH1F("hMCFirstLabels", "First label only;MC label; counts", 200, 0., 4000.);
+  TH1F* hMCAllLabels = new TH1F("hMCAllLabels", "All labels;MC label; counts", 200, 0., 4000.);
   TH1F* hDigitsPerHitAll = new TH1F("hDigitsPerHitAll", "All particles;n digits per hit; counts", 11, -0.5, 10.5);
   TH1F* hDigitsPerHitPrim = new TH1F("hDigitsPerHitPrim", "Primary particles;n digits per hit; counts", 11, -0.5, 10.5);
   TH2F** hDigitsPerHitPrimVsX = new TH2F*[5];
