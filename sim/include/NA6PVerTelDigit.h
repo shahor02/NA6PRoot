@@ -63,9 +63,9 @@ class NA6PVerTelDigit
 {
  public:
   NA6PVerTelDigit() = default;
-  NA6PVerTelDigit(uint16_t detID, const VTPixID& id, int pid = -1);
+  NA6PVerTelDigit(uint16_t detID, const VTPixID& id);
   NA6PVerTelDigit(uint16_t detID, uint32_t rsu, uint32_t tile,
-                  uint32_t row, uint32_t col, int pid = -1);
+                  uint32_t row, uint32_t col);
 
   uint16_t getDetectorID() const { return mDetectorID; }
   const VTPixID& getPixID() const { return mPixID; }
@@ -73,7 +73,6 @@ class NA6PVerTelDigit
   uint32_t getTile() const { return mPixID.tile; }
   uint32_t getRow() const { return mPixID.row; }
   uint32_t getCol() const { return mPixID.col; }
-  int getParticleID() const { return mParticleID; }
 
   void setDetectorID(uint16_t id) { mDetectorID = id; }
   void setPixID(const VTPixID& id) { mPixID = id; }
@@ -81,7 +80,6 @@ class NA6PVerTelDigit
   void setTile(uint32_t id) { mPixID.tile = id; }
   void setRow(uint32_t id) { mPixID.row = id; }
   void setCol(uint32_t id) { mPixID.col = id; }
-  void setParticleID(int id) { mParticleID = id; }
 
   void print() const;
   std::string asString() const;
@@ -89,7 +87,6 @@ class NA6PVerTelDigit
  protected:
   uint16_t mDetectorID = 0; // the detector/sensor id
   VTPixID mPixID;           // pixel identifier
-  int mParticleID = -1;     // Particle ID
 
   ClassDefNV(NA6PVerTelDigit, 1);
 };

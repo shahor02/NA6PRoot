@@ -19,6 +19,7 @@
 #include "NA6PVerTelDigit.h"
 #include "NA6PVerTelSegmentation.h"
 #include "NA6PGeometryManager.h"
+#include "NA6PMCTruthContainer.h"
 #include <Rtypes.h>
 #include <TGeoMatrix.h>
 
@@ -52,7 +53,11 @@ class NA6PVerTelDigitizer
   void createDigitsOutput();
   void closeDigitsOutput();
   void writeDigits();
-  void clearDigits() { mDigits.clear(); }
+  void clearDigits()
+  {
+    mDigits.clear();
+    mMCLabels.clear_andfreememory();
+  }
   const auto& getDigits() const { return mDigits; }
 
   void getHitLocalCoord(NA6PVerTelHit hit, double xyzLocS[3], double xyzLocE[3]);
@@ -74,6 +79,7 @@ class NA6PVerTelDigitizer
   NA6PGeometryManager mGeoManager;                   ///< geometry manager
   std::vector<float> mThresholds;                    ///< Threshold (per tile)
   std::vector<NA6PVerTelDigit> mDigits, *hDigitsPtr = &mDigits;
+  NA6PMCTruthContainer mMCLabels, *hMCLabelsPtr = &mMCLabels;
   TFile* mDigitsFile = nullptr;
   TTree* mDigitsTree = nullptr;
 

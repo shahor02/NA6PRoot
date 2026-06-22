@@ -31,7 +31,8 @@ void NA6PVerTelDigitizer::createDigitsOutput()
   mDigitsFile = TFile::Open(nm.c_str(), "recreate");
   mDigitsTree = new TTree(fmt::format("digits{}", getName()).c_str(), fmt::format("{} Digits", getName()).c_str());
   mDigitsTree->Branch(getName().c_str(), &hDigitsPtr);
-  LOGP(info, "Will store {} hits in {}", getName(), nm);
+  mDigitsTree->Branch(fmt::format("{}MCTruth", getName()).c_str(), &hMCLabelsPtr);
+  LOGP(info, "Will store {} digits in {}", getName(), nm);
 }
 
 void NA6PVerTelDigitizer::closeDigitsOutput()
@@ -138,12 +139,12 @@ void NA6PVerTelDigitizer::processHit(NA6PVerTelHit hit)
     bool digOk = mSegmentation.localToIndices(x, y, rsu, tile, row, col);
     if (digOk) {
       auto key = mod.getOrderingKey(rsu, tile, row, col);
+      NA6PMCComposedLabel lbl(hit.getTrackID(), 0, 0);
       PreDigit* pd = mod.findDigit(key);
       if (!pd) {
-        mod.addDigit(key, rsu, tile, row, col, chargePerStep, hit.getTrackID());
+        mod.addDigit(key, rsu, tile, row, col, chargePerStep, lbl);
       } else { // there is already a digit at this slot, account as PreDigitExtra contribution
-        pd->charge += chargePerStep;
-        // to be added: treat multiple particles (getTrackID) in the same pre-digit
+        pd->addContribution(chargePerStep, lbl);
       }
     }
     x += stepX;
@@ -166,11 +167,17 @@ void NA6PVerTelDigitizer::finalizeDigits()
     auto itBeg = buffer.begin();
     auto iter = itBeg;
     for (; iter != buffer.end(); ++iter) {
-      const auto& preDig = iter->second;
+      auto& preDig = iter->second;
       int jTile = NA6PVerTelSegmentation::getTileId(jMod, preDig.pixID.rsu, preDig.pixID.tile);
       if (jTile >= 0 && preDig.charge >= mThresholds[jTile]) {
-        mDigits.emplace_back(static_cast<uint16_t>(jMod), preDig.pixID, preDig.particleID);
-        // auto& dig = mDigits.back();
+        preDig.sortLabelsByEnergy();
+        int digID = mDigits.size();
+        mDigits.emplace_back(static_cast<uint16_t>(jMod), preDig.pixID);
+        for (auto& plab : preDig.labels) {
+          // here we can add selections on the labels to be stored in case of multiple labels per digit
+          // e.g. remove delta electrons, remove particles contributing with much smaller energy than the others, etc.
+          mMCLabels.addElement(digID, plab.second);
+        }
       }
     }
     buffer.erase(itBeg, iter); // erase processed entries; iter == end() for now

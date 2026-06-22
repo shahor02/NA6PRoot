@@ -17,20 +17,42 @@
 
 #include <Rtypes.h>
 #include "NA6PVerTelDigit.h"
+#include "NA6PMCComposedLabel.h"
 
 // container of pre-digits per module
 
 struct PreDigit {
-  VTPixID pixID;       ///< pixel identifier from NA6PVerTelDigit
-  float charge = 0.f;  ///< collected charg in pixel
-  int particleID = -1; ///< label of MC particle
+  VTPixID pixID;                                             ///< pixel identifier from NA6PVerTelDigit
+  float charge = 0.f;                                        ///< collected charg in pixel
+  std::vector<std::pair<float, NA6PMCComposedLabel>> labels; ///< <energy, label>, sorted by energy before digitization
 
-  PreDigit(UShort_t rs = 0, UShort_t tl = 0, UShort_t rw = 0, UShort_t cl = 0, float ch = 0.f, int lbl = -1) : charge(ch), particleID(lbl)
+  PreDigit(UShort_t rs = 0, UShort_t tl = 0, UShort_t rw = 0, UShort_t cl = 0, float ch = 0.f, NA6PMCComposedLabel lbl = {}) : charge(ch)
   {
     pixID.rsu = rs;
     pixID.tile = tl;
     pixID.row = rw;
     pixID.col = cl;
+    labels.emplace_back(ch, lbl);
+  }
+
+  void addContribution(float ch, const NA6PMCComposedLabel& lbl)
+  {
+    charge += ch;
+    for (auto& p : labels) {
+      if (p.second == lbl) {
+        p.first += ch;
+        return;
+      }
+    }
+    labels.emplace_back(ch, lbl);
+  }
+
+  void sortLabelsByEnergy()
+  {
+    std::sort(labels.begin(), labels.end(),
+              [](const auto& a, const auto& b) {
+                return a.first > b.first;
+              });
   }
 
   ClassDefNV(PreDigit, 1);
@@ -51,7 +73,7 @@ class NA6PVerTelPreDigitContainer
 
   std::map<ULong64_t, PreDigit>& getPreDigits() { return mPreDigits; }
   PreDigit* findDigit(ULong64_t key);
-  void addDigit(ULong64_t key, UShort_t rs, UShort_t tl, UShort_t rw, UShort_t cl, float ch, int lbl);
+  void addDigit(ULong64_t key, UShort_t rs, UShort_t tl, UShort_t rw, UShort_t cl, float ch, const NA6PMCComposedLabel& lbl);
 
   UShort_t getDetectorIndex() const { return mDetectorIndex; }
   void setDetectorIndex(UShort_t ind) { mDetectorIndex = ind; }
@@ -108,7 +130,7 @@ inline PreDigit* NA6PVerTelPreDigitContainer::findDigit(ULong64_t key)
   return digitentry != mPreDigits.end() ? &(digitentry->second) : nullptr;
 }
 //_______________________________________________________________________
-inline void NA6PVerTelPreDigitContainer::addDigit(ULong64_t key, UShort_t rs, UShort_t tl, UShort_t rw, UShort_t cl, float ch, int lbl)
+inline void NA6PVerTelPreDigitContainer::addDigit(ULong64_t key, UShort_t rs, UShort_t tl, UShort_t rw, UShort_t cl, float ch, const NA6PMCComposedLabel& lbl)
 {
   mPreDigits.emplace(std::make_pair(key, PreDigit(rs, tl, rw, cl, ch, lbl)));
 }
