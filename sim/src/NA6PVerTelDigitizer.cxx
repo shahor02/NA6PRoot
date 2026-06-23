@@ -77,7 +77,7 @@ void NA6PVerTelDigitizer::process(const std::vector<NA6PVerTelHit>& hits, int la
   writeDigits();
 }
 
-void NA6PVerTelDigitizer::getHitLocalCoord(NA6PVerTelHit hit, double xyzLocS[3], double xyzLocE[3])
+void NA6PVerTelDigitizer::getHitLocalCoord(const NA6PVerTelHit& hit, double xyzLocS[3], double xyzLocE[3])
 {
   auto modID = hit.getDetectorID();
   auto& matrix = mGeoManager.getMatrix(modID);
@@ -108,7 +108,7 @@ void NA6PVerTelDigitizer::getHitLocalCoord(NA6PVerTelHit hit, double xyzLocS[3],
   }
 }
 
-void NA6PVerTelDigitizer::processHit(NA6PVerTelHit hit)
+void NA6PVerTelDigitizer::processHit(const NA6PVerTelHit& hit)
 {
   auto modID = hit.getDetectorID();
   auto& mod = mModules[modID];

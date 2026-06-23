@@ -81,11 +81,7 @@ class NA6PVerTelPreDigitContainer
   bool isEmpty() const { return mPreDigits.empty(); }
   static ULong64_t getOrderingKey(UShort_t rsu, UShort_t tile, UShort_t row, UShort_t col)
   {
-    VTPixID id;
-    id.rsu = rsu;
-    id.tile = tile;
-    id.row = row;
-    id.col = col;
+    VTPixID id{.col = col, .row = row, .tile = tile, .rsu = rsu};
     return static_cast<ULong64_t>(id.pack());
   }
 

@@ -46,7 +46,7 @@ class NA6PVerTelDigitizer
 
   void init(const char* filename = "geometry.root", const char* geoname = "NA6P");
   void process(const std::vector<NA6PVerTelHit>& hits, int layer = -1);
-  void processHit(NA6PVerTelHit hit);
+  void processHit(const NA6PVerTelHit& hit);
   void finalizeDigits();
 
   size_t getNDigits() const { return mDigits.size(); }
@@ -60,7 +60,7 @@ class NA6PVerTelDigitizer
   }
   const auto& getDigits() const { return mDigits; }
 
-  void getHitLocalCoord(NA6PVerTelHit hit, double xyzLocS[3], double xyzLocE[3]);
+  void getHitLocalCoord(const NA6PVerTelHit& hit, double xyzLocS[3], double xyzLocE[3]);
 
   void SetThreshold(int modID, float thr)
   {
