@@ -58,7 +58,7 @@ class NA6PVerTelSegmentation
   void setStaggered(bool val);
 
   bool localToIndices(float xloc, float yloc, UShort_t& rsu, UShort_t& tile, UShort_t& row, UShort_t& col) const;
-  int isInAcc(float xglo, float yglo) const;
+  int isInAcc(float xloc, float yloc) const;
   bool indicesToLocal(UShort_t rsu, UShort_t tile, UShort_t row, UShort_t col, float& xloc, float& yloc) const;
   static int getTileId(uint32_t mod, uint32_t rsu, uint32_t tile)
   {

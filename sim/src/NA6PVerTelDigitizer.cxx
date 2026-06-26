@@ -10,7 +10,6 @@
 #include <TTree.h>
 
 #include "NA6PLayoutParam.h"
-#include "NA6PVerTelHit.h"
 #include "NA6PVerTelDigitizer.h"
 
 void NA6PVerTelDigitizer::init(const char* filename, const char* geoname)
@@ -19,10 +18,15 @@ void NA6PVerTelDigitizer::init(const char* filename, const char* geoname)
   mNumberOfModules = param.nVerTelPlanes * NA6PGeometryManager::kNVTModulesPerLayer;
   mModules.resize(mNumberOfModules);
   mThresholds.assign(mNumberOfModules * NA6PVerTelSegmentation::NXTiles * NA6PVerTelSegmentation::NYSensors, kDefaultThresholdEl);
+  initGeometry(filename, geoname);
+  createDigitsOutput();
+}
+
+void NA6PVerTelDigitizer::initGeometry(const char* filename, const char* geoname)
+{
   if (!mGeoManager.loadGeometry(filename, geoname)) {
     LOGP(fatal, "Load of geometry not successful");
   }
-  createDigitsOutput();
 }
 
 void NA6PVerTelDigitizer::createDigitsOutput()

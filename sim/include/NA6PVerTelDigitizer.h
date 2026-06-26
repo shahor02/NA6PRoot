@@ -16,6 +16,7 @@
 #define NA6P_VERTEL_DIGITIZER_H
 
 #include "NA6PVerTelPreDigitContainer.h"
+#include "NA6PVerTelHit.h"
 #include "NA6PVerTelDigit.h"
 #include "NA6PVerTelSegmentation.h"
 #include "NA6PGeometryManager.h"
@@ -45,6 +46,7 @@ class NA6PVerTelDigitizer
   static int detID2Layer(int detID) { return detID / NA6PGeometryManager::kNVTModulesPerLayer; }
 
   void init(const char* filename = "geometry.root", const char* geoname = "NA6P");
+  void initGeometry(const char* filename = "geometry.root", const char* geoname = "NA6P");
   void process(const std::vector<NA6PVerTelHit>& hits, int layer = -1);
   void processHit(const NA6PVerTelHit& hit);
   void finalizeDigits();

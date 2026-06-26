@@ -4,12 +4,14 @@
 
 void NA6PVerTelSegmentation::setStaggered(bool val)
 {
+  // emulate the configuration with sensor acceptance overlaps
   mStaggered = val;
   if (val) {
     mDeadXLongEff = DeadXLong + DeadXShort;
     mDeadXShortEff = 0.f;
     mDeadYTopEff = DeadYTop + DeadYBottom;
     mDeadYBottomEff = 0.f;
+    mInterChipGap = 0.f;
   } else {
     mDeadXLongEff = DeadXLong;
     mDeadXShortEff = DeadXShort;
@@ -54,36 +56,20 @@ bool NA6PVerTelSegmentation::computePixelIndices(float xloc, float yloc,
   return true;
 }
 
-int NA6PVerTelSegmentation::isInAcc(float xglo, float yglo) const
+int NA6PVerTelSegmentation::isInAcc(float xloc, float yloc) const
 {
+  // method used in hitsToRecPoints to account for inactive regions of MOSAIX
 
-  float absOffX = std::abs(mOffsX) - mInterChipGap / 2;
-  float absOffY = std::abs(mOffsY) - mInterChipGap / 2;
-  if ((xglo < -absOffX && yglo < absOffY) ||
-      (xglo > -absOffX && yglo < -absOffY)) {
-    // flip signs for Q3 and Q4
-    xglo = -xglo;
-    yglo = -yglo;
-  }
+  xloc -= mInterChipGap / 2;
+  yloc -= mInterChipGap / 2;
 
-  xglo -= mOffsX;
-  if (xglo < 0.) { // Q2 + Q4
-    yglo += mOffsY - mInterChipGap / 2;
-    xglo += XSizeTot + mInterChipGap / 2; // relate to chip local left/bottom corner
-  } else {                                // Q1 + Q3
-    yglo -= mOffsY + mInterChipGap / 2;
-    xglo = (XSizeTot + mInterChipGap / 2) - xglo; // relate to chip local left/bottom corner
-  }
-
-  if (xglo < 0 || xglo > XSizeTot || yglo < 0 || yglo > YSizeTot)
+  if (xloc < 0 || xloc > XSizeTot || yloc < 0 || yloc > YSizeTot)
     return 0;
 
-  if (xglo < mDeadXLongEff || xglo > XSizeTot - mDeadXShortEff || yglo < mDeadYBottomEff || yglo > YSizeTot - mDeadYTopEff)
+  if (xloc < mDeadXShortEff || xloc > XSizeTot - mDeadXLongEff || yloc < mDeadYBottomEff || yloc > YSizeTot - mDeadYTopEff)
     return -1;
-  xglo -= mDeadXLongEff;
+  xloc -= mDeadXShortEff;
 
-  float xloc = xglo;
-  float yloc = yglo;
   UShort_t rsu, tile, row, col;
   return computePixelIndices(xloc, yloc, mDeadYBottomEff, mDeadYTopEff, rsu, tile, row, col) ? 1 : -1;
 }
