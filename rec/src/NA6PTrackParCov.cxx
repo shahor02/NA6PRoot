@@ -1,6 +1,6 @@
 // NA6PCCopyright
 #include "NA6PTrackParCov.h"
-
+#include <TMath.h>
 #include <fmt/format.h>
 #include <fairlogger/Logger.h>
 
@@ -445,7 +445,9 @@ void NA6PTrackParCov::resetCovariance(float s2)
   mC[kTyTy] = d3;
   mC[kQ2PxzQ2Pxz] = d4;
   if (s2 == MaxErrSelRescale) {
-    mC[kQ2PxzQ2Pxz] *= getParam(4) * getParam(4);
+    auto useQ2Pxz = getParam(4);
+    useQ2Pxz += TMath::Sign(MinQ2PXZBias, useQ2Pxz);
+    mC[kQ2PxzQ2Pxz] *= useQ2Pxz * useQ2Pxz;
   }
 }
 

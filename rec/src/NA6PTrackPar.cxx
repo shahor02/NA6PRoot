@@ -295,6 +295,7 @@ float NA6PTrackPar::BetheBlochSolid(float bg, float rho, float kp1, float kp2, f
   constexpr float me = 0.511e-3;    // [GeV/c^2]
   kp1 *= 2.303f;
   kp2 *= 2.303f;
+  clampBetaGamma(bg);
   float bg2 = bg * bg, beta2 = bg2 / (1 + bg2);
   float maxT = 2.f * me * bg2; // neglecting the electron mass
 
@@ -326,6 +327,7 @@ float NA6PTrackPar::BetheBlochSolidDerivative(float dedx, float bg, float meanZA
   // bg  - beta*gamma
   //
   constexpr float mK = 0.307075e-3; // [GeV*cm^2/g]
+  clampBetaGamma(bg);
   auto bg2 = bg * bg;
   auto t1 = 1 + bg2;
   //  auto derH = (mK * meanZA * (t1+bg2) - dedx*bg2)/(bg*t1);

@@ -60,6 +60,7 @@ class NA6PTrackParCov : public NA6PTrackPar
   static constexpr float MaxErrSel = -1.f;        // Set to max error
   static constexpr float MaxErrSelRescale = -2.f; // Set to max error and rescale relative momentume error to assigned q/pxz
   static constexpr float ELoss2SigmaE = 0.007f;   // fraction of E.loss assigned to momentum error
+  static constexpr float MinQ2PXZBias = 1.f / 100;
   static constexpr float kCMaxDiag[5] = {kCX2max, kCY2max, kCTX2max, kCTY2max, kC1Pxz2max};
 
   using NA6PTrackPar::NA6PTrackPar;

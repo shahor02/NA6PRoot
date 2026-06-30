@@ -54,6 +54,7 @@ class NA6PTrackPar
   static constexpr float ELoss2EKinThreshInv = 1. / 0.025; // do not allow E.Loss correction step with dE/Ekin above the inverse of this value
   static constexpr float InvalidZ = -99999.f;              // tracks with this Z were invalidated
   static constexpr int MaxELossIter = 50;                  // max number of iteration for the ELoss to account for BB dependence on beta*gamma
+  static constexpr float kMaxBetaGammaELoss = 1000.;       // limit eloss calculation to this bg.
 
   NA6PTrackPar() = default;
   NA6PTrackPar(const NA6PTrackPar&) = default;
@@ -175,6 +176,7 @@ class NA6PTrackPar
   static float getCos2FromSin(float s);
   static float getCosFromSin(float s);
 
+  void clampBetaGamma(float& bg) const { bg = std::min(bg, kMaxBetaGammaELoss); }
   float BetheBlochSolid(float bg, float rho = 2.33, float kp1 = 0.20, float kp2 = 3.00, float meanI = 173e-9, float meanZA = 0.49848);
   float BetheBlochSolidDerivative(float dedx, float bg, float meanZA);
   void g3helx3(float qfield, float step, std::array<float, 7>& vect);
