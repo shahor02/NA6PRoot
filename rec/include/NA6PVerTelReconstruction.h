@@ -49,6 +49,7 @@ class NA6PVerTelReconstruction : public NA6PReconstruction
   void closeClustersOutput() override;
   // fast method to smear the hits bypassing digitization and cluster finder
   void setClusterSpaceResolution(double clures) { mCluRes = clures; }
+  void setEmulateNoGaps(bool val = true) { mEmulateNoGaps = val; }
   void hitsToRecPoints(const std::vector<NA6PVerTelHit>& hits);
   NA6PTrackerCA* getTracker() const { return mVTTracker; }
 
@@ -72,6 +73,7 @@ class NA6PVerTelReconstruction : public NA6PReconstruction
   TFile* mClusFile = nullptr;                                       // file with clusters
   TTree* mClusTree = nullptr;                                       // tree of clusters
   double mCluRes = 5.e-4;                                           // cluster resolution, cm (for fast simu)
+  bool mEmulateNoGaps = false;                                      // enable sensor acceptance overlaps in hitsToRecPoints
   std::vector<NA6PVertex> mVertices, *hVerticesPtr = &mVertices;    // vector of vertices
   TFile* mVertexFile = nullptr;                                     // file with vertices
   TTree* mVertexTree = nullptr;                                     // tree of vertices

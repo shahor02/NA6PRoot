@@ -4,12 +4,14 @@
 
 void NA6PVerTelSegmentation::setStaggered(bool val)
 {
+  // emulate the configuration with sensor acceptance overlaps
   mStaggered = val;
   if (val) {
     mDeadXLongEff = DeadXLong + DeadXShort;
     mDeadXShortEff = 0.f;
     mDeadYTopEff = DeadYTop + DeadYBottom;
     mDeadYBottomEff = 0.f;
+    mInterChipGap = 0.f;
   } else {
     mDeadXLongEff = DeadXLong;
     mDeadXShortEff = DeadXShort;
@@ -18,49 +20,101 @@ void NA6PVerTelSegmentation::setStaggered(bool val)
   }
 }
 
-int NA6PVerTelSegmentation::isInAcc(float x, float y) const
+bool NA6PVerTelSegmentation::computePixelIndices(float xloc, float yloc,
+                                                 float deadYBottom, float deadYTop,
+                                                 UShort_t& rsu, UShort_t& tile,
+                                                 UShort_t& row, UShort_t& col) const
 {
+  int sens = int(yloc / DYSens);
+  yloc -= sens * DYSens;
+  if (yloc < deadYBottom || yloc > DYSens - deadYTop)
+    return false;
+  yloc -= deadYBottom;
 
-  float absOffX = std::abs(mOffsX) - mInterChipGap / 2;
-  float absOffY = std::abs(mOffsY) - mInterChipGap / 2;
-  if ((x < -absOffX && y < absOffY) ||
-      (x > -absOffX && y < -absOffY)) {
-    // flip signs for Q3 and Q4
-    x = -x;
-    y = -y;
-  }
+  int topbot = int(yloc / ActiveDYHalf);
+  yloc -= topbot * ActiveDYHalf;
+  if (yloc < DeadTopBotHalves / 2)
+    return false;
+  yloc -= DeadTopBotHalves / 2;
+  int segm = int(xloc / DXSegment);
+  xloc -= segm * DXSegment;
+  if (xloc > DXSegment - DeadXDataBackbone)
+    return false;
+  int tileIdx = int(xloc / DXTile);
+  xloc -= tileIdx * DXTile;
+  if (xloc < DeadXTile)
+    return false;
+  xloc -= DeadXTile;
 
-  x -= mOffsX;
-  if (x < 0.) { // Q2 + Q4
-    y += mOffsY - mInterChipGap / 2;
-    x += XSizeTot + mInterChipGap / 2; // relate to chip local left/bottom corner
-  } else {                             // Q1 + Q3
-    y -= mOffsY + mInterChipGap / 2;
-    x = (XSizeTot + mInterChipGap / 2) - x; // relate to chip local left/bottom corner
-  }
+  // map segm [0-11] and topbot [0-1] and tileIdx [0-2] to rsu [0-41] and tile [0-11]
+  int rsuX = segm / NSegmentsPerRSU;
+  int segInRsu = segm % NSegmentsPerRSU;
+  rsu = static_cast<UShort_t>(sens * (NXSegments / NSegmentsPerRSU) + rsuX);
+  tile = static_cast<UShort_t>(topbot * (NSegmentsPerRSU * NTilesPerSegment) + segInRsu * NTilesPerSegment + tileIdx);
+  col = static_cast<UShort_t>(xloc / ActiveDX * NColsPerTile);
+  row = static_cast<UShort_t>(yloc / ActiveDYTile * NRowsPerTile);
+  return true;
+}
 
-  if (x < 0 || x > XSizeTot || y < 0 || y > YSizeTot)
+int NA6PVerTelSegmentation::isInAcc(float xloc, float yloc) const
+{
+  // method used in hitsToRecPoints to account for inactive regions of MOSAIX
+
+  xloc -= mInterChipGap / 2;
+  yloc -= mInterChipGap / 2;
+
+  if (xloc < 0 || xloc > XSizeTot || yloc < 0 || yloc > YSizeTot)
     return 0;
 
-  if (x < mDeadXLongEff || x > XSizeTot - mDeadXShortEff || y < mDeadYBottomEff || y > YSizeTot - mDeadYTopEff)
+  if (xloc < mDeadXShortEff || xloc > XSizeTot - mDeadXLongEff || yloc < mDeadYBottomEff || yloc > YSizeTot - mDeadYTopEff)
     return -1;
-  x -= mDeadXLongEff;
-  int sens = int(y / DYSens);
-  y -= sens * DYSens;
-  if (y < mDeadYBottomEff || y > DYSens - mDeadYTopEff)
-    return -1;
-  int topbot = int(y / (DYSens / 2));
-  y -= topbot * (DYSens / 2);
-  if (y < DeadTopBotHalves / 2)
-    return -1;
-  int segm = int(x / DXSegment);
-  x -= segm * DXSegment;
-  if (x > DXSegment - DeadXDataBackbone)
-    return -1;
-  int tile = int(x / DXTile);
-  x -= tile * DXTile;
-  if (x < DeadXTile)
-    return -1;
+  xloc -= mDeadXShortEff;
 
-  return 1;
+  UShort_t rsu, tile, row, col;
+  return computePixelIndices(xloc, yloc, mDeadYBottomEff, mDeadYTopEff, rsu, tile, row, col) ? 1 : -1;
+}
+
+bool NA6PVerTelSegmentation::localToIndices(float xloc, float yloc, UShort_t& rsu, UShort_t& tile, UShort_t& row, UShort_t& col) const
+{
+  rsu = tile = row = col = -1;
+  if (xloc < 0 || xloc > XSizeTot || yloc < 0 || yloc > YSizeTot)
+    return false;
+
+  if (xloc < DeadXShort || xloc > XSizeTot - DeadXLong || yloc < DeadYBottom || yloc > YSizeTot - DeadYTop)
+    return false;
+
+  xloc -= DeadXShort;
+
+  bool isOk = computePixelIndices(xloc, yloc, DeadYBottom, DeadYTop, rsu, tile, row, col);
+  if (!isOk || col >= NColsPerTile || row >= NRowsPerTile) {
+    return false;
+  }
+  return true;
+}
+
+bool NA6PVerTelSegmentation::indicesToLocal(UShort_t rsu, UShort_t tile, UShort_t row, UShort_t col, float& xloc, float& yloc) const
+{
+  xloc = yloc = -9999.f;
+  if (rsu >= NYSensors * (NXSegments / NSegmentsPerRSU))
+    return false;
+  if (tile >= NTilesPerSegment * NSegmentsPerRSU * 2)
+    return false;
+  if (row >= NRowsPerTile)
+    return false;
+  if (col >= NColsPerTile)
+    return false;
+
+  float xInTile = (col + 0.5f) * ActiveDX / NColsPerTile;
+  float yInTile = (row + 0.5f) * ActiveDYTile / NRowsPerTile;
+  int tileIdx = tile % NTilesPerSegment;
+  int segInRsu = (tile / NTilesPerSegment) % NSegmentsPerRSU;
+  int topbot = tile / (NTilesPerSegment * NSegmentsPerRSU);
+  float xInSegm = xInTile + DeadXTile + tileIdx * DXTile;
+  int rsuX = rsu % (NXSegments / NSegmentsPerRSU);
+  int segm = NSegmentsPerRSU * rsuX + segInRsu;
+  xloc = xInSegm + segm * DXSegment + DeadXShort;
+  float yinRsu = yInTile + DeadTopBotHalves / 2 + topbot * ActiveDYHalf;
+  int rsuY = rsu / (NXSegments / NSegmentsPerRSU);
+  yloc = yinRsu + rsuY * DYSens + DeadYBottom;
+  return true;
 }
