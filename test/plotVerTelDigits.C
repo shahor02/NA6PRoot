@@ -12,6 +12,32 @@
 #include "NA6PVerTelSegmentation.h"
 #include "NA6PGeometryManager.h"
 
+void getGlobalCoord(const NA6PGeometryManager& geoMan, int modID, float xloc, float yloc, double xyzGlo[3])
+{
+  auto& matrix = geoMan.getMatrix(modID);
+
+  double x = xloc;
+  double y = yloc;
+  int modType = modID % NA6PGeometryManager::kNVTModulesPerLayer;
+
+  if (modType == 1) {
+    // swap x
+    x = geoMan.getModuleFullX(modID) - x;
+  } else if (modID % NA6PGeometryManager::kNVTModulesPerLayer == 2) {
+    // swap x and y
+    x = geoMan.getModuleFullX(modID) - x;
+    y = geoMan.getModuleFullY(modID) - y;
+  } else if (modID % NA6PGeometryManager::kNVTModulesPerLayer == 3) {
+    // swap y
+    y = geoMan.getModuleFullY(modID) - y;
+  }
+  double xyzLoc[3];
+  xyzLoc[0] = x - geoMan.getModuleHalfX(modID);
+  xyzLoc[1] = y - geoMan.getModuleHalfY(modID);
+  xyzLoc[2] = 0.;
+  matrix.LocalToMaster(xyzLoc, xyzGlo);
+}
+
 void plotVerTelDigits(const char* dirSimu = ".")
 {
 
@@ -54,10 +80,29 @@ void plotVerTelDigits(const char* dirSimu = ".")
   TH1F* hTile = new TH1F("hTile", ";tile;counts", 12, -0.5, 11.5);
   TH1F* hRow = new TH1F("hRow", ";row;counts", 444, -0.5, 443.5);
   TH1F* hCol = new TH1F("hCol", ";col;counts", 156, -0.5, 155.5);
-  TH1F* hDeltaXloc1 = new TH1F("hDeltaXloc1", "1-digit hits;x_{loc}^{digit}-x_{loc}^{hit} (#mum);counts", 100, -30, 30);
-  TH1F* hDeltaYloc1 = new TH1F("hDeltaYloc1", "1-digit hits;y_{loc}^{digit}-y_{loc}^{hit} (#mum);counts", 100, -30, 30);
-  TH1F* hDeltaXloc2 = new TH1F("hDeltaXloc2", "2-digit hits;x_{loc}^{digit}-x_{loc}^{hit} (#mum);counts", 100, -30, 30);
-  TH1F* hDeltaYloc2 = new TH1F("hDeltaYloc2", "2-digit hits;y_{loc}^{digit}-y_{loc}^{hit} (#mum);counts", 100, -30, 30);
+  TH1F* hDeltaXloc1 = new TH1F("hDeltaXloc1", "1-digit hits;x_{loc}^{digit}-x_{loc}^{hit} (#mum);counts", 100, -30., 30.);
+  TH1F* hDeltaYloc1 = new TH1F("hDeltaYloc1", "1-digit hits;y_{loc}^{digit}-y_{loc}^{hit} (#mum);counts", 100, -30., 30.);
+  TH1F* hDeltaXloc2 = new TH1F("hDeltaXloc2", "2-digit hits;x_{loc}^{digit}-x_{loc}^{hit} (#mum);counts", 100, -30., 30.);
+  TH1F* hDeltaYloc2 = new TH1F("hDeltaYloc2", "2-digit hits;y_{loc}^{digit}-y_{loc}^{hit} (#mum);counts", 100, -30., 30.);
+  TH2F** hXYHit = new TH2F*[5];
+  TH1F** hZHit = new TH1F*[5];
+  TH2F** hXYGloDig = new TH2F*[5];
+  TH1F** hZGloDig = new TH1F*[5];
+  for (int jLay = 0; jLay < 5; jLay++) {
+    hXYHit[jLay] = new TH2F(Form("hXYHitLay%d", jLay), Form("hits layer %d;x_{glo} (cm);y_{glo} (cm)", jLay), 100, -15., 15., 100, -15., 15.);
+    hZHit[jLay] = new TH1F(Form("hZHitLay%d", jLay), Form("hits layer %d;z_{glo} (cm);counts", jLay), 100, 0., 40.);
+    hXYGloDig[jLay] = new TH2F(Form("hXYGloDigLay%d", jLay), Form("digits layer %d;x_{glo} (cm);y_{glo} (cm)", jLay), 100, -15., 15., 100, -15., 15.);
+    hZGloDig[jLay] = new TH1F(Form("hZGloDigLay%d", jLay), Form("digits layer %d;z_{glo} (cm);counts", jLay), 100, 0., 40.);
+    hXYHit[jLay]->SetStats(0);
+    hZHit[jLay]->SetStats(0);
+    hXYGloDig[jLay]->SetStats(0);
+    hZGloDig[jLay]->SetStats(0);
+  }
+  TH2F** hXYLocDig = new TH2F*[20];
+  for (int jMod = 0; jMod < 20; jMod++) {
+    hXYLocDig[jMod] = new TH2F(Form("hXYLocDigMod%d", jMod), Form("digits mod %d;x_{loc} (cm);y_{loc} (cm)", jMod), 100, 0., 15., 100, 0., 15.);
+    hXYLocDig[jMod]->SetStats(0);
+  }
 
   int nEv = mcTree->GetEntries();
   printf("Number of events = %d\n", nEv);
@@ -71,12 +116,38 @@ void plotVerTelDigits(const char* dirSimu = ".")
     int nDigits = vtDigits.size();
     int nMClabels = vtMCLabels.getNElements();
     printf("Event %d particles = %d hits = %d digits = %d MClabels = %d\n", jEv, nPart, nHits, nDigits, nMClabels);
+    for (const auto& hit : vtHits) {
+      int nDet = hit.getDetectorID();
+      int lay = nDet / 4;
+      if (lay < 0 || lay >= 5) {
+        printf("ERROR wrong layer %d\n", lay);
+        continue;
+      }
+      hXYHit[lay]->Fill(hit.getX(), hit.getY());
+      hZHit[lay]->Fill(hit.getZ());
+    }
     for (int jDig = 0; jDig < nDigits; ++jDig) {
       const auto& dig = vtDigits.at(jDig);
-      hRSU->Fill(dig.getRSU());
-      hTile->Fill(dig.getTile());
-      hRow->Fill(dig.getRow());
-      hCol->Fill(dig.getCol());
+      int rsu = dig.getRSU();
+      int tile = dig.getTile();
+      int row = dig.getRow();
+      int col = dig.getCol();
+      int modId = dig.getDetectorID();
+      int lay = modId / 4;
+      hRSU->Fill(rsu);
+      hTile->Fill(tile);
+      hRow->Fill(row);
+      hCol->Fill(col);
+      float xpix, ypix;
+      bool locOk = vt.indicesToLocal(rsu, tile, row, col, xpix, ypix);
+      if (locOk) {
+        hXYLocDig[modId]->Fill(xpix, ypix);
+        double xyzGlo[3];
+        getGlobalCoord(geoMan, dig.getDetectorID(), xpix, ypix, xyzGlo);
+        hXYGloDig[lay]->Fill(xyzGlo[0], xyzGlo[1]);
+        hZGloDig[lay]->Fill(xyzGlo[2]);
+      }
+
       std::span labels = vtMCLabels.getLabels(jDig);
       int nLabels = labels.size();
       hMCLabelsPerDigit->Fill(nLabels);
@@ -183,6 +254,40 @@ void plotVerTelDigits(const char* dirSimu = ".")
   hRow->Draw();
   cdig->cd(4);
   hCol->Draw();
+
+  TCanvas* cxyh = new TCanvas("cxyh", "Hits XY", 1400, 800);
+  cxyh->Divide(3, 2);
+  for (int jLay = 0; jLay < 5; jLay++) {
+    cxyh->cd(jLay + 1);
+    hXYHit[jLay]->Draw("colz");
+  }
+  TCanvas* czh = new TCanvas("czh", "Hits Z", 1400, 800);
+  czh->Divide(3, 2);
+  for (int jLay = 0; jLay < 5; jLay++) {
+    czh->cd(jLay + 1);
+    hZHit[jLay]->Draw();
+  }
+  TCanvas* cxyl = new TCanvas("cxyl", "Digits XY", 1400, 800);
+  cxyl->Divide(5, 4);
+  for (int jMod = 0; jMod < 20; jMod++) {
+    int jLay = jMod / 4;
+    int j4 = jMod % 4;
+    int jPad = jLay + 1 + j4 * 5;
+    cxyl->cd(jPad);
+    hXYLocDig[jMod]->Draw("colz");
+  }
+  TCanvas* cxyg = new TCanvas("cxyg", "Digits XY", 1400, 800);
+  cxyg->Divide(3, 2);
+  for (int jLay = 0; jLay < 5; jLay++) {
+    cxyg->cd(jLay + 1);
+    hXYGloDig[jLay]->Draw("colz");
+  }
+  TCanvas* czg = new TCanvas("czg", "Digits Z", 1400, 800);
+  czg->Divide(3, 2);
+  for (int jLay = 0; jLay < 5; jLay++) {
+    czg->cd(jLay + 1);
+    hZGloDig[jLay]->Draw("colz");
+  }
 
   TCanvas* clab = new TCanvas("clab", "labels", 1400, 500);
   clab->Divide(3, 1);
