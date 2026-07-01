@@ -14,25 +14,18 @@ ClassImp(NA6PMuonSpecReconstruction)
 
   NA6PMuonSpecReconstruction::NA6PMuonSpecReconstruction() : NA6PReconstruction("MuonSpec")
 {
+  initTracker();
 }
 
-NA6PMuonSpecReconstruction::NA6PMuonSpecReconstruction(const char* recparfile,
-                                                       const char* geofile,
-                                                       const char* geoname) : NA6PReconstruction("MuonSpec")
+NA6PMuonSpecReconstruction::~NA6PMuonSpecReconstruction()
 {
-  mGeoFilName = geofile;
-  mGeoObjName = geoname;
-  mRecoParFilName = recparfile;
-  initTracker();
+  // move here since the NA6PTrackerCA was fwd-declared
 }
 
 bool NA6PMuonSpecReconstruction::initTracker()
 {
-  NA6PReconstruction::init(mGeoFilName.c_str(), mGeoObjName.c_str());
-  mMSTracker = new NA6PTrackerCA();
+  mMSTracker = std::make_unique<NA6PTrackerCA>();
   mMSTracker->configureFromRecoParamMS();
-  mMSTracker->setParticleHypothesis(13); // muon mass hypothesis
-  mMSTracker->setUseIntegralBForSeed();
   createTracksOutput();
   return true;
 }
@@ -96,7 +89,6 @@ void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecM
       y = gRandom->Gaus(hit.getY(), mCluResY);
       ey2clu = mCluResY * mCluResY;
     }
-    double eloss = hit.getHitValue();
     // very rough cluster size settings
     int clusiz = 1;
     int nDet = hit.getDetectorID();
@@ -156,10 +148,6 @@ void NA6PMuonSpecReconstruction::closeTracksOutput()
 
 void NA6PMuonSpecReconstruction::runTracking()
 {
-  if (!mIsInitialized) {
-    LOGP(error, "Magnetic field and geometry not initialized");
-    return;
-  }
   clearTracks();
   mMSTracker->findTracks(*hClusPtr, mPrimaryVertex);
   mTracks = mMSTracker->getTracks();

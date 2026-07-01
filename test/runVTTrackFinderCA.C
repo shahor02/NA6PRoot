@@ -36,8 +36,9 @@ void runVTTrackFinderCA(int firstEv = 0,
 {
 
   auto magField = new MagneticField();
-  magField->loadField();
-  magField->setAsGlobalField();
+  if (!Propagator::loadField() || !Propagator::loadGeometry(Form("%s/geometry.root", dirSimu))) {
+    return;
+  }
 
   int nMomBins = 40;
   TH1F* hMomGen = new TH1F("hMomGen", ";p (GeV/c);counts", nMomBins, 0., 10.);
@@ -54,14 +55,8 @@ void runVTTrackFinderCA(int firstEv = 0,
     hEtaRecoIterCA[jIteration] = new TH1F(Form("hEtaRecoIterCA%d", jIteration), ";#eta;counts", 20, 1., 5.);
   }
 
-  NA6PTrackerCA* tracker = new NA6PTrackerCA();
-  if (!tracker->loadGeometry(Form("%s/geometry.root", dirSimu)))
-    return;
-  // pass here the configuration of the tracker via an ini file
-  tracker->configureFromRecoParamVT(/* "myRecoParam.ini" */);
-  // alternatively the configuration can be set calling setters for the iterations
-  // tracker->setNumberOfIterations(3);
-  // tracker->setIterationParams(0,0.04,0.1,4.,0.4,0.02,2e-3,5.,5.,5.,5);
+  std::unique_ptr<NA6PTrackerCA> tracker = std::make_unique<NA6PTrackerCA>();
+  tracker->configureFromRecoParamVT();
   tracker->printConfiguration();
   TFile* fk = new TFile(Form("%s/MCKine.root", dirSimu));
   TTree* mcTree = (TTree*)fk->Get("mckine");
