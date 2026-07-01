@@ -17,7 +17,7 @@ void NA6PVerTelDigitizer::init(const char* filename, const char* geoname)
   const auto& param = NA6PLayoutParam::Instance();
   mNumberOfModules = param.nVerTelPlanes * NA6PGeometryManager::kNVTModulesPerLayer;
   mModules.resize(mNumberOfModules);
-  mThresholds.assign(mNumberOfModules * NA6PVerTelSegmentation::NXTiles * NA6PVerTelSegmentation::NYSensors, kDefaultThresholdEl);
+  mThresholds.assign(mNumberOfModules * NA6PVerTelSegmentation::NTilesPerModule, kDefaultThresholdEl);
   initGeometry(filename, geoname);
   createDigitsOutput();
 }
