@@ -10,10 +10,10 @@ NA6PVerTelDigit::NA6PVerTelDigit(uint16_t detID, const VTPixID& id) : mDetectorI
 
 NA6PVerTelDigit::NA6PVerTelDigit(uint16_t detID, uint32_t rsu, uint32_t tile, uint32_t row, uint32_t col) : mDetectorID(detID)
 {
-  mPixID.rsu = rsu;
-  mPixID.tile = tile;
-  mPixID.row = row;
-  mPixID.col = col;
+  mPixID.setRsu(rsu);
+  mPixID.setTile(tile);
+  mPixID.setRow(row);
+  mPixID.setCol(col);
 }
 
 std::string NA6PVerTelDigit::asString() const

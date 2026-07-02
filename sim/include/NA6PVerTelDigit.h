@@ -18,45 +18,39 @@
 #include <Rtypes.h>
 
 // object for VT digits
-// NOTE: VTPixID uses C++ bit fields which ROOT cannot stream correctly.
-// Do not access mPixID branches directly via TTree::Scan() or TTree::Draw().
-// Always use the getters (getRSU(), getTile(), getRow(), getCol())
-// to access pixel indices.
+// VTPixID stores rsu/tile/row/col packed into a single uint32_t,
+// to ensure correct ROOT streaming.
+// Always use the getters/setters to access pixel indices.
 
 struct VTPixID {
-
   static constexpr int kColBits = 10; // 0-155,  max 1023
   static constexpr int kRowBits = 10; // 0-443,  max 1023
   static constexpr int kTileBits = 4; // 0-11,   max 15
   static constexpr int kRsuBits = 6;  // 0-41,   max 63
-
   static_assert(kColBits + kRowBits + kTileBits + kRsuBits == 30,
                 "VTPixID fields must fit in 32 bits");
 
-  uint32_t col : kColBits = 0;
-  uint32_t row : kRowBits = 0;
-  uint32_t tile : kTileBits = 0;
-  uint32_t rsu : kRsuBits = 0;
+  uint32_t mPacked = 0; // the ONLY streamed member
 
-  uint32_t pack() const
-  {
-    return uint32_t(col) |
-           (uint32_t(row) << kColBits) |
-           (uint32_t(tile) << (kColBits + kRowBits)) |
-           (uint32_t(rsu) << (kColBits + kRowBits + kTileBits));
-  }
+  uint32_t getCol() const { return mPacked & ((1u << kColBits) - 1); }
+  uint32_t getRow() const { return (mPacked >> kColBits) & ((1u << kRowBits) - 1); }
+  uint32_t getTile() const { return (mPacked >> (kColBits + kRowBits)) & ((1u << kTileBits) - 1); }
+  uint32_t getRsu() const { return (mPacked >> (kColBits + kRowBits + kTileBits)) & ((1u << kRsuBits) - 1); }
 
+  void setCol(uint32_t v) { mPacked = (mPacked & ~(((1u << kColBits) - 1))) | (v & ((1u << kColBits) - 1)); }
+  void setRow(uint32_t v) { mPacked = (mPacked & ~(((1u << kRowBits) - 1) << kColBits)) | ((v & ((1u << kRowBits) - 1)) << kColBits); }
+  void setTile(uint32_t v) { mPacked = (mPacked & ~(((1u << kTileBits) - 1) << (kColBits + kRowBits))) | ((v & ((1u << kTileBits) - 1)) << (kColBits + kRowBits)); }
+  void setRsu(uint32_t v) { mPacked = (mPacked & ~(((1u << kRsuBits) - 1) << (kColBits + kRowBits + kTileBits))) | ((v & ((1u << kRsuBits) - 1)) << (kColBits + kRowBits + kTileBits)); }
+
+  uint32_t pack() const { return mPacked; }
   static VTPixID unpack(uint32_t val)
   {
     VTPixID id;
-    id.col = val & ((1 << kColBits) - 1);
-    id.row = (val >> kColBits) & ((1 << kRowBits) - 1);
-    id.tile = (val >> (kColBits + kRowBits)) & ((1 << kTileBits) - 1);
-    id.rsu = (val >> (kColBits + kRowBits + kTileBits)) & ((1 << kRsuBits) - 1);
+    id.mPacked = val;
     return id;
   }
 
-  ClassDefNV(VTPixID, 1);
+  ClassDefNV(VTPixID, 2);
 };
 
 class NA6PVerTelDigit
@@ -69,17 +63,17 @@ class NA6PVerTelDigit
 
   uint16_t getDetectorID() const { return mDetectorID; }
   const VTPixID& getPixID() const { return mPixID; }
-  uint32_t getRSU() const { return mPixID.rsu; }
-  uint32_t getTile() const { return mPixID.tile; }
-  uint32_t getRow() const { return mPixID.row; }
-  uint32_t getCol() const { return mPixID.col; }
+  uint32_t getRSU() const { return mPixID.getRsu(); }
+  uint32_t getTile() const { return mPixID.getTile(); }
+  uint32_t getRow() const { return mPixID.getRow(); }
+  uint32_t getCol() const { return mPixID.getCol(); }
 
   void setDetectorID(uint16_t id) { mDetectorID = id; }
   void setPixID(const VTPixID& id) { mPixID = id; }
-  void setRSU(uint32_t id) { mPixID.rsu = id; }
-  void setTile(uint32_t id) { mPixID.tile = id; }
-  void setRow(uint32_t id) { mPixID.row = id; }
-  void setCol(uint32_t id) { mPixID.col = id; }
+  void setRSU(uint32_t id) { mPixID.setRsu(id); }
+  void setTile(uint32_t id) { mPixID.setTile(id); }
+  void setRow(uint32_t id) { mPixID.setRow(id); }
+  void setCol(uint32_t id) { mPixID.setCol(id); }
 
   void print() const;
   std::string asString() const;

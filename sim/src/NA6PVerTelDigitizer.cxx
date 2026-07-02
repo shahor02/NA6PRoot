@@ -172,7 +172,7 @@ void NA6PVerTelDigitizer::finalizeDigits()
     auto iter = itBeg;
     for (; iter != buffer.end(); ++iter) {
       auto& preDig = iter->second;
-      int jTile = NA6PVerTelSegmentation::getTileId(jMod, preDig.pixID.rsu, preDig.pixID.tile);
+      int jTile = NA6PVerTelSegmentation::getTileId(jMod, preDig.pixID.getRsu(), preDig.pixID.getTile());
       if (jTile >= 0 && preDig.charge >= mThresholds[jTile]) {
         preDig.sortLabelsByEnergy();
         int digID = mDigits.size();

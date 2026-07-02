@@ -28,10 +28,10 @@ struct PreDigit {
 
   PreDigit(UShort_t rs = 0, UShort_t tl = 0, UShort_t rw = 0, UShort_t cl = 0, float ch = 0.f, NA6PMCComposedLabel lbl = {}) : charge(ch)
   {
-    pixID.rsu = rs;
-    pixID.tile = tl;
-    pixID.row = rw;
-    pixID.col = cl;
+    pixID.setRsu(rs);
+    pixID.setTile(tl);
+    pixID.setRow(rw);
+    pixID.setCol(cl);
     labels.emplace_back(ch, lbl);
   }
 
@@ -81,24 +81,28 @@ class NA6PVerTelPreDigitContainer
   bool isEmpty() const { return mPreDigits.empty(); }
   static ULong64_t getOrderingKey(UShort_t rsu, UShort_t tile, UShort_t row, UShort_t col)
   {
-    VTPixID id{.col = col, .row = row, .tile = tile, .rsu = rsu};
+    VTPixID id;
+    id.setCol(col);
+    id.setRow(row);
+    id.setTile(tile);
+    id.setRsu(rsu);
     return static_cast<ULong64_t>(id.pack());
   }
 
-  static UShort_t key2col(ULong64_t key) { return key2pixID(key).col; }
-  static UShort_t key2row(ULong64_t key) { return key2pixID(key).row; }
-  static UShort_t key2tile(ULong64_t key) { return key2pixID(key).tile; }
-  static UShort_t key2rsu(ULong64_t key) { return key2pixID(key).rsu; }
+  static UShort_t key2col(ULong64_t key) { return key2pixID(key).getCol(); }
+  static UShort_t key2row(ULong64_t key) { return key2pixID(key).getRow(); }
+  static UShort_t key2tile(ULong64_t key) { return key2pixID(key).getTile(); }
+  static UShort_t key2rsu(ULong64_t key) { return key2pixID(key).getRsu(); }
 
   static void unpackKey(ULong64_t key,
                         UShort_t& rsu, UShort_t& tile,
                         UShort_t& row, UShort_t& col)
   {
     VTPixID id = key2pixID(key);
-    rsu = id.rsu;
-    tile = id.tile;
-    row = id.row;
-    col = id.col;
+    rsu = id.getRsu();
+    tile = id.getTile();
+    row = id.getRow();
+    col = id.getCol();
   }
 
   bool isDisabled() const { return mDisabled; }
