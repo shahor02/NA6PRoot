@@ -42,14 +42,6 @@ struct VTPixID {
   void setTile(uint32_t v) { mPacked = (mPacked & ~(((1u << kTileBits) - 1) << (kColBits + kRowBits))) | ((v & ((1u << kTileBits) - 1)) << (kColBits + kRowBits)); }
   void setRsu(uint32_t v) { mPacked = (mPacked & ~(((1u << kRsuBits) - 1) << (kColBits + kRowBits + kTileBits))) | ((v & ((1u << kRsuBits) - 1)) << (kColBits + kRowBits + kTileBits)); }
 
-  uint32_t pack() const { return mPacked; }
-  static VTPixID unpack(uint32_t val)
-  {
-    VTPixID id;
-    id.mPacked = val;
-    return id;
-  }
-
   ClassDefNV(VTPixID, 2);
 };
 

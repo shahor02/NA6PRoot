@@ -86,7 +86,7 @@ class NA6PVerTelPreDigitContainer
     id.setRow(row);
     id.setTile(tile);
     id.setRsu(rsu);
-    return static_cast<ULong64_t>(id.pack());
+    return static_cast<ULong64_t>(id.mPacked);
   }
 
   static UShort_t key2col(ULong64_t key) { return key2pixID(key).getCol(); }
@@ -116,7 +116,9 @@ class NA6PVerTelPreDigitContainer
  private:
   static VTPixID key2pixID(ULong64_t key)
   {
-    return VTPixID::unpack(static_cast<uint32_t>(key & 0xFFFFFFFF));
+    VTPixID id;
+    id.mPacked = static_cast<uint32_t>(key & 0xFFFFFFFF);
+    return id;
   }
 
   ClassDefNV(NA6PVerTelPreDigitContainer, 1);
