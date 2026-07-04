@@ -25,6 +25,15 @@
 #include <TROOT.h>
 #include <TSystem.h>
 #include <TString.h>
+#include <TMath.h>
+#include <TPad.h>
+#include <TFrame.h>
+#include <TPaveStats.h>
+#include <TLegend.h>
+#include <TLegendEntry.h>
+#include <TVirtualPad.h>
+#include <TPaveStats.h>
+#include <TLatex.h>
 #include "fairlogger/Logger.h"
 #include "HistoManager.h"
 
@@ -232,7 +241,7 @@ void HistoManager::Delete(Option_t*)
   mNHistos = 0;
 }
 
-void HistoManager::Print(Option_t* option) const
+void HistoManager::print(Option_t* option) const
 {
   int nent = GetLast() + 1;
   for (int i = 0; i < nent; ++i) {
@@ -510,6 +519,286 @@ void HistoManager::setMarkerSize(Size_t msize)
     }
     hist->SetMarkerSize(msize);
   }
+}
+
+TH1* HistoManager::cumulate(TH1* histo, const char* copyName, bool doErr)
+{
+  // create cumulative histo
+  TString nname = copyName;
+  if (nname.IsNull()) {
+    nname = histo->GetName();
+    nname += "_cml";
+  }
+  TH1* cml = (TH1*)histo->Clone(nname.Data());
+  int nb = histo->GetNbinsX();
+  double sm = 0;
+  double sme = 0;
+  //
+  for (int i = 1; i <= nb; i++) {
+    sm += histo->GetBinContent(i);
+    cml->SetBinContent(i, sm);
+    if (!doErr)
+      continue;
+    double ee = histo->GetBinError(i);
+    sme += ee * ee;
+    cml->SetBinError(i, sme > 0 ? TMath::Sqrt(sme) : 0.);
+  }
+  return cml;
+}
+
+TH1* HistoManager::getBaseHisto(TPad* pad)
+{
+  if (!pad)
+    pad = (TPad*)gPad;
+  if (!pad)
+    return 0;
+  TList* lst = pad->GetListOfPrimitives();
+  int size = lst->GetSize();
+  TH1* hst = 0;
+  for (int i = 0; i < size; i++) {
+    TObject* obj = lst->At(i);
+    if (!obj)
+      continue;
+    if (obj->InheritsFrom("TH1")) {
+      hst = (TH1*)obj;
+      break;
+    }
+  }
+  return hst;
+}
+
+TH1* HistoManager::getHistosMinMaxRange(TVirtualPad* pad, float& mn, float& mx)
+{
+  mn = 1e9;
+  mx = -1e9;
+  if (!pad)
+    pad = (TPad*)gPad;
+  if (!pad)
+    return 0;
+  TH1* hbase = 0;
+  TList* lst = pad->GetListOfPrimitives();
+  int size = lst->GetSize();
+  TH1* hst = 0;
+  for (int i = 0; i < size; i++) {
+    TObject* obj = lst->At(i);
+    if (!obj)
+      continue;
+    if (obj->InheritsFrom("TH1")) {
+      hst = (TH1*)obj;
+      float mnh = hst->GetBinContent(hst->GetMinimumBin());
+      float mxh = hst->GetBinContent(hst->GetMaximumBin());
+      if (mn > mnh)
+        mn = mnh;
+      if (mx < mxh)
+        mx = mxh;
+      if (!hbase)
+        hbase = hst;
+    }
+  }
+  return hbase;
+}
+
+void HistoManager::setHistosMinMaxRange(TVirtualPad* pad, float mn, float mx, float marginH, float marginL)
+{
+  float delta = mx - mn;
+  if (delta <= 0)
+    return;
+  if (marginH > 0)
+    mx += delta * marginH;
+  else
+    mx -= marginH;
+  if (marginL > 0)
+    mn -= delta * marginL;
+  else
+    mn += marginL;
+
+  if (!pad)
+    pad = (TPad*)gPad;
+  if (!pad)
+    return;
+  TH1* hbase = 0;
+  TList* lst = pad->GetListOfPrimitives();
+  int size = lst->GetSize();
+  TH1* hst = 0;
+  for (int i = 0; i < size; i++) {
+    TObject* obj = lst->At(i);
+    if (!obj)
+      continue;
+    if (obj->InheritsFrom("TH1")) {
+      hst = (TH1*)obj;
+      hst->SetMinimum(mn);
+      hst->SetMaximum(mx);
+    }
+  }
+  pad->Modified();
+  pad->Update();
+}
+
+TFrame* HistoManager::getFrame(TPad* pad)
+{
+  if (!pad)
+    pad = (TPad*)gPad;
+  if (!pad)
+    return 0;
+  TList* lst = pad->GetListOfPrimitives();
+  int size = lst->GetSize();
+  TFrame* frm = 0;
+  for (int i = 0; i < size; i++) {
+    TObject* obj = lst->At(i);
+    if (!obj)
+      continue;
+    if (obj->InheritsFrom("TFrame")) {
+      frm = (TFrame*)obj;
+      break;
+    }
+  }
+  return frm;
+}
+
+TPaveStats* HistoManager::getStatPad(TH1* hst)
+{
+  TList* lst = hst->GetListOfFunctions();
+  if (!lst)
+    return 0;
+  int nf = lst->GetSize();
+  for (int i = 0; i < nf; i++) {
+    TPaveStats* fnc = (TPaveStats*)lst->At(i);
+    if (fnc->InheritsFrom("TPaveStats"))
+      return fnc;
+  }
+  return 0;
+  //
+}
+
+TPaveStats* HistoManager::setStatPad(TH1* hst, float x1, float x2, float y1, float y2, Int_t stl, Int_t col)
+{
+  TPaveStats* pad = getStatPad(hst);
+  if (!pad)
+    return 0;
+  pad->SetX1NDC(x1);
+  pad->SetX2NDC(x2);
+  pad->SetY1NDC(y1);
+  pad->SetY2NDC(y2);
+  if (stl >= 0)
+    pad->SetFillStyle(stl);
+  if (col >= 0)
+    pad->SetTextColor(col);
+  //
+  gPad->Modified();
+  return pad;
+}
+
+void HistoManager::setHStyle(TH1* hst, int col, int mark, float mrsize)
+{
+  hst->SetLineColor(col);
+  hst->SetMarkerColor(col);
+  //  hst->SetFillColor(col);
+  hst->SetMarkerStyle(mark);
+  hst->SetMarkerSize(mrsize);
+  TList* lst = hst->GetListOfFunctions();
+  if (lst) {
+    int nf = lst->GetSize();
+    for (int i = 0; i < nf; i++) {
+      TObject* fnc = lst->At(i);
+      if (fnc->InheritsFrom("TF1")) {
+        ((TF1*)fnc)->SetLineColor(col);
+        ((TF1*)fnc)->SetLineWidth(1);
+        ((TF1*)fnc)->ResetBit(TF1::kNotDraw);
+      } else if (fnc->InheritsFrom("TPaveStats")) {
+        ((TPaveStats*)fnc)->SetTextColor(col);
+      }
+    }
+  }
+}
+
+void HistoManager::setGStyle(TGraph* hst, int col, int mark, float mrsize)
+{
+  hst->SetLineColor(col);
+  hst->SetMarkerColor(col);
+  hst->SetFillColor(col);
+  hst->SetMarkerStyle(mark);
+  hst->SetMarkerSize(mrsize);
+  TList* lst = hst->GetListOfFunctions();
+  if (lst) {
+    int nf = lst->GetSize();
+    for (int i = 0; i < nf; i++) {
+      TObject* fnc = lst->At(i);
+      if (fnc->InheritsFrom("TF1")) {
+        ((TF1*)fnc)->SetLineColor(col);
+        ((TF1*)fnc)->SetLineWidth(1);
+        ((TF1*)fnc)->ResetBit(TF1::kNotDraw);
+      } else if (fnc->InheritsFrom("TPaveStats")) {
+        ((TPaveStats*)fnc)->SetTextColor(col);
+      }
+    }
+  }
+}
+
+//_________________________________________________________________________
+TH1* HistoManager::prof2TH1(TProfile* prf, const char* addName)
+{
+  // convert profile to TH1 histo
+  TString nm = prf->GetName();
+  nm += addName;
+  TAxis* xax = prf->GetXaxis();
+  TH1* prof = 0;
+  const TArrayD* bins = xax->GetXbins();
+  if (bins->GetSize() == 0) {
+    prof = new TH1F(nm.Data(), nm.Data(), prf->GetNbinsX(), xax->GetXmin(), xax->GetXmax());
+  } else {
+    prof = new TH1F(nm.Data(), nm.Data(), xax->GetNbins(), bins->GetArray());
+  }
+  for (int i = 1; i <= prof->GetNbinsX(); i++) {
+    prof->SetBinContent(i, prf->GetBinContent(i));
+    prof->SetBinError(i, prf->GetBinError(i));
+  }
+  return prof;
+}
+
+//_________________________________________________________________________
+TH1* HistoManager::invertHisto(TH1* h)
+{
+  int nb = h->GetNbinsX();
+  TH1* hi = (TH1*)h->Clone(Form("%s_inv", h->GetName()));
+  for (int i = 0; i <= nb + 1; i++) {
+    double v = h->GetBinContent(i);
+    double e = h->GetBinError(i);
+    int j = nb - i + 1;
+    hi->SetBinContent(j, v);
+    hi->GetBinError(j, e);
+  }
+  hi->SetTitle(Form("%s inv", h->GetTitle()));
+  return hi;
+}
+
+TLatex* HistoManager::addLabel(const char* txt, float x, float y, int color, float size)
+{
+  TLatex* lt = new TLatex(x, y, txt);
+  lt->SetNDC();
+  lt->SetTextColor(color);
+  lt->SetTextSize(size);
+  lt->Draw();
+  return lt;
+}
+
+TLegendEntry* addLegendEntry(TLegend* leg, const TH1* obj, const char* label, Option_t* option)
+{
+  if (!leg) {
+    return nullptr;
+  }
+  auto ent = leg->AddEntry(obj, label, option);
+  ent->SetTextColor(obj->GetLineColor());
+  return ent;
+}
+
+TLegendEntry* addLegendEntry(TLegend* leg, const TGraph* obj, const char* label, Option_t* option)
+{
+  if (!leg) {
+    return nullptr;
+  }
+  auto ent = leg->AddEntry(obj, label, option);
+  ent->SetTextColor(obj->GetLineColor());
+  return ent;
 }
 
 } // namespace na6p

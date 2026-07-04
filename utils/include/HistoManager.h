@@ -25,6 +25,13 @@ class TH2F;
 class TProfile;
 class TGraph;
 class TFile;
+class TFrame;
+class TPad;
+class TLegend;
+class TVirtualPad;
+class TPaveStats;
+class TLatex;
+class TLegendEntry;
 
 namespace na6p
 {
@@ -77,10 +84,26 @@ class HistoManager : public TObjArray
 
   void purify(bool emptyToo = kFALSE);
 
-  void Print(Option_t* option = "") const override;
+  void print(Option_t* option = "") const;
   void Clear(Option_t* option = "") override;
   void Delete(Option_t* option = "") override;
   void Compress() override;
+
+  // static methods for histos manipulation
+  static TH1* cumulate(TH1* histo, const char* copyName = "_cumul", bool doErr = false);
+  static TH1* getBaseHisto(TPad* pad = 0);
+  static TH1* getHistosMinMaxRange(TVirtualPad* pad, float& mn, float& mx);
+  static void setHistosMinMaxRange(TVirtualPad* pad, float mn, float mx, float marginH = 0.15, float marginL = 0.15);
+  static TFrame* getFrame(TPad* pad = 0);
+  static TPaveStats* setStatPad(TH1* hst, float x1, float x2, float y1, float y2, Int_t stl = -1, Int_t col = -1);
+  static TPaveStats* getStatPad(TH1* hst);
+  static void setHStyle(TH1* hst, int col = kRed, int mark = 20, float mrsize = 0.7);
+  static void setGStyle(TGraph* hst, int col = kRed, int mark = 20, float mrsize = 0.7);
+  static TH1* prof2TH1(TProfile* prof, const char* addName = 0);
+  static TH1* invertHisto(TH1* h);
+  static TLatex* addLabel(const char* txt, float x = 0.1, float y = 0.9, int color = kBlack, float size = 0.04);
+  static TLegendEntry* addLegendEntry(TLegend* leg, const TH1* obj, const char* label = "", Option_t* option = "lpf");
+  static TLegendEntry* addLegendEntry(TLegend* leg, const TGraph* obj, const char* label = "", Option_t* option = "lpf");
 
  private:
   int mNHistos{0};        //! Number of histograms defined
