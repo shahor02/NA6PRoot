@@ -21,11 +21,11 @@ Go to the directory you want to install the package and run
 ```
 git clone https://github.com/shahor02/NA6PRoot.git                # clone the source
 cd NA6PRoot;
-NA6PRootSrc=`pwd`;
-BUILDDIR="$NA6PRootSrc/build"                                     # assuming that we want the build directory to be here ...
-INSTALLDIR="$NA6PRootSrc/install"                                 # assuming that we want the installation directory to be here
-mkdir -p $BUILDDIR; cd $BUILDDIR;
-cmake -DCMAKE_INSTALL_PREFIX=$INSTALLDIR $NA6PRootSrc
+export NA6PRootSrc=`pwd`;
+export NA6PBUILDDIR="$NA6PRootSrc/build"                          # assuming that we want the build directory to be here ...
+export NA6PINSTALLDIR="$NA6PRootSrc/install"                      # assuming that we want the installation directory to be here
+mkdir -p $NA6PBUILDDIR; cd $NA6PBUILDDIR;
+cmake -DCMAKE_INSTALL_PREFIX=$NA6PINSTALLDIR $NA6PRootSrc
 make -j5 install                                                  # build and install
 ```
 
@@ -33,7 +33,7 @@ To run some `NA6PRoot` executable, you need to initialize its paths (as well as 
 which particularly sets the NA6PROOT_ROOT.
 
 ```
-source $INSTALLDIR/init.sh
+source $NA6PINSTALLDIR/init.sh
 mkdir tst
 cd tst
 na6psim -n 5 -g $NA6PROOT_ROOT/share/test/genbox.C+
