@@ -109,9 +109,10 @@ set(TESTS_DIR ${CMAKE_SOURCE_DIR}/test)
 # Install all files in the test directory
 install(DIRECTORY ${TESTS_DIR}/
         DESTINATION share/test
+        USE_SOURCE_PERMISSIONS
         FILES_MATCHING PATTERN "*.*")
 
-
+      
 # Define the content of the init.sh script
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/init.sh.in
