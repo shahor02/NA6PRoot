@@ -99,8 +99,8 @@ void checkMatching();
 void checkVTTracking();
 void createOutput(bool checkVTTracks, bool checkMSTracks, bool checkMatches, bool checkDimu);
 void bookHistos(bool checkVTTracks, bool checkMSTracks, bool checkMatches, bool checkDimu);
-void finalizeHistos();
-void drawHistos(const na6p::HistoManager* hman, bool same = false);
+void finalizeHistos(na6p::HistoManager* hman);
+void drawHistos(na6p::HistoManager* hman, bool same = false, bool reproc = false);
 void createPDF(const char* outName = "perfrep.pdf");
 
 struct PerfTrackPar {
@@ -208,7 +208,7 @@ void runPerfStudy(int firstEv = 0,
   outPerf->Close();
   outPerf.reset();
   propFitter.reset();
-  finalizeHistos();
+  finalizeHistos(hm);
   hm->write();
   drawHistos(hm);
   createPDF();
@@ -286,35 +286,35 @@ void bookHistos(bool checkVTTracks, bool checkMSTracks, bool checkMatches, bool 
   hm->sumw2();
 }
 
-void finalizeHistos()
+void finalizeHistos(na6p::HistoManager* hman)
 {
   std::unique_ptr<TF1> gs = std::make_unique<TF1>("gs", "gaus", -10., 10.);
   TObjArray harr;
   harr.SetOwner(true);
   for (int itp = 0; itp < 3; itp++) {
     int offset = HMOffsets[itp];
-    if (!hm->getHisto(offset + 0 * 100 + 0)) {
+    if (!hman->getHisto(offset + 0 * 100 + 0)) {
       continue;
     }
     for (int iax = 0; iax < 2; iax++) {
-      hm->getHisto(offset + iax * 100 + 3)->Divide(hm->getHisto(offset + iax * 100 + 1), hm->getHisto(offset + iax * 100 + 0), 1., 1., "B");
-      hm->getHisto(offset + iax * 100 + 4)->Divide(hm->getHisto(offset + iax * 100 + 2), hm->getHisto(offset + iax * 100 + 1), 1., 1., "B");
+      hman->getHisto(offset + iax * 100 + 3)->Divide(hman->getHisto(offset + iax * 100 + 1), hman->getHisto(offset + iax * 100 + 0), 1., 1., "B");
+      hman->getHisto(offset + iax * 100 + 4)->Divide(hman->getHisto(offset + iax * 100 + 2), hman->getHisto(offset + iax * 100 + 1), 1., 1., "B");
       //
       // resolutions
       for (int ip = 0; ip < 5; ip++) {
         int hid = offset + iax * 100 + 500 + ip * 10;
-        auto h2 = hm->getHisto2F(hid);
+        auto h2 = hman->getHisto2F(hid);
         h2->FitSlicesY(gs.get(), 0, -1, 0, "QNR", &harr);
         harr.SetOwner(true);
         TH1* hmean = (TH1*)harr.RemoveAt(1);
         if (hmean) {
           hmean->SetTitle(Form("<%s>", h2->GetTitle()));
-          hm->addHisto(hmean, hid + 1);
+          hman->addHisto(hmean, hid + 1);
         }
         TH1* hsig = (TH1*)harr.RemoveAt(2);
         if (hsig) {
           hsig->SetTitle(Form("#sigma(%s)", h2->GetTitle()));
-          hm->addHisto(hsig, hid + 2);
+          hman->addHisto(hsig, hid + 2);
         }
         harr.Delete();
       }
@@ -322,22 +322,22 @@ void finalizeHistos()
   }
   {
     int offset = HMOffsets[3];
-    if (hm->getHisto(offset + 0)) {
-      hm->getHisto(offset + 3)->Divide(hm->getHisto(offset + 1), hm->getHisto(offset + 0), 1., 1., "B");
-      hm->getHisto(offset + 4)->Divide(hm->getHisto(offset + 2), hm->getHisto(offset + 1), 1., 1., "B");
-      hm->getHisto(offset + 13)->Divide(hm->getHisto(offset + 11), hm->getHisto(offset + 10), 1., 1., "B");
-      hm->getHisto(offset + 14)->Divide(hm->getHisto(offset + 12), hm->getHisto(offset + 11), 1., 1., "B");
-      if (hm->getHisto(offset + 100)->GetEntries() > 50) {
-        hm->getHisto(offset + 100)->Fit(gs.get(), "q", "");
+    if (hman->getHisto(offset + 0)) {
+      hman->getHisto(offset + 3)->Divide(hman->getHisto(offset + 1), hman->getHisto(offset + 0), 1., 1., "B");
+      hman->getHisto(offset + 4)->Divide(hman->getHisto(offset + 2), hman->getHisto(offset + 1), 1., 1., "B");
+      hman->getHisto(offset + 13)->Divide(hman->getHisto(offset + 11), hman->getHisto(offset + 10), 1., 1., "B");
+      hman->getHisto(offset + 14)->Divide(hman->getHisto(offset + 12), hman->getHisto(offset + 11), 1., 1., "B");
+      if (hman->getHisto(offset + 100)->GetEntries() > 50) {
+        hman->getHisto(offset + 100)->Fit(gs.get(), "q", "");
       }
-      if (hm->getHisto(offset + 101)->GetEntries() > 50) {
-        hm->getHisto(offset + 101)->Fit(gs.get(), "q", "");
+      if (hman->getHisto(offset + 101)->GetEntries() > 50) {
+        hman->getHisto(offset + 101)->Fit(gs.get(), "q", "");
       }
-      if (hm->getHisto(offset + 110)->GetEntries() > 50) {
-        hm->getHisto(offset + 110)->Fit(gs.get(), "q", "");
+      if (hman->getHisto(offset + 110)->GetEntries() > 50) {
+        hman->getHisto(offset + 110)->Fit(gs.get(), "q", "");
       }
-      if (hm->getHisto(offset + 111)->GetEntries() > 50) {
-        hm->getHisto(offset + 111)->Fit(gs.get(), "q", "");
+      if (hman->getHisto(offset + 111)->GetEntries() > 50) {
+        hman->getHisto(offset + 111)->Fit(gs.get(), "q", "");
       }
     }
   }
@@ -348,7 +348,7 @@ TCanvas* cnvKin[3][2] = {{0, 0}, {0, 0}, {0, 0}};
 TCanvas* cnvDimuEff = nullptr;
 TCanvas* cnvDimuRes = nullptr;
 
-void drawHistos(const na6p::HistoManager* hman, bool same)
+void drawHistos(na6p::HistoManager* hman, bool same, bool reproc)
 {
   auto drawHistoA = [same](TH1* h, float mn=1e6, float mx=-1e6, float mrgH=0.15, float mrgL=0.15) {
     gPad->SetBottomMargin(0.15);
@@ -372,6 +372,10 @@ void drawHistos(const na6p::HistoManager* hman, bool same)
 
   gStyle->SetTitleW(0.5);
   gStyle->SetOptStat(0);
+  if (reproc) {
+    finalizeHistos(hman);
+  }
+
   for (int itp = 0; itp < 3; itp++) {
     int offset = HMOffsets[itp];
     if (!hman->getHisto(offset + 0 * 100 + 0)) {
