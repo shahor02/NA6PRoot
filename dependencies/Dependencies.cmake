@@ -46,7 +46,7 @@ include(${Geant4_USE_FILE})
 
 #----------------------------------------------------------------------------
 find_package(HDF5 REQUIRED COMPONENTS C CXX HL)
-find_package(ROOT REQUIRED COMPONENTS Core RIO Tree)
+find_package(ROOT REQUIRED COMPONENTS Core RIO Tree Geom)
 find_package(Boost REQUIRED COMPONENTS program_options)
 find_package(fmt REQUIRED)
 find_package(FairLogger REQUIRED)

@@ -353,8 +353,8 @@ void NA6PMC::setupUserVertex(const std::string& s)
 void NA6PMC::setRandomSeed(Long64_t r)
 {
   if (r < 0) {
-    std::chrono::system_clock::time_point t0, t = std::chrono::high_resolution_clock::now();
-    mRandomSeed = std::chrono::duration_cast<std::chrono::nanoseconds>(t - t0).count();
+    auto t = std::chrono::system_clock::now().time_since_epoch();
+    mRandomSeed = std::chrono::duration_cast<std::chrono::nanoseconds>(t).count();
   } else {
     mRandomSeed = r;
   }
