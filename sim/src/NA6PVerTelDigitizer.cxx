@@ -95,21 +95,6 @@ void NA6PVerTelDigitizer::getHitLocalCoord(const NA6PVerTelHit& hit, double xyzL
   matrix.MasterToLocal(xyzGloE, xyzLocE);
   xyzLocE[0] += mGeoManager.getModuleHalfX(modID);
   xyzLocE[1] += mGeoManager.getModuleHalfY(modID);
-  if (modID % NA6PGeometryManager::kNVTModulesPerLayer == 1) {
-    // swap x
-    xyzLocS[0] = mGeoManager.getModuleFullX(modID) - xyzLocS[0];
-    xyzLocE[0] = mGeoManager.getModuleFullX(modID) - xyzLocE[0];
-  } else if (modID % NA6PGeometryManager::kNVTModulesPerLayer == 2) {
-    // swap x and y
-    xyzLocS[0] = mGeoManager.getModuleFullX(modID) - xyzLocS[0];
-    xyzLocS[1] = mGeoManager.getModuleFullY(modID) - xyzLocS[1];
-    xyzLocE[0] = mGeoManager.getModuleFullX(modID) - xyzLocE[0];
-    xyzLocE[1] = mGeoManager.getModuleFullY(modID) - xyzLocE[1];
-  } else if (modID % NA6PGeometryManager::kNVTModulesPerLayer == 3) {
-    // swap y
-    xyzLocS[1] = mGeoManager.getModuleFullY(modID) - xyzLocS[1];
-    xyzLocE[1] = mGeoManager.getModuleFullY(modID) - xyzLocE[1];
-  }
 }
 
 void NA6PVerTelDigitizer::processHit(const NA6PVerTelHit& hit)

@@ -16,24 +16,9 @@ void getGlobalCoord(const NA6PGeometryManager& geoMan, int modID, float xloc, fl
 {
   auto& matrix = geoMan.getMatrix(modID);
 
-  double x = xloc;
-  double y = yloc;
-  int modType = modID % NA6PGeometryManager::kNVTModulesPerLayer;
-
-  if (modType == 1) {
-    // swap x
-    x = geoMan.getModuleFullX(modID) - x;
-  } else if (modID % NA6PGeometryManager::kNVTModulesPerLayer == 2) {
-    // swap x and y
-    x = geoMan.getModuleFullX(modID) - x;
-    y = geoMan.getModuleFullY(modID) - y;
-  } else if (modID % NA6PGeometryManager::kNVTModulesPerLayer == 3) {
-    // swap y
-    y = geoMan.getModuleFullY(modID) - y;
-  }
   double xyzLoc[3];
-  xyzLoc[0] = x - geoMan.getModuleHalfX(modID);
-  xyzLoc[1] = y - geoMan.getModuleHalfY(modID);
+  xyzLoc[0] = xloc - geoMan.getModuleHalfX(modID);
+  xyzLoc[1] = yloc - geoMan.getModuleHalfY(modID);
   xyzLoc[2] = 0.;
   matrix.LocalToMaster(xyzLoc, xyzGlo);
 }
@@ -208,21 +193,6 @@ void plotVerTelDigits(const char* dirSimu = ".")
       matrix.MasterToLocal(xyzGloE, xyzLocE);
       xyzLocE[0] += geoMan.getModuleHalfX(modID);
       xyzLocE[1] += geoMan.getModuleHalfY(modID);
-      if (modID % NA6PGeometryManager::kNVTModulesPerLayer == 1) {
-        // swap x
-        xyzLocS[0] = geoMan.getModuleFullX(modID) - xyzLocS[0];
-        xyzLocE[0] = geoMan.getModuleFullX(modID) - xyzLocE[0];
-      } else if (modID % NA6PGeometryManager::kNVTModulesPerLayer == 2) {
-        // swap x and y
-        xyzLocS[0] = geoMan.getModuleFullX(modID) - xyzLocS[0];
-        xyzLocS[1] = geoMan.getModuleFullY(modID) - xyzLocS[1];
-        xyzLocE[0] = geoMan.getModuleFullX(modID) - xyzLocE[0];
-        xyzLocE[1] = geoMan.getModuleFullY(modID) - xyzLocE[1];
-      } else if (modID % NA6PGeometryManager::kNVTModulesPerLayer == 3) {
-        // swap y
-        xyzLocS[1] = geoMan.getModuleFullY(modID) - xyzLocS[1];
-        xyzLocE[1] = geoMan.getModuleFullY(modID) - xyzLocE[1];
-      }
       double xhit = 0.5f * (xyzLocS[0] + xyzLocE[0]);
       double yhit = 0.5f * (xyzLocS[1] + xyzLocE[1]);
       if (digperhit == 1) {
