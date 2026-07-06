@@ -60,6 +60,7 @@ target_link_libraries(${LIB_NAME}
     FairLogger::FairLogger
     baseLib
     utilsLib
+    simLib
 )
 
 # Installation instructions
