@@ -358,8 +358,7 @@ void runMSTrackMIDTrackletMatching(int firstEv = 0,
       thetatr = std::acos(pxyz[2] / momtr);
       etatr = -std::log(std::tan(thetatr / 2.));
       hEtaRefitTracks->Fill(etatr);
-      bool vcOk = fitter->constrainTrackToVertex(refitInw, primVert);
-      refitInw.setStatusConstrained(vcOk);
+      fitter->constrainTrackToVertex(refitInw, primVert);
       int id42track = -2;
       if (idTrack >= 0) {
         // good track in the MS

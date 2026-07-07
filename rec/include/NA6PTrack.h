@@ -33,12 +33,12 @@ class NA6PTrack : public NA6PTrackParCov
   ~NA6PTrack() = default;
 
   void reset();
+  void setInwardParam(const NA6PTrackParCov& p) { (*(NA6PTrackParCov*)this) = p; }
   void setOuterParam(const NA6PTrackParCov& p) { mOuter = p; }
   void setVertexConstrainedParam(const NA6PTrackParCov& p) { mConstrained = p; }
-  void setStatusRefitInward(bool status) { mStatusRefitInward = status; }
-  void setStatusConstrained(bool status) { mStatusConstrained = status; }
-  bool getStatusRefitInward() const { return mStatusRefitInward; }
-  bool getStatusConstrained() const { return mStatusConstrained; }
+  bool getStatusRefitInward() const { return getInwardParam().isValid(); }
+  bool getStatusConstrained() const { return getVertexConstrainedParam().isValid(); }
+  bool getStatusRefitOutward() const { return getOuterParam().isValid(); }
 
   void setChi2(float c) { mChi2 = c; }
   float getChi2() const { return mChi2; }
@@ -50,6 +50,9 @@ class NA6PTrack : public NA6PTrackParCov
 
   const NA6PTrackParCov& getOuterParam() const { return mOuter; }
   NA6PTrackParCov& getOuterParam() { return mOuter; }
+
+  const NA6PTrackParCov& getInwardParam() const { return *this; }
+  NA6PTrackParCov& getInwardParam() { return *this; }
 
   const NA6PTrackParCov& getVertexConstrainedParam() const { return mConstrained; }
   NA6PTrackParCov& getVertexConstrainedParam() { return mConstrained; }
@@ -93,11 +96,9 @@ class NA6PTrack : public NA6PTrackParCov
   int mNClusters = 0;                        // total hits
   int mParticleID = -1;                      // particle ID (MC truth)
   int mCAIteration = -1;                     //! CA iteration (for debug)
-  bool mStatusRefitInward = false;           // boolean for status of inward refit
-  bool mStatusConstrained = false;           // boolean for status of contrained track
 
  private:
-  ClassDefNV(NA6PTrack, 1)
+  ClassDefNV(NA6PTrack, 2)
 };
 
 #endif

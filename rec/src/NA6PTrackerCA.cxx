@@ -849,9 +849,8 @@ void NA6PTrackerCA::fitAndSelectTracks(const std::vector<TrackCandidate>& trackC
           if (chi2Refit >= 0.f) {
             static_cast<NA6PTrackParCov&>(fitTrackFast) = inwRefit;
             chi2Inw = chi2Refit;
-            fitTrackFast.setStatusRefitInward(true);
           } else {
-            fitTrackFast.setStatusRefitInward(false);
+            fitTrackFast.getInwardParam().invalidate();
           }
         }
         if (prop->propagateToZ(outer, mZOutProp, mTrackFitter->getPropOpt())) {
