@@ -79,6 +79,7 @@ int main(int argc, char** argv)
     add_option("help,h", "Print this help message");
     add_option("verbosity,v", bpo::value<int>()->default_value(0), "verbosity level [0 = no output]");
     add_option("load-ini", bpo::value<std::string>()->default_value(""), "load configurables from ini file (if defined), overridden by configKeyValues");
+    add_option("load-recoparam", bpo::value<std::string>()->default_value(""), "load reco parameters from ini file (if defined), overridden by configKeyValues");
     add_option("configKeyValues", bpo::value<std::string>()->default_value(""), "comma-separated configKeyValues");
     add_option("disable-write-ini", bpo::value<bool>()->default_value(false)->implicit_value(true), "do not write reco parameters ini file");
     add_option("geometry,g", bpo::value<std::string>()->default_value("geometry.root"), "geometry file name");
@@ -111,6 +112,10 @@ int main(int argc, char** argv)
   auto flini = vm["load-ini"].as<std::string>();
   if (!flini.empty()) {
     na6p::conf::ConfigurableParam::updateFromFile(flini, "", true);
+  }
+  auto flrp = vm["load-recoparam"].as<std::string>();
+  if (!flrp.empty()) {
+    na6p::conf::ConfigurableParam::updateFromFile(flrp, "", true);
   }
   na6p::conf::ConfigurableParam::updateFromString(vm["configKeyValues"].as<std::string>()); // highest priority
   LOGP(info, "Printing all configs");
