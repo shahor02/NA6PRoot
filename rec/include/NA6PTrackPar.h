@@ -132,7 +132,7 @@ class NA6PTrackPar
   float getCosPsi2() const { return getCos2FromSin(getTx()); }
   float getCosPsi() const { return getCosFromSin(getTx()); }
   float getPsi() const { return std::asin(std::max(-1.f, std::min(1.f, getTx()))); }
-  float getPhi() const { return getPsi(); }
+  float getPhi() const { return std::atan2(getTy(), getTx()); }
   float getTheta() const { return std::acos(getCosPsi() / getP2Pxz()); }
   float getEta() const { return -std::log(std::tan(getTheta() * 0.5f)); }
   float getEnergy() const { return std::hypot(getP(), mPID.getMass()); }
