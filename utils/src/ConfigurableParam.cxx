@@ -204,6 +204,13 @@ void ConfigurableParam::setValue(std::string const& key, std::string const& valu
     initialize();
   }
   assert(sPtree);
+  bool nonFatal = getenv("NA6P_CONFIGURABLEPARAM_WRONGKEYISNONFATAL") != nullptr;
+  if (!keyInTree(sPtree, key)) {
+    if (nonFatal) {
+      LOG(warn) << "Ignoring non-existent ConfigurableParam key: " << key;
+    }
+    LOG(fatal) << "Inexistant ConfigurableParam key: " << key;
+  }
   try {
     if (sPtree->get_optional<std::string>(key).is_initialized()) {
       sPtree->put(key, valuestring);

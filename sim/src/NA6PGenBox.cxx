@@ -25,7 +25,7 @@ void NA6PGenBox::generate()
   float m = TDatabasePDG::Instance()->GetParticle(mPDGCode)->Mass();
   int nTrials = 0;
   for (int i = 0; i < mNTracks; i++) {
-    if (nTrials > param.maxTrailsPerParticle) {
+    if (nTrials > param.maxTrialsPerParticle) {
       LOGP(fatal, "Failed to generate track {} with PDG {} after max allowed {} trials, check generator", i, mPDGCode, nTrials);
     }
     int offs = i * 3;

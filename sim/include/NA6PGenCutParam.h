@@ -9,7 +9,7 @@
 // generic cuts for generator
 
 struct NA6PGenCutParam : public na6p::conf::ConfigurableParamHelper<NA6PGenCutParam> {
-  size_t maxTrailsPerParticle = 1000000;
+  size_t maxTrialsPerParticle = 1000000;
   float etaMin = 0.f;
   float etaMax = 6.f;
   float ptMin = 0.f;

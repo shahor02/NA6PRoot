@@ -5,6 +5,7 @@
 #include <TStopwatch.h>
 #include "NA6PMuonSpecCluster.h"
 #include "NA6PMuonSpecReconstruction.h"
+#include "Propagator.h"
 #endif
 
 void runMSTracking(int firstEv = 0,
@@ -23,13 +24,16 @@ void runMSTracking(int firstEv = 0,
   TTree* tc = (TTree*)fc->Get("clustersMuonSpec");
   std::vector<NA6PMuonSpecCluster> msClus, *msClusPtr = &msClus;
   tc->SetBranchAddress("MuonSpec", &msClusPtr);
+
+  if (!Propagator::loadField() || !Propagator::loadGeometry(Form("%s/geometry.root", dirSimu))) {
+    return;
+  }
+
+  // if needed, configure the recoparams like
+  // NA6PRecoParam::setValue("reco.msMaxChi2ndfTracksCA[0]", std::to_string(5.));
   NA6PMuonSpecReconstruction* msrec = new NA6PMuonSpecReconstruction();
   msrec->initTracker();
   auto msTracker = msrec->getTracker();
-  // Example of configuring the tracker for Muon Spectrometer
-  // msTracker->setNLayers(6);
-  // msTracker->setNumberOfIterations(2);
-  // msTracker->setIterationParams(0,0.06,0.1,6.,0.6,0.05,0.05,5.,5.,5.,6);
   int nEv = tc->GetEntries();
   if (lastEv > nEv || lastEv < 0)
     lastEv = nEv;

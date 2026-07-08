@@ -10,6 +10,7 @@
 #include <TLegend.h>
 #include "NA6PTrack.h"
 #include "MagneticField.h"
+#include "Propagator.h"
 #include "NA6PVerTelHit.h"
 #endif
 
@@ -190,13 +191,14 @@ void plotTracks(const char* dirSimu = ".")
     }
     for (int jTr = 0; jTr < nTracks; ++jTr) {
       NA6PTrack tr = trArr->at(jTr);
-      tr.propagateToZBxByBz(zvert);
-      int nClusters = tr.getNVTHits();
+      Propagator::PropOpt propOpt;
+      propOpt.matCorr = Propagator::MatCorrType::USEMatCorrNONE;
+      Propagator::Instance()->propagateToZ(tr, zvert, propOpt);
+      int nClusters = tr.getNHits();
       hNclu->Fill(nClusters);
       if (nClusters < 5)
         continue;
-      double pxyzReco[3];
-      tr.getPXYZ(pxyzReco);
+      auto pxyzReco = tr.getPXYZ<double>();
       double pxReco = pxyzReco[0];
       double pyReco = pxyzReco[1];
       double pzReco = pxyzReco[2];
@@ -204,8 +206,8 @@ void plotTracks(const char* dirSimu = ".")
       double momReco = tr.getP();
       double thetaReco = std::acos(pxyzReco[2] / momReco);
       double etaReco = -std::log(std::tan(thetaReco / 2.));
-      double impparX = tr.getXLab() - xvert;
-      double impparY = tr.getYLab() - yvert;
+      double impparX = tr.getX() - xvert;
+      double impparY = tr.getY() - yvert;
       hImpParXVsP->Fill(momReco, impparX * 1e4);
       hImpParYVsP->Fill(momReco, impparY * 1e4);
       hMomAllReco->Fill(momReco);

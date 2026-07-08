@@ -102,7 +102,6 @@ void runVertexerTracklets(int firstEv = 0,
   int indexTarg = -999;
 
   NA6PVerTelReconstruction* vtrec = new NA6PVerTelReconstruction();
-  vtrec->setRecoParamFile("../na6pRecoParam-default.ini");
   vtrec->initVertexer();
   for (int jEv = firstEv; jEv < lastEv; jEv++) {
     mcTree->GetEvent(jEv);
@@ -150,7 +149,7 @@ void runVertexerTracklets(int firstEv = 0,
     for (int i = 0;i < 5;i++) {
       if (i != indexTarg) {
         tmpTargs.push_back(i);
-      } 
+      }
     }
 
     for (int jp = 0; jp < nPart; jp++) {
@@ -207,7 +206,6 @@ void runVertexerTracklets(int firstEv = 0,
       }
       hnvertcontrib->Fill(jv, vert.getNContributors());
 
-      
       nContrib[jv] = vert.getNContributors();
       recsX[jv] = xRec;
       recsY[jv] = yRec;

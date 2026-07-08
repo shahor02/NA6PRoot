@@ -25,18 +25,22 @@ class NA6PReconstruction
 {
  public:
   NA6PReconstruction(const std::string& name) : mName(name) {}
-  virtual ~NA6PReconstruction() {}
+  virtual ~NA6PReconstruction() = default;
 
   const std::string& getName() const { return mName; }
-
-  virtual bool init(const char* filename, const char* geoname = "NA6P");
-
-  void setRecoParamFile(const char* recparfile) { mRecoParFilName = recparfile; }
-  void setGeometryFile(const char* geofile, const char* geoname = "NA6P")
+  /*
+  RSREM RecoParam is a singleton. If one can have multiple NA6PReconstruction-based objects, they should not set each one its own recoparam,
+  since they will interfere with eash other. Instead, the recoparam must be configured upstream.
+  The same is true for the geometry and the field: these are static objects, one 1 copy of each must be initialized, do this upstream.
+  virtual bool init(const std::string& filename, const std::string& geoname = "NA6P");
+  void setRecoParamFile(const std::string& recparfile) { mRecoParFilName = recparfile; } // RSTODO is this needed here? Init upstream
+  void setGeometryFile(const std::string& geofile, const std::string& geoname = "NA6P") // RSTODO is this needed here? Init upstream
   {
     mGeoFilName = geofile;
     mGeoObjName = geoname;
   }
+  */
+
   // methods to steer cluster reconstruction
   virtual void createClustersOutput();
   virtual void clearClusters();
@@ -58,10 +62,13 @@ class NA6PReconstruction
 
  protected:
   std::string mName{"MothClass"};             // detector name
+  /*
+  // RSREM : see comment above for getters
   std::string mGeoFilName{"geometry.root"};   // name of geometry file
   std::string mGeoObjName{"NA6P"};            // name of geometry object
   std::string mRecoParFilName{""};            // name of reco param file
   bool mIsInitialized = false;                // flag for initialization
+  */
   const NA6PVertex* mPrimaryVertex = nullptr; // primary vertex
 
   ClassDefNV(NA6PReconstruction, 1);
