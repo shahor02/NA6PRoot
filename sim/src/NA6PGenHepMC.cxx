@@ -8,9 +8,39 @@
 #include "HepMC3/GenVertex.h"
 #include "HepMC3/FourVector.h"
 #include "HepMC3/Attribute.h"
+#include "HepMC3/Units.h"
 #include <TDatabasePDG.h>
 #include <TMath.h>
 #include <cmath>
+
+namespace
+{
+constexpr double SpeedOfLightCmPerS = 2.99792458e10;
+
+double momentumScaleToGeV(HepMC3::Units::MomentumUnit unit)
+{
+  switch (unit) {
+    case HepMC3::Units::GEV:
+      return 1.;
+    case HepMC3::Units::MEV:
+      return 1.e-3;
+  }
+  LOGP(fatal, "Unsupported HepMC3 momentum unit {}", static_cast<int>(unit));
+  return 1.;
+}
+
+double lengthScaleToCm(HepMC3::Units::LengthUnit unit)
+{
+  switch (unit) {
+    case HepMC3::Units::CM:
+      return 1.;
+    case HepMC3::Units::MM:
+      return 0.1;
+  }
+  LOGP(fatal, "Unsupported HepMC3 length unit {}", static_cast<int>(unit));
+  return 1.;
+}
+} // namespace
 
 NA6PGenHepMC::NA6PGenHepMC(const std::string& name, const std::string& filname, bool storeDecayed) : NA6PGenerator(name), mFileName(filname), mStoreDecayedPrimaries(storeDecayed)
 {
@@ -47,7 +77,7 @@ void NA6PGenHepMC::init()
   if (mHEPRootFileReader->failed()) {
     LOGP(fatal, "No HepMC input file found {}", mFileName);
   }
-    
+
   NA6PGenerator::init();
 }
 
@@ -70,18 +100,22 @@ void NA6PGenHepMC::generate()
     LOGP(info, " End of file reached . Exit .\n");
     return;
   }
-  
-// Global variables for heavy-ion running
+
+  const double momentumScale = momentumScaleToGeV(evt.momentum_unit());
+  const double lengthScale = lengthScaleToCm(evt.length_unit());
+  const double timeScale = lengthScale / SpeedOfLightCmPerS; // HepMC stores t in length/c units.
+
+  // Global variables for heavy-ion running
   double b;
   int ncoll, npart, npart_proj, npart_targ;
   long int id1, id2;
   double e1, e2;
   int zproj, aproj, ztarg, atarg;
   float za_ratio_proj, za_ratio_targ;
-  
+
 // Centrality-related info
   auto attr_b_ptr = evt.attribute<HepMC3::DoubleAttribute>("b");
-  if (attr_b_ptr) { 
+  if (attr_b_ptr) {
     b = attr_b_ptr->value();
     LOGP(info, "b = {} fm", attr_b_ptr->value());
   }
@@ -117,13 +151,13 @@ void NA6PGenHepMC::generate()
     e1 = attr_e1_ptr->value();
     e2 = attr_e2_ptr->value();
     if (id1> 1000000000) {
-      zproj = (id1 / 10000) % 1000; // Extract Z (atomic number)   
-      aproj = (id1 / 10) % 1000; // Extract A (mass number)  
+      zproj = (id1 / 10000) % 1000; // Extract Z (atomic number)
+      aproj = (id1 / 10) % 1000; // Extract A (mass number)
       za_ratio_proj = (float) zproj/aproj;
     }
     if (id2> 1000000000) {
-      ztarg = (id2 / 10000) % 1000; // Extract Z (atomic number)   
-      atarg = (id2 / 10) % 1000; // Extract A (mass number)  
+      ztarg = (id2 / 10000) % 1000; // Extract Z (atomic number)
+      atarg = (id2 / 10) % 1000; // Extract A (mass number)
       za_ratio_targ = (float) ztarg/atarg;
     }
   }
@@ -131,7 +165,7 @@ void NA6PGenHepMC::generate()
   int nparticlesgood = 0;
   int pdgCode, status;
   float phi, pt, pZ, en, sn, cs;
-  float vx, vy, vz, tof; // tof in mm/c
+  float vx, vy, vz, tof; // NA6PMCStack expects positions in cm and tof in s.
   int tobetracked = 0;
 
   std::vector<int> partons = {1, 2, 3, 4, 5, 6, 21}; // to remove quarks and gluons
@@ -176,18 +210,18 @@ void NA6PGenHepMC::generate()
       }
 
       phi = p->momentum().phi();
-      pt = p->momentum().perp();
-      pZ = p->momentum().pz();
-      en = p->momentum().e();
+      pt = p->momentum().perp() * momentumScale;
+      pZ = p->momentum().pz() * momentumScale;
+      en = p->momentum().e() * momentumScale;
       status = p->status();
       sn = std::sin(phi);
       cs = std::cos(phi);
       pdgCode = p->pid();
       HepMC3::FourVector pos = prod_vtx->position();
-      vx = pos.x() + xv; // shift to account for generated position of the primary vertex
-      vy = pos.y() + yv;
-      vz = pos.z() + zv;
-      tof = pos.t();
+      vx = pos.x() * lengthScale + xv; // shift to account for generated position of the primary vertex
+      vy = pos.y() * lengthScale + yv;
+      vz = pos.z() * lengthScale + zv;
+      tof = pos.t() * timeScale;
       int dummy = 0;
 
       getStack()->PushTrack(tobetracked, mothertobestored, pdgCode, pt * cs, pt * sn, pZ, en, vx, vy, vz, tof, 0., 0., 0., TMCProcess::kPPrimary, dummy, 1., status);
@@ -207,17 +241,17 @@ void NA6PGenHepMC::generate()
     int dummy = 0;
     LOGP(info, "Tracking {} spectator protons",nSpecProtons);
     for (int i=0; i<nSpecProtons; i++){
-      getStack()->PushTrack(1, -1, 2212, 0., 0., std::sqrt(e1*e1 - 0.9383*0.9383), e1, xv, yv, zv, 0., 0., 0., 0., TMCProcess::kPPrimary, dummy, 1., status); 
-      nparticlesgood++; 
+      getStack()->PushTrack(1, -1, 2212, 0., 0., std::sqrt(e1*e1 - 0.9383*0.9383), e1, xv, yv, zv, 0., 0., 0., 0., TMCProcess::kPPrimary, dummy, 1., status);
+      nparticlesgood++;
     }
     LOGP(info, "Tracking {} spectator neutrons",nSpecNeutrons);
     for (int i=0; i<nSpecNeutrons; i++){
       getStack()->PushTrack(1, -1, 2112, 0., 0., std::sqrt(e1*e1 - 0.9396*0.9396), e1, xv, yv, zv, 0., 0., 0., 0., TMCProcess::kPPrimary, dummy, 1., status);
-      nparticlesgood++;  
+      nparticlesgood++;
     }
   }
 
-  auto info = fmt::format("{}_x{}", getName(), nparticlesgood);                              
+  auto info = fmt::format("{}_x{}", getName(), nparticlesgood);
   mcHead->getGenHeaders().emplace_back(nparticlesgood, 0, mcHead->getNPrimaries(), 0, info);
   mcHead->incNPrimaries(nparticlesgood);
   ++mReadEvents;
