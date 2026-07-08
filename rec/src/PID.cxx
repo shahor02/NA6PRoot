@@ -24,7 +24,7 @@
 PID::PID(const char* name) : mID(nameToID(name, First))
 {
   // construct from the name
-  assert(mID < NID);
+  assert(mID < NIDs);
 }
 
 //_______________________________
