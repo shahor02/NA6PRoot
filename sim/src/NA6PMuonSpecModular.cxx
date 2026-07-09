@@ -25,7 +25,7 @@ void NA6PMuonSpecModular::placeSensors(float sideX, float sideY, float chipDX, f
 
   std::vector<float> moduleCenterX, moduleCenterY;
   int modulesPerSideX = static_cast<int>(sideX / chipDX);
-  int modulesPerSideY = static_cast<int>(sideX / chipDX);
+  int modulesPerSideY = static_cast<int>(sideY / chipDY);
 
   // Generate positions for n x n grid
   float baseStartX = -(modulesPerSideX - 1) * chipDX / 2.0f;

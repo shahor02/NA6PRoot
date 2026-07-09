@@ -96,7 +96,7 @@ bool NA6PTarget::generateVertex(float& x, float& y, float& z, int maxTrials) con
       float yTgt = layoutPar.posTargetY[it] + layoutPar.shiftTargets[1];
       float zTgt = layoutPar.posTargetZ[it] + layoutPar.shiftTargets[2];
       float dX = beam.getX(zTgt) - xTgt;
-      float dY = beam.getX(zTgt) - yTgt;
+      float dY = beam.getY(zTgt) - yTgt;
       float d2 = dX * dX + dY * dY;
       if (d2 <= layoutPar.radTarget[it] * layoutPar.radTarget[it]) {
         ntrialsTouch++;
