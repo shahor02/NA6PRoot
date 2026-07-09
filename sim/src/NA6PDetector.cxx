@@ -24,18 +24,18 @@ NA6PDetector::NA6PDetector()
   // Declare modules
   if (!param.use_gdml_magnets) {
     // Analytic magnets from C++ (default behaviour)
-    //addModule(new NA6PDipoleVT());
-    //addModule(new NA6PDipoleMS());
+    addModule(new NA6PDipoleVT());
+    addModule(new NA6PDipoleMS());
   } else {
     // GDML-based magnets: add the GDML magnet module
-    //addModule(new NA6PMagnetsGDML());
+    addModule(new NA6PMagnetsGDML());
   }
 
-  //addModule(new NA6PTarget());
+  addModule(new NA6PTarget());
   addModule(new NA6PVerTel());
-  //addModule(new NA6PAbsorber());
+  addModule(new NA6PAbsorber());
   //addModule(new NA6PMuonSpec());
-  //addModule(new NA6PMuonSpecModular());
+  addModule(new NA6PMuonSpecModular());
 }
 
 void NA6PDetector::createCommonMaterials()

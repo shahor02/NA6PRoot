@@ -34,13 +34,6 @@ void NA6PVerTel::createMaterials()
     matPool[nameM] = mixt;
     NA6PTGeoHelper::instance().addMedium(nameM, "", kBlue - 6);
   }
-  nameM = addName("CarbonFoamLight");
-  if (matPool.find(nameM) == matPool.end()) {
-    auto mixt = new TGeoMixture(nameM.c_str(), 1, 0.09);
-    mixt->AddElement(12.01, 6, 1.0);
-    matPool[nameM] = mixt;
-    NA6PTGeoHelper::instance().addMedium(nameM, "", kBlue - 6);
-  }
   nameM = addName("CarbonFiber");
   if (matPool.find(nameM) == matPool.end()) {
     auto mixt = new TGeoMixture(nameM.c_str(), 1, 1.91);
