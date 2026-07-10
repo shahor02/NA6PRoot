@@ -25,18 +25,32 @@ public:
     const char* fileNameTracksMuonSpec = "TracksMuonSpec.root",
     const char* fileNameTracksMatching = "TracksMatching.root",
     const char* fileNameMC             = "MCKine.root",
+    bool readVerTel = true,
+    bool readTracksVerTel = true,
+    bool readTracksMuonSpec = true,
+    bool readTracksMatching = true,
     bool readMC = true
   )
   {
-    openFile(mFileVerTel, fileNameVerTel);
-    openFile(mFileTracksVerTel, fileNameTracksVerTel);
-    openFile(mFileTracksMuonSpec, fileNameTracksMuonSpec);
-    openFile(mFileTracksMatching, fileNameTracksMatching);
+    if (readVerTel) {
+      openFile(mFileVerTel, fileNameVerTel);
+      setupTree(mFileVerTel.get(), "verticesVerTel", mTreeVerTel);
+    }
 
-    setupTree(mFileVerTel.get(), "verticesVerTel", mTreeVerTel);
-    setupTree(mFileTracksVerTel.get(), "tracksVerTel", mTreeTracksVerTel);
-    setupTree(mFileTracksMuonSpec.get(), "tracksMuonSpec", mTreeTracksMuonSpec);
-    setupTree(mFileTracksMatching.get(), "tracksMatching", mTreeTracksMatching);
+    if (readTracksVerTel) {
+      openFile(mFileTracksVerTel, fileNameTracksVerTel);
+      setupTree(mFileTracksVerTel.get(), "tracksVerTel", mTreeTracksVerTel);
+    }
+
+    if (readTracksMuonSpec) {
+      openFile(mFileTracksMuonSpec, fileNameTracksMuonSpec);
+      setupTree(mFileTracksMuonSpec.get(), "tracksMuonSpec", mTreeTracksMuonSpec);
+    }
+
+    if (readTracksMatching) {
+      openFile(mFileTracksMatching, fileNameTracksMatching);
+      setupTree(mFileTracksMatching.get(), "tracksMatching", mTreeTracksMatching);
+    }
 
     if (readMC) {
       openFile(mFileMC, fileNameMC);
