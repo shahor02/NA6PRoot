@@ -16,9 +16,9 @@ class NA6PGenHisto : public NA6PGenerator
  public:
   using NA6PGenerator::NA6PGenerator;
   NA6PGenHisto() = default;
-  NA6PGenHisto(const std::string& name, int pdg, float mult, bool isPoisson = true, TH3* mPtYHisto = nullptr, float ycm = 0.f);
-  NA6PGenHisto(const std::string& name, int pdg, float mult, bool isPoisson = true, TH2* ptYHisto = nullptr, float ycm = 0.f);
-  NA6PGenHisto(const std::string& name, int pdg, float mult, bool isPoisson = true, TH1* ptHisto = nullptr, TH1* yHisto = nullptr, float ycm = 0.f);
+  NA6PGenHisto(const std::string& name, int pdg, float mult, bool isPoisson, TH3* mPtYHisto, float ycm = 0.f);
+  NA6PGenHisto(const std::string& name, int pdg, float mult, bool isPoisson, TH2* ptYHisto, float ycm = 0.f);
+  NA6PGenHisto(const std::string& name, int pdg, float mult, bool isPoisson, TH1* ptHisto, TH1* yHisto, float ycm = 0.f);
   ~NA6PGenHisto() override = default;
 
   void init() override;
