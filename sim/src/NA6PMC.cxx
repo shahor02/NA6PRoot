@@ -1862,4 +1862,20 @@ void NA6PMC::addSpecialParticles()
   // Sexaquark (uuddss): compact, neutral and stable hypothetical bound state (arxiv.org/abs/1708.08951)
   TVirtualMC::GetMC()->DefineParticle(900000020, "Sexaquark", kPTUndefined, 2.0, 0.0, 4.35e+17, "Hadron", 0.0, 0, 1, 0, 0, 0, 0, 0, 2, kTRUE);
   TVirtualMC::GetMC()->DefineParticle(-900000020, "AntiSexaquark", kPTUndefined, 2.0, 0.0, 4.35e+17, "Hadron", 0.0, 0, 1, 0, 0, 0, 0, 0, -2, kTRUE);
+
+  // --------------------------------------------------------------------
+  {
+    int pdgID = 23;
+    if (!TVirtualMC::GetMC()->DefineParticle(pdgID, "Z0", kPTUndefined, 91.1876, 0., 2.638e-25, "Boson", 1., 0, 0, 0, 0, 0, 0, 0, 0, false, true)) {
+      LOGP(warn, "Failed to add PDG={} to TVirtualMC::GetMC() particles", pdgID);
+    }
+    Float_t br[6] = {100.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+    Int_t mode[6][3] = {};
+    mode[0][0] = 13;
+    mode[0][1] = -13;
+    if (!TVirtualMC::GetMC()->SetDecayMode(23, br, mode)) {
+      LOGP(fatal, "Failed to set 100% dimuon branching ratio for PDG={}", pdgID);
+    }
+    LOGP(info, "Added Z0 as VirtualPhoton with PDG={} and 100% dimuon branching ratio", pdgID);
+  }
 }
