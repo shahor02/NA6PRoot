@@ -12,6 +12,11 @@
 
 #include <cmath>
 
+NA6PGenHisto::NA6PGenHisto(const std::string& name, int pdg, float mult, bool isPoisson, TH3* mPtYHisto, float ycm)
+  : NA6PGenerator(name), mPDGCode(pdg), mMult(mult), mPoisson(isPoisson), mMPtYHisto(mPtYHisto), mYCM(ycm)
+{
+}
+
 NA6PGenHisto::NA6PGenHisto(const std::string& name, int pdg, float mult, bool isPoisson, TH2* ptYHisto, float ycm)
   : NA6PGenerator(name), mPDGCode(pdg), mMult(mult), mPoisson(isPoisson), mPtYHisto(ptYHisto), mYCM(ycm)
 {
@@ -20,6 +25,11 @@ NA6PGenHisto::NA6PGenHisto(const std::string& name, int pdg, float mult, bool is
 NA6PGenHisto::NA6PGenHisto(const std::string& name, int pdg, float mult, bool isPoisson, TH1* ptHisto, TH1* yHisto, float ycm)
   : NA6PGenerator(name), mPDGCode(pdg), mMult(mult), mPoisson(isPoisson), mPtHisto(ptHisto), mYHisto(yHisto), mYCM(ycm)
 {
+}
+
+void NA6PGenHisto::setMPtYHistogram(TH3* histo)
+{
+  mMPtYHisto = histo;
 }
 
 void NA6PGenHisto::setPtYHistogram(TH2* histo)
@@ -56,19 +66,21 @@ void NA6PGenHisto::generate()
 {
   generatePrimaryVertex();
 
-  if (!mPtYHisto && !(mPtHisto && mYHisto)) {
+  if (!mMPtYHisto && !mPtYHisto && !(mPtHisto && mYHisto)) {
     LOGP(fatal, "Generator {} is not initialized", getName());
   }
 
   const auto& cutParam = NA6PGenCutParam::Instance();
-  const float mass = TDatabasePDG::Instance()->GetParticle(mPDGCode)->Mass();
 
   const int nPart = mPoisson ? gRandom->Poisson(mMult) : TMath::Nint(mMult);
 
   for (int i = 0; i < nPart; ++i) {
+    double mass = TDatabasePDG::Instance()->GetParticle(mPDGCode)->Mass();
     double pt = 0;
     double y = 0;
-    if (mPtYHisto) {
+    if (mMPtYHisto) {
+      mMPtYHisto->GetRandom3(mass, pt, y);
+    } else if (mPtYHisto) {
       mPtYHisto->GetRandom2(pt, y);
     } else {
       pt = mPtHisto->GetRandom();
