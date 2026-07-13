@@ -7,18 +7,50 @@
 
 ClassImp(NA6PVertexerTracks)
 
-  TrackVF::TrackVF(const NA6PTrackParCov& src, int id, float beamX, float beamY) : mTrack(src), trackIndex(id)
+TrackVF::TrackVF(const NA6PTrackParCov& src, int id, float beamX, float beamY)
+  : mX(src.getX()), mY(src.getY()), mZ(src.getZ()), trackIndex(id)
 {
   // The track is already at its transverse DCA to the beam line. Estimate the
   // uncertainty of that Z PCA only for peak finding. The vertex fit itself
   // uses the two X/Y residuals and the covariance propagated to the seed Z.
-  double tx = src.getTx(), ty = src.getTy();
-  double den = tx * tx + ty * ty;
+  const double tx = src.getTx(), ty = src.getTy();
+  const double den = tx * tx + ty * ty;
+  const double cosPsi = src.getCosPsi();
+  const double cosPsiI = 1. / cosPsi;
+  const double dSlopeXdTx = cosPsiI * cosPsiI * cosPsiI;
+  const double dSlopeYdTx = ty * tx * dSlopeXdTx;
+  const double dSlopeYdTy = cosPsiI;
+  mSlopeX = tx * cosPsiI;
+  mSlopeY = ty * cosPsiI;
 
-  double cosPsi = src.getCosPsi();
-  double dx = beamX - src.getX(), dy = beamY - src.getY();
-  double num = tx * dx + ty * dy;
-  double denI = 1. / den, denI2 = denI * denI;
+  // Precompute S(dz) = H(dz)*C*H(dz)^T as three quadratic polynomials.
+  // Only the [x,y,tx,ty] covariance block contributes in the straight-line model.
+  const double cXX = src.getCovMatElem(NA6PTrackPar::kX, NA6PTrackPar::kX);
+  const double cXY = src.getCovMatElem(NA6PTrackPar::kX, NA6PTrackPar::kY);
+  const double cYY = src.getCovMatElem(NA6PTrackPar::kY, NA6PTrackPar::kY);
+  const double cXTx = src.getCovMatElem(NA6PTrackPar::kX, NA6PTrackPar::kTx);
+  const double cXTy = src.getCovMatElem(NA6PTrackPar::kX, NA6PTrackPar::kTy);
+  const double cYTx = src.getCovMatElem(NA6PTrackPar::kY, NA6PTrackPar::kTx);
+  const double cYTy = src.getCovMatElem(NA6PTrackPar::kY, NA6PTrackPar::kTy);
+  const double cTxTx = src.getCovMatElem(NA6PTrackPar::kTx, NA6PTrackPar::kTx);
+  const double cTxTy = src.getCovMatElem(NA6PTrackPar::kTx, NA6PTrackPar::kTy);
+  const double cTyTy = src.getCovMatElem(NA6PTrackPar::kTy, NA6PTrackPar::kTy);
+
+  mSxx[0] = cXX;
+  mSxx[1] = 2. * dSlopeXdTx * cXTx;
+  mSxx[2] = dSlopeXdTx * dSlopeXdTx * cTxTx;
+
+  mSxy[0] = cXY;
+  mSxy[1] = dSlopeYdTx * cXTx + dSlopeYdTy * cXTy + dSlopeXdTx * cYTx;
+  mSxy[2] = dSlopeXdTx * (dSlopeYdTx * cTxTx + dSlopeYdTy * cTxTy);
+
+  mSyy[0] = cYY;
+  mSyy[1] = 2. * (dSlopeYdTx * cYTx + dSlopeYdTy * cYTy);
+  mSyy[2] = dSlopeYdTx * dSlopeYdTx * cTxTx + 2. * dSlopeYdTx * dSlopeYdTy * cTxTy + dSlopeYdTy * dSlopeYdTy * cTyTy;
+
+  const double dx = beamX - src.getX(), dy = beamY - src.getY();
+  const double num = tx * dx + ty * dy;
+  const double denI = 1. / den, denI2 = denI * denI;
 
   // Gradient of zPCA = z + cosPsi*(tx*dx + ty*dy)/(tx^2 + ty^2)
   // with respect to the state [x, y, tx, ty, q/pXZ]. NA6PTrackPar::kQ2Pxz is not used in the calculation of zPCA, so its gradient is zero.
@@ -70,7 +102,7 @@ void NA6PVertexerTracks::buildAndFillHistoZ()
   std::fill(mHistZ.begin(), mHistZ.end(), 0.f);
   mFilledBinsZ.clear();
   for (const auto& tvf : mTracksPool) {
-    float z = tvf.mTrack.getZ();
+    float z = tvf.mZ;
     if (z >= mZMin && z < mZMax) {
       int bin = int((z - mZMin) / mZBinWidth);
       if (mHistZ[bin] == 0.f)
@@ -210,29 +242,14 @@ void NA6PVertexerTracks::accountTrack(TrackVF& trc, VertexSeed& vtxSeed) const
 {
   trc.wgh = 0.f;
 
-  double predX = 0., predY = 0., slopeX = 0., slopeY = 0.;
-  double sxx = 0., syy = 0., sxy = 0.;
-  // Straight-line transport Jacobian from [x,y,tx,ty,q/pXZ] at z0 to X/Y
-  // at the candidate Z. q/pXZ has no first-order contribution.
-  double tx = trc.mTrack.getTx(), ty = trc.mTrack.getTy();
-  double cosPsi = trc.mTrack.getCosPsi();
-  double cosPsiI = 1. / cosPsi;
-  double cosPsiI3 = cosPsiI * cosPsiI * cosPsiI;
-  double dz = vtxSeed.z - trc.mTrack.getZ();
-  slopeX = tx * cosPsiI;
-  slopeY = ty * cosPsiI;
-  predX = trc.mTrack.getX() + slopeX * dz;
-  predY = trc.mTrack.getY() + slopeY * dz;
-  double hX[5] = {1., 0., dz * cosPsiI3, 0., 0.};
-  double hY[5] = {0., 1., dz * ty * tx * cosPsiI3, dz * cosPsiI, 0.};
-  for (int i = 0; i < 5; ++i) {
-    for (int j = 0; j < 5; ++j) {
-      double cij = trc.mTrack.getCovMatElem(i, j);
-      sxx += hX[i] * cij * hX[j];
-      sxy += hX[i] * cij * hY[j];
-      syy += hY[i] * cij * hY[j];
-    }
-  }
+  const double dz = vtxSeed.z - trc.mZ;
+  const double predX = trc.mX + trc.mSlopeX * dz;
+  const double predY = trc.mY + trc.mSlopeY * dz;
+  const double sxx = std::fma(dz, std::fma(dz, trc.mSxx[2], trc.mSxx[1]), trc.mSxx[0]); // Evaluates Sxx[2]*dz^2 + Sxx[1]*dz + Sxx[0] using fused multiply-add
+  const double sxy = std::fma(dz, std::fma(dz, trc.mSxy[2], trc.mSxy[1]), trc.mSxy[0]); // Evaluates Sxy[2]*dz^2 + Sxy[1]*dz + Sxy[0] using fused multiply-add
+  const double syy = std::fma(dz, std::fma(dz, trc.mSyy[2], trc.mSyy[1]), trc.mSyy[0]); // Evaluates Syy[2]*dz^2 + Syy[1]*dz + Syy[0] using fused multiply-add
+  const double slopeX = trc.mSlopeX;
+  const double slopeY = trc.mSlopeY;
 
   // Residual convention: track prediction minus vertex position.
   double rx = predX - vtxSeed.x;

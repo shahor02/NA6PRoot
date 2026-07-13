@@ -24,8 +24,15 @@ struct TrackVF {
          kNoVtx = -1,
          kDiscarded = kNoVtx - 1 };
 
-  NA6PTrackParCov mTrack;   ///< track state and covariance at the DCA to the beam line
-  float mZSeedWeight = 0.f; ///< inverse variance of the beam-line Z intercept, used only for peak finding
+  double mSxx[3]{};         ///< coefficients of Sxx(dz) = Sxx[0] + dz*Sxx[1] + dz^2*Sxx[2]
+  double mSxy[3]{};         ///< coefficients of Sxy(dz) = Sxy[0] + dz*Sxy[1] + dz^2*Sxy[2]
+  double mSyy[3]{};         ///< coefficients of Syy(dz) = Syy[0] + dz*Syy[1] + dz^2*Syy[2]
+  double mSlopeX = 0.;      ///< dx/dz = tx/cosPsi
+  double mSlopeY = 0.;      ///< dy/dz = ty/cosPsi
+  float mX = 0.f;           ///< track X at the PCA to the beam line
+  float mY = 0.f;           ///< track Y at the PCA to the beam line
+  float mZ = 0.f;           ///< track Z at the PCA to the beam line
+  float mZSeedWeight = 0.f; ///< inverse variance of the beam-line Z PCA, used only for peak finding
   int trackIndex = -1;      ///< track index
   float wgh = 0.f;          ///< track weight wrt current vertex seed
   int vtxID = kNoVtx;       ///< assigned vertex
@@ -36,7 +43,7 @@ struct TrackVF {
   bool canUse() const { return vtxID == kNoVtx; }
   bool canAssign() const { return wgh > 0. && vtxID == kNoVtx; }
 
-  ClassDefNV(TrackVF, 1);
+  ClassDefNV(TrackVF, 2);
 };
 
 struct VertexSeed {
