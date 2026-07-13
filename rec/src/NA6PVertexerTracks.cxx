@@ -7,7 +7,38 @@
 
 ClassImp(NA6PVertexerTracks)
 
-  NA6PVertexerTracks::NA6PVertexerTracks()
+  TrackVF::TrackVF(const NA6PTrackParCov& src, int id, float beamX, float beamY) : mTrack(src), trackIndex(id)
+{
+  // The track is already at its transverse DCA to the beam line. Estimate the
+  // uncertainty of that Z PCA only for peak finding. The vertex fit itself
+  // uses the two X/Y residuals and the covariance propagated to the seed Z.
+  double tx = src.getTx(), ty = src.getTy();
+  double den = tx * tx + ty * ty;
+
+  double cosPsi = src.getCosPsi();
+  double dx = beamX - src.getX(), dy = beamY - src.getY();
+  double num = tx * dx + ty * dy;
+  double denI = 1. / den, denI2 = denI * denI;
+
+  // Gradient of zPCA = z + cosPsi*(tx*dx + ty*dy)/(tx^2 + ty^2)
+  // with respect to the state [x, y, tx, ty, q/pXZ]. NA6PTrackPar::kQ2Pxz is not used in the calculation of zPCA, so its gradient is zero.
+  double grad[4];
+  grad[NA6PTrackPar::kX] = -cosPsi * tx * denI;
+  grad[NA6PTrackPar::kY] = -cosPsi * ty * denI;
+  grad[NA6PTrackPar::kTx] = -tx * num * denI / cosPsi + cosPsi * (dx * den - 2. * tx * num) * denI2;
+  grad[NA6PTrackPar::kTy] = cosPsi * (dy * den - 2. * ty * num) * denI2;
+
+  double sigmaZ2 = 0.;
+  for (int i = 0; i < 4; ++i) {
+    sigmaZ2 += grad[i] * grad[i] * src.getCovMatElem(i, i);
+    for (int j = 0; j < i; ++j) {
+      sigmaZ2 += 2. * grad[i] * grad[j] * src.getCovMatElem(i, j);
+    }
+  }
+  mZSeedWeight = static_cast<float>(1. / sigmaZ2);
+}
+
+NA6PVertexerTracks::NA6PVertexerTracks()
 {
   configurePeakFinding(mZMin, mZMax, mNBinsForPeakFind);
 }
@@ -24,7 +55,7 @@ void NA6PVertexerTracks::createTracksPool(const std::vector<NA6PTrack>& tracks)
     if (!prop->propagatePCAToLine(trc, mBeamX, mBeamY, mMaxDCA)) {
       continue;
     }
-    auto& tvf = mTracksPool.emplace_back(trc, i);
+    auto& tvf = mTracksPool.emplace_back(trc, i, mBeamX, mBeamY);
     if (!tvf.isValid()) {
       mTracksPool.pop_back(); // discard bad track
       continue;
@@ -39,12 +70,12 @@ void NA6PVertexerTracks::buildAndFillHistoZ()
   std::fill(mHistZ.begin(), mHistZ.end(), 0.f);
   mFilledBinsZ.clear();
   for (const auto& tvf : mTracksPool) {
-    float z = tvf.mLine.mOriginPoint[2];
+    float z = tvf.mTrack.getZ();
     if (z >= mZMin && z < mZMax) {
       int bin = int((z - mZMin) / mZBinWidth);
       if (mHistZ[bin] == 0.f)
         mFilledBinsZ.push_back(bin);
-      mHistZ[bin] += tvf.mSig2ZI; // weighted fill
+      mHistZ[bin] += tvf.mZSeedWeight; // weighted fill
     }
   }
 }
@@ -177,45 +208,75 @@ NA6PVertexerTracks::FitStatus NA6PVertexerTracks::fitIteration(VertexSeed& vtxSe
 //___________________________________________________________________
 void NA6PVertexerTracks::accountTrack(TrackVF& trc, VertexSeed& vtxSeed) const
 {
-  // deltas defined as track - vertex
-  std::array<float, 3> vtxPos = {vtxSeed.x, vtxSeed.y, vtxSeed.z};
-  auto res = trc.getResiduals(vtxPos);
-  float dx = res[0], dy = res[1];
-  // z intercept residual: z of track at closest transverse approach to (vx, vy)
-  float ox = trc.mLine.mOriginPoint[0];
-  float oy = trc.mLine.mOriginPoint[1];
-  float oz = trc.mLine.mOriginPoint[2];
-  float cx = trc.mLine.mCosinesDirector[0];
-  float cy = trc.mLine.mCosinesDirector[1];
-  float cz = trc.mLine.mCosinesDirector[2];
-  auto norm = cx * cx + cy * cy;
   trc.wgh = 0.f;
-  if (norm < kAlmost0F)
-    return;
-  float t = (cx * (vtxSeed.x - ox) + cy * (vtxSeed.y - oy)) / norm; // RSFIX: added normalization, check if this is correct
-  float dz = oz + cz * t - vtxSeed.z;
 
-  auto chi2T = trc.evalChi2ToVertex(dx, dy);
-  float wghT = (1.f - chi2T * vtxSeed.scaleSig2ITuk2I); // weighted distance to vertex
+  double predX = 0., predY = 0., slopeX = 0., slopeY = 0.;
+  double sxx = 0., syy = 0., sxy = 0.;
+  // Straight-line transport Jacobian from [x,y,tx,ty,q/pXZ] at z0 to X/Y
+  // at the candidate Z. q/pXZ has no first-order contribution.
+  double tx = trc.mTrack.getTx(), ty = trc.mTrack.getTy();
+  double cosPsi = trc.mTrack.getCosPsi();
+  double cosPsiI = 1. / cosPsi;
+  double cosPsiI3 = cosPsiI * cosPsiI * cosPsiI;
+  double dz = vtxSeed.z - trc.mTrack.getZ();
+  slopeX = tx * cosPsiI;
+  slopeY = ty * cosPsiI;
+  predX = trc.mTrack.getX() + slopeX * dz;
+  predY = trc.mTrack.getY() + slopeY * dz;
+  double hX[5] = {1., 0., dz * cosPsiI3, 0., 0.};
+  double hY[5] = {0., 1., dz * ty * tx * cosPsiI3, dz * cosPsiI, 0.};
+  for (int i = 0; i < 5; ++i) {
+    for (int j = 0; j < 5; ++j) {
+      double cij = trc.mTrack.getCovMatElem(i, j);
+      sxx += hX[i] * cij * hX[j];
+      sxy += hX[i] * cij * hY[j];
+      syy += hY[i] * cij * hY[j];
+    }
+  }
+
+  // Residual convention: track prediction minus vertex position.
+  double rx = predX - vtxSeed.x;
+  double ry = predY - vtxSeed.y;
+  double det = sxx * syy - sxy * sxy;
+  if (det <= 1e-20f) {
+    return;
+  }
+
+  double detI = 1. / det;
+  double wxx = syy * detI;
+  double wyy = sxx * detI;
+  double wxy = -sxy * detI;
+
+  constexpr float NDOF2I = 0.5f;
+  double chi2T = rx * rx * wxx + 2. * rx * ry * wxy + ry * ry * wyy;
+  chi2T *= NDOF2I; // chi2 per residual
+
+  double wghT = 1. - chi2T * vtxSeed.scaleSig2ITuk2I;
   if (wghT < kAlmost0F) {
     return;
   }
   wghT *= wghT;
-  float sxxI = trc.mSig2XI * wghT;
-  float syyI = trc.mSig2YI * wghT;
-  float sxyI = trc.mSigXYI * wghT;
+
+  double wrx = wxx * rx + wxy * ry;
+  double wry = wxy * rx + wyy * ry;
+
   trc.wgh = wghT;
   vtxSeed.wghSum += wghT;
   vtxSeed.wghChi2 += wghT * chi2T;
-  vtxSeed.cxx += sxxI;
-  vtxSeed.cyy += syyI;
-  vtxSeed.cxy += sxyI;
-  vtxSeed.cx0 += sxxI * dx + sxyI * dy;
-  vtxSeed.cy0 += sxyI * dx + syyI * dy;
-  vtxSeed.czz += trc.mSig2ZI * wghT;
-  vtxSeed.cxz += trc.mSigXZI * wghT;
-  vtxSeed.cyz += trc.mSigYZI * wghT;
-  vtxSeed.cz0 += wghT * (trc.mSig2ZI * dz + trc.mSigXZI * dx + trc.mSigYZI * dy);
+
+  // D = d(track-vertex residual)/d(vx,vy,vz)
+  //     = [-1,  0, slopeX]
+  //       [ 0, -1, slopeY].
+  // Accumulate A = D^T W D and b = -D^T W r, then solve A*delta=b.
+  vtxSeed.cxx += wghT * wxx;
+  vtxSeed.cyy += wghT * wyy;
+  vtxSeed.cxy += wghT * wxy;
+  vtxSeed.cxz -= wghT * (wxx * slopeX + wxy * slopeY);
+  vtxSeed.cyz -= wghT * (wxy * slopeX + wyy * slopeY);
+  vtxSeed.czz += wghT * (slopeX * slopeX * wxx + 2. * slopeX * slopeY * wxy + slopeY * slopeY * wyy);
+  vtxSeed.cx0 += wghT * wrx;
+  vtxSeed.cy0 += wghT * wry;
+  vtxSeed.cz0 -= wghT * (slopeX * wrx + slopeY * wry);
 
   vtxSeed.nContributors++;
 }
