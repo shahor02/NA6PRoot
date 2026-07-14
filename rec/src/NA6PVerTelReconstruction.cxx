@@ -5,8 +5,6 @@
 #include <TRandom3.h>
 #include <fairlogger/Logger.h>
 #include "NA6PVerTelHit.h"
-#include "NA6PVerTelSegmentation.h"
-#include "NA6PVerTelDigitizer.h"
 #include "NA6PTrackerCA.h"
 #include "NA6PVertexerTracklets.h"
 #include "NA6PVerTelReconstruction.h"
@@ -14,6 +12,7 @@
 NA6PVerTelReconstruction::NA6PVerTelReconstruction() : NA6PReconstruction("VerTel")
 {
   initAll();
+  mDigitizer.initGeometry();
 }
 
 NA6PVerTelReconstruction::~NA6PVerTelReconstruction()
@@ -93,11 +92,6 @@ void NA6PVerTelReconstruction::setClusters(std::vector<NA6PVerTelCluster>& clust
 void NA6PVerTelReconstruction::hitsToRecPoints(const std::vector<NA6PVerTelHit>& hits)
 {
   int nHits = hits.size();
-  NA6PVerTelSegmentation vt;
-  if (mEmulateNoGaps)
-    vt.setStaggered(true);
-  NA6PVerTelDigitizer dig;
-  dig.initGeometry();
 
   for (int jHit = 0; jHit < nHits; ++jHit) {
     const auto& hit = hits[jHit];
@@ -105,8 +99,8 @@ void NA6PVerTelReconstruction::hitsToRecPoints(const std::vector<NA6PVerTelHit>&
     double y = hit.getY();
     double z = hit.getZ();
     double xyzLocS[3], xyzLocE[3];
-    dig.getHitLocalCoord(hit, xyzLocS, xyzLocE);
-    if (vt.isInAcc(xyzLocS[0], xyzLocS[1]) != 1)
+    mDigitizer.getHitLocalCoord(hit, xyzLocS, xyzLocE);
+    if (mSegmentation.isInAcc(xyzLocS[0], xyzLocS[1]) != 1)
       continue;
     double ex2clu = 5.e-4;
     double ey2clu = 5.e-4;
