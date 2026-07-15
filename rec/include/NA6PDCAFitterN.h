@@ -1,22 +1,30 @@
 #ifndef _NA6P_DCA_FITTERN_H
 #define _NA6P_DCA_FITTERN_H
 
+#include <algorithm>
+#include <cmath>
+
 #include <Math/SVector.h>
 #include <Math/SMatrix.h>
 #include <fairlogger/Logger.h>
 #include "NA6PTrack.h"
 #include "NA6PHelixHelper.h"
+#include "Propagator.h"
 
 using CircleXZ = NA6PHelixHelper::CircleXZ;
 
 struct TrackCovI {
-  float sxx, syy, sxy, szz;
+  // Independent elements of the symmetric 3D information matrix
+  // H^T Cxy^{-1} H. A track constrains X and Y at a given Z through
+  // H = {{1, 0, -dx/dz}, {0, 1, -dy/dz}}.
+  float sxx, syy, sxy, sxz, syz, szz;
 
-  TrackCovI(const NA6PTrack& trc, float zerrFactor = 1.f) { set(trc, zerrFactor); }
+  TrackCovI(const NA6PTrack& trc) { set(trc); }
   TrackCovI() = default;
-  bool set(const NA6PTrack& trc, float zerrFactor = 1.f)
+  bool set(const NA6PTrack& trc)
   {
-    float cxx = trc.getSigmaX2(), cyy = trc.getSigmaY2(), cxy = trc.getSigmaYX(), czz = cyy * zerrFactor;
+    // Invert the 2D covariance of the measured track position (X,Y).
+    float cxx = trc.getSigmaX2(), cyy = trc.getSigmaY2(), cxy = trc.getSigmaYX();
     float detXY = cxx * cyy - cxy * cxy;
     bool res = true;
     if (detXY <= 0.) {
@@ -28,7 +36,11 @@ struct TrackCovI {
     sxx = cyy * detXYI;
     syy = cxx * detXYI;
     sxy = -cxy * detXYI;
-    szz = 1. / czz;
+    const float sx = trc.getSlopeX();
+    const float sy = trc.getSlopeY();
+    sxz = -(sxx * sx + sxy * sy);
+    syz = -(sxy * sx + syy * sy);
+    szz = sx * sx * sxx + 2.f * sx * sy * sxy + sy * sy * syy;
     return res;
   }
 };
@@ -39,23 +51,22 @@ struct TrackDeriv {
   TrackDeriv(const NA6PTrack& trc, float by) { set(trc, by); }
   void set(const NA6PTrack& trc, float by)
   {
-    auto pxyz = trc.getPXYZ();
-    if (std::abs(pxyz[2]) < 1e-9)
-      return;
-    dxdz = pxyz[0] / pxyz[2];
-    dydz = pxyz[1] / pxyz[2];
-    // Second derivatives:
-    // d^2x/dz^2 = d/dz(px/pz) = 1/pz * (dpx/dz) - px/pz^2 (dpz/dz)
-    // Tangents to circumference of radius R in two points separated by dz
-    // theta = angle spanned by R
-    // dpx/dz = p_xz/R
-    // dpz = pxz*(1-cos(theta)) = pxz*2*sin^2(theta/2) ~ pxz*2*(theta/2)^2 ~ (p_xz/R)*dz^2 / 2
-    // dpz/dz ~ (p_xz/R)*dz/2 --> negligible
-    // d2xdz2 ~ 1/pz * (dpx/dz) = p_xz/pz * 1/R = sqrt((px/pz)^2 + 1) * 1/R
-    float crv2c = trc.getCurvature(by);
-    d2xdz2 = crv2c * std::sqrt(1.f + dxdz * dxdz);
-    //  d^2y/dz^2 = d/dz(py/pz) = 0 (dipole field, py is conserved, and dpz/dz is negligible)
-    d2ydz2 = 0.f;
+    // Track parameters use tx = px/pXZ and ty = py/pXZ, while
+    // cosPsi = pz/pXZ. Therefore dx/dz = tx/cosPsi and
+    // dy/dz = ty/cosPsi for the forward (pz > 0) geometry.
+    const double tx = trc.getTx();
+    const double ty = trc.getTy();
+    const double cosPsi = trc.getCosPsi();
+    const double cosI = 1. / cosPsi;
+    const double cosI3 = cosI * cosI * cosI;
+    const double kappa = trc.getCurvature(by);
+    dxdz = static_cast<float>(tx * cosI);
+    dydz = static_cast<float>(ty * cosI);
+    // In a By-only field, differentiating the helix slopes once more
+    // gives the curvature terms below; the common cosPsi^{-3} accounts
+    // for using Z, rather than arc length, as propagation parameter.
+    d2xdz2 = static_cast<float>(kappa * cosI3);
+    d2ydz2 = static_cast<float>(kappa * ty * tx * cosI3);
   }
 };
 
@@ -66,7 +77,6 @@ class NA6PDCAFitterN
   static constexpr double NMax = 4;
   static constexpr double NInv = 1. / N;
   static constexpr int MAXHYP = 2;
-  static constexpr float ZerrFactor = 5.; // factor for conversion of track covYY to dummy covXX
   using Vec3D = ROOT::Math::SVector<double, 3>;
   using VecND = ROOT::Math::SVector<double, N>;
   using MatSym3D = ROOT::Math::SMatrix<double, 3, 3, ROOT::Math::MatRepSym<double, 3>>;
@@ -160,7 +170,7 @@ class NA6PDCAFitterN
   }
 
   ///< create parent track param with errors for decay vertex
-  NA6PTrack createParentTrackParCov(int cand = 0) const; // TODO: update to use NA6PTRackParCov
+  NA6PTrack createParentTrackParCov(int cand = 0) const;
 
   ///< create parent track param w/o errors for decay vertex
   NA6PTrack createParentTrackPar(int cand = 0) const;
@@ -193,8 +203,13 @@ class NA6PDCAFitterN
   void setUseAbsDCA(bool v) { mUseAbsDCA = v; }
   void setWeightedFinalPCA(bool v) { mWeightedFinalPCA = v; }
   void setMaxDistance2ToMerge(float v) { mMaxDist2ToMergeSeeds = v; }
-  void setUsePropagator(bool v) { mUsePropagator = v; }
-  void setRefitWithMatCorr(bool v) { mRefitWithMatCorr = v; }
+  void setUseFullFieldPropagation(bool v) { mUseFullFieldPropagation = v; }
+  void setRefitWithMatCorr(bool v)
+  {
+    mRefitWithMatCorr = v;
+    mPropOpt.matCorr = v ? Propagator::MatCorrType::USEMatCorrTGeo : Propagator::MatCorrType::USEMatCorrNONE;
+    mUseFullFieldPropagation |= v;
+  }
   void setMaxVertX(float x) { mMaxVertX = x; }
   void setMinVertZ(float z) { mMinVertZ = z; }
   void setMaxVertZ(float z) { mMaxVertZ = z; }
@@ -211,7 +226,7 @@ class NA6PDCAFitterN
   bool getUseAbsDCA() const { return mUseAbsDCA; }
   bool getWeightedFinalPCA() const { return mWeightedFinalPCA; }
   bool getPropagateToPCA() const { return mPropagateToPCA; }
-  bool getUsePropagator() const { return mUsePropagator; }
+  bool getUseFullFieldPropagation() const { return mUseFullFieldPropagation; }
   bool getRefitWithMatCorr() const { return mRefitWithMatCorr; }
   float getMaxVertX() const { return mMaxVertX; }
   float getMinVertZ() const { return mMinVertZ; }
@@ -309,7 +324,7 @@ class NA6PDCAFitterN
   bool mUseAbsDCA = false;                           // use abs. distance minimization rather than chi2
   bool mWeightedFinalPCA = false;                    // recalculate PCA as a cov-matrix weighted mean, even if absDCA method was used
   bool mPropagateToPCA = true;                       // create tracks version propagated to PCA
-  bool mUsePropagator = false;                       // use propagator with 3D B-field, set automatically if material correction is requested
+  bool mUseFullFieldPropagation = false;             // use Propagator with the full 3D field instead of the fast constant-By track transport
   bool mRefitWithMatCorr = false;                    // when doing propagateTracksToVertex, propagate tracks to V0 with material corrections and rerun minimization again
   bool mIsCollinear = false;                         // use collinear fits when there 2 crossing points
   int mMaxIter = 20;                                 // max number of iterations
@@ -323,6 +338,7 @@ class NA6PDCAFitterN
   float mMinRelChi2Change = 0.9;                     // stop iterations is chi2/chi2old > this
   float mMaxChi2 = 100;                              // abs cut on chi2 or abs distance
   float mMaxDist2ToMergeSeeds = 1.;                  // merge 2 seeds to their average if their distance^2 is below the threshold
+  Propagator::PropOpt mPropOpt{nullptr, 2.f, Propagator::MatCorrType::USEMatCorrNONE, false};
 
   ClassDefNV(NA6PDCAFitterN, 1);
 };
@@ -337,7 +353,7 @@ int NA6PDCAFitterN<N, Args...>::process(const Tr&... args)
   assign(0, args...);
   clear();
   for (int i = 0; i < N; i++) {
-    std::array<float, 3> par =mOrigTrPtr[i]->getCircleParams(mBy);
+    std::array<float, 3> par = mOrigTrPtr[i]->getCircleParams(mBy);
     mTrAux[i][NA6PHelixHelper::kR] = par[0];
     mTrAux[i][NA6PHelixHelper::kX] = par[1];
     mTrAux[i][NA6PHelixHelper::kZ] = par[2];
@@ -408,12 +424,12 @@ bool NA6PDCAFitterN<N, Args...>::calcPCACoefs()
     MatStd3D miei;
     miei[0][0] = tcov.sxx;
     miei[0][1] = tcov.sxy;
-    miei[0][2] = 0;
+    miei[0][2] = tcov.sxz;
     miei[1][0] = tcov.sxy;
     miei[1][1] = tcov.syy;
-    miei[1][2] = 0;
-    miei[2][0] = 0;
-    miei[2][1] = 0;
+    miei[1][2] = tcov.syz;
+    miei[2][0] = tcov.sxz;
+    miei[2][1] = tcov.syz;
     miei[2][2] = tcov.szz;
     mTrCFVT[mCurHyp][i] = mWeightInv * miei;
   }
@@ -437,9 +453,9 @@ bool NA6PDCAFitterN<N, Args...>::calcInverseWeight()
     const auto& tcov = mTrcEInv[mCurHyp][i];
     arrmat[XX] += tcov.sxx;
     arrmat[XY] += tcov.sxy;
-    arrmat[XZ] += 0;
+    arrmat[XZ] += tcov.sxz;
     arrmat[YY] += tcov.syy;
-    arrmat[YZ] += 0;
+    arrmat[YZ] += tcov.syz;
     arrmat[ZZ] += tcov.szz;
   }
   // invert 3x3 symmetrix matrix
@@ -545,9 +561,9 @@ void NA6PDCAFitterN<N, Args...>::calcChi2Derivatives()
       const auto& covI = mTrcEInv[mCurHyp][j]; // inverse cov matrix of track j
       const auto& dr1 = mDResidDz[j][i];       // vector of j-th residuals 1st derivative over Z param of track i
       auto& cidr = covIDrDz[i][j];             // vector covI_j * dres_j/dz_i, save for 2nd derivative calculation
-      cidr[0] = covI.sxx * dr1[0] + covI.sxy * dr1[1];
-      cidr[1] = covI.sxy * dr1[0] + covI.syy * dr1[1];
-      cidr[2] = covI.szz * dr1[2];
+      cidr[0] = covI.sxx * dr1[0] + covI.sxy * dr1[1] + covI.sxz * dr1[2];
+      cidr[1] = covI.sxy * dr1[0] + covI.syy * dr1[1] + covI.syz * dr1[2];
+      cidr[2] = covI.sxz * dr1[0] + covI.syz * dr1[1] + covI.szz * dr1[2];
       // calculate res_i * covI_j * dres_j/dx_i
       dchi1 += ROOT::Math::Dot(res, cidr);
     }
@@ -561,11 +577,13 @@ void NA6PDCAFitterN<N, Args...>::calcChi2Derivatives()
         const auto& dr1j = mDResidDz[k][j];  // vector of k-th residuals 1st derivative over Z param of track j
         const auto& cidrkj = covIDrDz[i][k]; // vector covI_k * dres_k/dz_i
         dchi2 += ROOT::Math::Dot(dr1j, cidrkj);
-        if (k == j) {
+        if (i == j) {
           const auto& res = mTrRes[mCurHyp][k];    // vector of residuals of track k
           const auto& covI = mTrcEInv[mCurHyp][k]; // inverse cov matrix of track k
-          const auto& dr2ij = mD2ResidDz2[k][j];   // vector of k-th residuals 2nd derivative over Z params of track j
-          dchi2 += res[0] * (covI.sxx * dr2ij[0] + covI.sxy * dr2ij[1]) + res[1] * (covI.sxy * dr2ij[0] + covI.syy * dr2ij[1]) + res[2] * covI.szz * dr2ij[2];
+          const auto& dr2ij = mD2ResidDz2[k][i];   // vector of k-th residuals 2nd derivative over Z param i
+          dchi2 += res[0] * (covI.sxx * dr2ij[0] + covI.sxy * dr2ij[1] + covI.sxz * dr2ij[2]) +
+                   res[1] * (covI.sxy * dr2ij[0] + covI.syy * dr2ij[1] + covI.syz * dr2ij[2]) +
+                   res[2] * (covI.sxz * dr2ij[0] + covI.syz * dr2ij[1] + covI.szz * dr2ij[2]);
         }
       }
     }
@@ -579,16 +597,23 @@ void NA6PDCAFitterN<N, Args...>::calcChi2DerivativesNoErr()
   for (int i = N; i--;) {
     auto& dchi1 = mDChi2Dz[i]; // DChi2/Dz_i = sum_j { res_j * Dres_j/Dz_i }
     dchi1 = 0;                 // chi2 1st derivative
-    for (int j = N; j--;) {
-      const auto& res = mTrRes[mCurHyp][j]; // vector of residuals of track j
-      const auto& dr1 = mDResidDz[j][i];    // vector of j-th residuals 1st derivative over Z param of track i
+    for (int k = N; k--;) {
+      const auto& res = mTrRes[mCurHyp][k]; // vector of residuals of track k
+      const auto& dr1 = mDResidDz[k][i];    // vector of k-th residuals 1st derivative over Z param of track i
       dchi1 += ROOT::Math::Dot(res, dr1);
-      if (i >= j) { // symmetrix matrix
-        // chi2 2nd derivative
-        auto& dchi2 = mD2Chi2Dz2[i][j]; // D2Chi2/Dz_i/Dz_j = sum_k { Dres_k/Dz_j * covI_k * Dres_k/Dz_i + res_k * covI_k * D2res_k/Dz_i/Dz_j }
-        dchi2 = ROOT::Math::Dot(mTrRes[mCurHyp][i], mD2ResidDz2[i][j]);
-        for (int k = N; k--;) {
-          dchi2 += ROOT::Math::Dot(mDResidDz[k][i], mDResidDz[k][j]);
+    }
+  }
+  for (int i = N; i--;) {
+    for (int j = i + 1; j--;) {
+      auto& dchi2 = mD2Chi2Dz2[i][j];
+      dchi2 = 0.;
+      for (int k = N; k--;) {
+        // Gauss-Newton term, present for diagonal and mixed elements.
+        dchi2 += ROOT::Math::Dot(mDResidDz[k][i], mDResidDz[k][j]);
+        // A trajectory has a second derivative only with respect to its own
+        // Z parameter, hence the curvature term contributes only to H_ii.
+        if (i == j) {
+          dchi2 += ROOT::Math::Dot(mTrRes[mCurHyp][k], mD2ResidDz2[k][i]);
         }
       }
     }
@@ -617,7 +642,7 @@ bool NA6PDCAFitterN<N, Args...>::recalculatePCAWithErrors(int cand)
   mCurHyp = mOrder[cand];
   if (mUseAbsDCA) {
     for (int i = N; i--;) {
-      if (!mTrcEInv[mCurHyp][i].set(mCandTr[mCurHyp][i], ZerrFactor)) { // prepare inverse cov.matrices at starting point
+      if (!mTrcEInv[mCurHyp][i].set(mCandTr[mCurHyp][i])) { // prepare inverse cov.matrices at starting point
         mFitStatus[mCurHyp] = FitStatus::FailInvCov;
         if (mBadCovPolicy == Discard) {
           return false;
@@ -660,25 +685,57 @@ void NA6PDCAFitterN<N, Args...>::calcPCANoErr()
 template <int N, typename... Args>
 ROOT::Math::SMatrix<double, 3, 3, ROOT::Math::MatRepSym<double, 3>> NA6PDCAFitterN<N, Args...>::calcPCACovMatrix(int cand) const
 {
-  // calculate covariance matrix for the point of closest approach
-  MatSym3D covmSum;
-  int ord = mOrder[cand];
+  // Each track measures X and Y at the vertex Z.  With the local slopes
+  // sx = dX/dZ and sy = dY/dZ, its vertex measurement matrix is
+  // H = {{1, 0, -sx}, {0, 1, -sy}}.  The longitudinal information must come
+  // from the track geometry, not from the dummy Z variance in TrackCovI.
+  MatSym3D info;
+  std::fill_n(info.Array(), 6, 0.);
+  const int ord = mOrder[cand];
+  const float zVtx = static_cast<float>(mPCA[ord][2]);
   for (int i = N; i--;) {
-    const auto& tcov = mTrcEInv[ord][i];
-    covmSum(0, 0) += tcov.sxx;
-    covmSum(1, 0) += tcov.sxy;
-    covmSum(1, 1) += tcov.syy;
-    covmSum(2, 2) += tcov.szz;
+    NA6PTrack trc = *mOrigTrPtr[i];
+    if (!propagateToZ(trc, zVtx)) {
+      continue;
+    }
+
+    double cxx = trc.getSigmaX2();
+    double cyy = trc.getSigmaY2();
+    double cxy = trc.getSigmaYX();
+    if (!(cxx > 0.) || !(cyy > 0.)) {
+      continue;
+    }
+    double det = cxx * cyy - cxy * cxy;
+    if (!(det > 0.)) {
+      cxy = std::copysign(0.98 * std::sqrt(cxx * cyy), cxy);
+      det = cxx * cyy - cxy * cxy;
+    }
+    if (!(det > 0.)) {
+      continue;
+    }
+
+    const double detI = 1. / det;
+    const double wxx = cyy * detI;
+    const double wxy = -cxy * detI;
+    const double wyy = cxx * detI;
+    const double sx = trc.getSlopeX();
+    const double sy = trc.getSlopeY();
+    info(0, 0) += wxx;
+    info(1, 0) += wxy;
+    info(1, 1) += wyy;
+    info(2, 0) -= wxx * sx + wxy * sy;
+    info(2, 1) -= wxy * sx + wyy * sy;
+    info(2, 2) += sx * sx * wxx + 2. * sx * sy * wxy + sy * sy * wyy;
   }
-  if (covmSum.Invert()) {
-    return covmSum;
+  if (info.Invert()) {
+    return info;
   }
   // fall back on identity diagonal matrix with 1 cm error
-  covmSum(0, 0) = 1.;
-  covmSum(1, 0) = 0.;
-  covmSum(1, 1) = 1.;
-  covmSum(2, 2) = 1.;
-  return covmSum;
+  std::fill_n(info.Array(), 6, 0.);
+  info(0, 0) = 1.;
+  info(1, 1) = 1.;
+  info(2, 2) = 1.;
+  return info;
 }
 
 //___________________________________________________________________
@@ -696,7 +753,15 @@ void NA6PDCAFitterN<N, Args...>::calcTrackDerivatives()
 {
   // calculate track derivatives over Z param
   for (int i = N; i--;) {
-    mTrDer[mCurHyp][i].set(mCandTr[mCurHyp][i], mBy);
+    const auto& trc = mCandTr[mCurHyp][i];
+    float by = mBy;
+    if (mUseFullFieldPropagation) {
+      const auto* propagator = Propagator::Instance();
+      if (propagator->hasMagFieldSet()) {
+        by = propagator->getBy(trc.getXYZ());
+      }
+    }
+    mTrDer[mCurHyp][i].set(trc, by);
   }
 }
 //___________________________________________________________________
@@ -708,7 +773,8 @@ double NA6PDCAFitterN<N, Args...>::calcChi2() const
   for (int i = N; i--;) {
     const auto& res = mTrRes[mCurHyp][i];
     const auto& covI = mTrcEInv[mCurHyp][i];
-    chi2 += res[0] * res[0] * covI.sxx + res[1] * res[1] * covI.syy + res[2] * res[2] * covI.szz + 2. * res[0] * res[1] * covI.sxy;
+    chi2 += res[0] * res[0] * covI.sxx + res[1] * res[1] * covI.syy + res[2] * res[2] * covI.szz +
+            2. * (res[0] * res[1] * covI.sxy + res[0] * res[2] * covI.sxz + res[1] * res[2] * covI.syz);
   }
   return chi2;
 }
@@ -728,13 +794,17 @@ double NA6PDCAFitterN<N, Args...>::calcChi2NoErr() const
 template <int N, typename... Args>
 bool NA6PDCAFitterN<N, Args...>::correctTracks(const VecND& corrZ)
 {
-  // propagate tracks to updated Z
+  // Propagate the actual candidate tracks to the updated Z. Updating only
+  // mTrPos with a Taylor expansion would leave mCandTr at the seed, so the
+  // derivatives of the next Newton iteration would be evaluated there again.
   for (int i = N; i--;) {
-    const auto& trDer = mTrDer[mCurHyp][i];
-    auto dz2h = 0.5 * corrZ[i] * corrZ[i];
-    mTrPos[mCurHyp][i][0] -= trDer.dxdz * corrZ[i] - dz2h * trDer.d2xdz2;
-    mTrPos[mCurHyp][i][1] -= trDer.dydz * corrZ[i] - dz2h * trDer.d2ydz2;
-    mTrPos[mCurHyp][i][2] -= corrZ[i];
+    auto& trc = mCandTr[mCurHyp][i];
+    const float z = static_cast<float>(mTrPos[mCurHyp][i][2] - corrZ[i]);
+    const bool propagated = mUseAbsDCA ? propagateParamToZ(trc, z) : propagateToZ(trc, z);
+    if (!propagated) {
+      return false;
+    }
+    setTrackPos(mTrPos[mCurHyp][i], trc);
   }
   return true;
 }
@@ -762,8 +832,8 @@ bool NA6PDCAFitterN<N, Args...>::propagateTracksToVertex(int icand)
   }
 
   for (int i = N; i--;) {
-    if (mUseAbsDCA || mUsePropagator /*|| mMatCorr != o2::base::Propagator::MatCorrType::USEMatCorrNONE*/) { // TODO: update after merging the recNative branch
-      mCandTr[ord][i] = *mOrigTrPtr[i];                                                                      // fetch the track again, as mCandTr might have been propagated w/o errors or material corrections might be wrong
+    if (mUseAbsDCA || mUseFullFieldPropagation) {
+      mCandTr[ord][i] = *mOrigTrPtr[i]; // fetch the track again, as mCandTr might have been propagated w/o errors or material corrections might be wrong
     }
     auto z = mPCA[ord][2]; // z of PCA
     if (!propagateToZ(mCandTr[ord][i], z)) {
@@ -802,8 +872,8 @@ bool NA6PDCAFitterN<N, Args...>::minimizeChi2()
     if (!propagateToZ(mCandTr[mCurHyp][i], z)) {
       return false;
     }
-    setTrackPos(mTrPos[mCurHyp][i], mCandTr[mCurHyp][i]);             // prepare positions
-    if (!mTrcEInv[mCurHyp][i].set(mCandTr[mCurHyp][i], ZerrFactor)) { // prepare inverse cov.matrices at starting point
+    setTrackPos(mTrPos[mCurHyp][i], mCandTr[mCurHyp][i]); // prepare positions
+    if (!mTrcEInv[mCurHyp][i].set(mCandTr[mCurHyp][i])) { // prepare inverse cov.matrices at starting point
       mFitStatus[mCurHyp] = FitStatus::FailInvCov;
       if (mBadCovPolicy == Discard) {
         return false;
@@ -968,17 +1038,26 @@ NA6PTrack NA6PDCAFitterN<N, Args...>::createParentTrackParCov(int cand) const
   for (int it = 0; it < N; it++) {
     const auto& trc = getTrack(it, cand);
     auto pvecT = trc.getPXYZ();
-    std::array<float, 21> covT = {0.};
-    covT[0] = trc.getSigmaX2(); // TODO: update with new parameterization!
-    covT[1] = trc.getSigmaXY();
-    covT[2] = trc.getSigmaY2();
-    covT[9] = trc.getSigmaPX2();
-    covT[14] = trc.getSigmaPY2();
-    covT[20] = trc.getSigmaPZ2();
-    constexpr int MomInd[6] = {9, 13, 14, 18, 19, 20}; // cov matrix elements for momentum component
-    for (int i = 0; i < 6; i++) {
-      covV[MomInd[i]] += covT[MomInd[i]];
-    }
+    const double pxz = trc.getPxz();
+    const double tx = trc.getTx();
+    const double q2pxz = trc.getQ2Pxz();
+    const double cosPsi = trc.getCosPsi();
+    const double dPxdQ = -pvecT[0] / q2pxz;
+    const double dPydQ = -pvecT[1] / q2pxz;
+    const double dPzdTx = -pxz * tx / cosPsi;
+    const double dPzdQ = -pvecT[2] / q2pxz;
+    const double cTxTx = trc.getSigmaTx2();
+    const double cTyTx = trc.getSigmaTyTx();
+    const double cTyTy = trc.getSigmaTy2();
+    const double cQTx = trc.getSigmaQ2PxzTx();
+    const double cQTy = trc.getSigmaQ2PzTy();
+    const double cQQ = trc.getSigmaQ2Pxz2();
+    covV[9] += pxz * pxz * cTxTx + 2. * pxz * dPxdQ * cQTx + dPxdQ * dPxdQ * cQQ;
+    covV[13] += pxz * pxz * cTyTx + pxz * dPydQ * cQTx + dPxdQ * pxz * cQTy + dPxdQ * dPydQ * cQQ;
+    covV[14] += pxz * pxz * cTyTy + 2. * pxz * dPydQ * cQTy + dPydQ * dPydQ * cQQ;
+    covV[18] += dPzdTx * (pxz * cTxTx + dPxdQ * cQTx) + dPzdQ * (pxz * cQTx + dPxdQ * cQQ);
+    covV[19] += dPzdTx * (pxz * cTyTx + dPydQ * cQTx) + dPzdQ * (pxz * cQTy + dPydQ * cQQ);
+    covV[20] += dPzdTx * dPzdTx * cTxTx + 2. * dPzdTx * dPzdQ * cQTx + dPzdQ * dPzdQ * cQQ;
     for (int i = 0; i < 3; i++) {
       pvecV[i] += pvecT[i];
     }
@@ -991,8 +1070,45 @@ NA6PTrack NA6PDCAFitterN<N, Args...>::createParentTrackParCov(int cand) const
   covV[3] = covVtxV(2, 0);
   covV[4] = covVtxV(2, 1);
   covV[5] = covVtxV(2, 2);
-  NA6PTrack tr; // TODO: update adding covariance matrix
+  const double px = pvecV[0], py = pvecV[1], pz = pvecV[2];
+  const double pxz2 = px * px + pz * pz;
+  const double invPxz = 1. / std::sqrt(pxz2);
+  const double tx = px * invPxz;
+  const double ty = py * invPxz;
+  const double cs = pz * invPxz;
+  const double q2pxz = q * invPxz;
+  const double jac[3][3] = {
+    {cs * cs * invPxz, 0., -tx * cs * invPxz},
+    {-ty * tx * invPxz, invPxz, -ty * cs * invPxz},
+    {-q2pxz * tx * invPxz, 0., -q2pxz * cs * invPxz}};
+  const double covP[3][3] = {
+    {covV[9], covV[13], covV[18]},
+    {covV[13], covV[14], covV[19]},
+    {covV[18], covV[19], covV[20]}};
+  double jacCovP[3][3]{};
+  for (int i = 0; i < 3; ++i) {
+    for (int k = 0; k < 3; ++k) {
+      for (int j = 0; j < 3; ++j) {
+        jacCovP[i][k] += jac[i][j] * covP[j][k];
+      }
+    }
+  }
+  NA6PTrackParCov::CovArray cov{};
+  cov[NA6PTrackParCov::kXX] = covV[0];
+  cov[NA6PTrackParCov::kYX] = covV[1];
+  cov[NA6PTrackParCov::kYY] = covV[2];
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j <= i; ++j) {
+      double cij = 0.;
+      for (int k = 0; k < 3; ++k) {
+        cij += jacCovP[i][k] * jac[j][k];
+      }
+      cov[NA6PTrackParCov::CovarMap[i + 2][j + 2]] = cij;
+    }
+  }
+  NA6PTrack tr;
   tr.init(getPCACandidatePos(cand), pvecV, q);
+  tr.setCov(cov);
   return tr;
 }
 //___________________________________________________________________
@@ -1019,12 +1135,20 @@ NA6PTrack NA6PDCAFitterN<N, Args...>::createParentTrackPar(int cand) const
 template <int N, typename... Args>
 inline bool NA6PDCAFitterN<N, Args...>::propagateParamToZ(NA6PTrack& t, float z) const
 {
+  if (mUseFullFieldPropagation) {
+    auto* propagator = Propagator::Instance();
+    return propagator->propagateToZ(static_cast<NA6PTrackPar&>(t), z, mPropOpt);
+  }
   return t.propagateParamToZ(z, mBy);
 }
 //___________________________________________________________________
 template <int N, typename... Args>
 inline bool NA6PDCAFitterN<N, Args...>::propagateToZ(NA6PTrack& t, float z) const
 {
+  if (mUseFullFieldPropagation) {
+    auto* propagator = Propagator::Instance();
+    return propagator->propagateToZ(t, z, mPropOpt);
+  }
   return t.propagateToZ(z, mBy);
 }
 
