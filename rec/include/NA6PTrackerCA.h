@@ -113,6 +113,7 @@ class NA6PTrackerCA
                           float maxChi2ndfCells,
                           float maxChi2ndfTracks,
                           int minNClusTracks);
+  void setMinimumNumberOfClusters(int iter, int minNClusTracks) { mMinNClusTracksCA[iter] = minNClusTracks; }
   void setPID(PID pid) { mPID = pid; }
 
   void setMaxPropagationStep(float step) { mTrackFitter->setMaxPropagationStep(step); }
@@ -123,6 +124,7 @@ class NA6PTrackerCA
 
   void printConfiguration() const;
   int getNIterations() const { return mNIterationsCA; }
+  int getMinimumNumberOfClusters(int iter) { return mMinNClusTracksCA[iter]; }
   bool loadGeometry(const char* filename, const char* geoname = "NA6P");
 
   template <typename ClusterType>

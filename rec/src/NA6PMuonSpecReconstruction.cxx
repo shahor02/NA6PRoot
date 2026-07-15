@@ -26,12 +26,25 @@ bool NA6PMuonSpecReconstruction::initTracker()
 {
   mMSTracker = std::make_unique<NA6PTrackerCA>();
   mMSTracker->configureFromRecoParamMS();
+  const auto& param = NA6PRecoParam::Instance();
+  if (param.msDoTrackMSTrackletMID) {
+    mMSTracker->setNLayers(4);
+    mMSTracker->setStartLayer(param.vtNLayers);
+    for (int j = 0; j < mMSTracker->getNIterations(); ++j) {
+      if (mMSTracker->getMinimumNumberOfClusters(j) > 4) {
+        mMSTracker->setMinimumNumberOfClusters(j, 4);
+      }
+    }
+    mMSTracker->setDoOutwardPropagation(true);
+    mMSTracker->setZForOutwardPropagation(param.msZForMSMIDmatch);
+  }
   createTracksOutput();
   return true;
 }
 
 void NA6PMuonSpecReconstruction::createClustersOutput()
 {
+  useOwnedClusterStorage(); // to write into mClusters
   auto nm = fmt::format("Clusters{}.root", getName());
   mClusFile = TFile::Open(nm.c_str(), "recreate");
   mClusTree = new TTree(fmt::format("clusters{}", getName()).c_str(), fmt::format("{} Clusters", getName()).c_str());
@@ -74,6 +87,7 @@ void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecM
 {
   int nHits = hits.size();
   const auto& layout = NA6PLayoutParam::Instance();
+
   for (int jHit = 0; jHit < nHits; ++jHit) {
     const auto& hit = hits[jHit];
     double x = hit.getX();
@@ -149,7 +163,194 @@ void NA6PMuonSpecReconstruction::closeTracksOutput()
 void NA6PMuonSpecReconstruction::runTracking()
 {
   clearTracks();
-  mMSTracker->findTracks(*hClusPtr, mPrimaryVertex);
-  mTracks = mMSTracker->getTracks();
+  const auto& param = NA6PRecoParam::Instance();
+  mMSTracker->findTracks(getClusters(), mPrimaryVertex);
+  if (param.msDoTrackMSTrackletMID == false) {
+    mTracks = mMSTracker->getTracks();
+    for (auto& t : mTracks) {
+      t.setStatusMS(NA6PTrack::kFullMSMID);
+    }
+  } else {
+    runMSTrackMIDTrackletMatching();
+  }
   writeTracks();
+}
+
+void NA6PMuonSpecReconstruction::runMSTrackMIDTrackletMatching()
+{
+  const auto& param = NA6PRecoParam::Instance();
+  auto& clusters = getClusters();
+
+  std::vector<NA6PTrack> trks = mMSTracker->getTracks();
+  int nTrks = trks.size();
+  std::vector<std::pair<NA6PMuonSpecCluster, NA6PMuonSpecCluster>> trkltsMID = mMSTracker->findTracklets(9, 10, clusters, mPrimaryVertex);
+  int nTrklets = trkltsMID.size();
+  NA6PFastTrackFitter* fitter = mMSTracker->getTrackFitter();
+
+  // create lookup table of cluster indices
+  std::vector<int> clusterLookup(clusters.size(), -1);
+  for (size_t i = 0; i < clusters.size(); ++i) {
+    int originalID = clusters[i].getClusterIndex();
+    if (originalID >= 0 && (size_t)originalID < clusters.size())
+      clusterLookup[originalID] = static_cast<int>(i);
+  }
+
+  // matching loop
+  std::vector<MatchCandidate> candidates;
+  for (int jT = 0; jT < nTrks; jT++) {
+    NA6PTrack tr = trks[jT];
+    for (int jS = 0; jS < nTrklets; jS++) {
+      const auto& tracklet = trkltsMID[jS];
+      NA6PMuonSpecCluster clu1 = tracklet.first;
+      NA6PMuonSpecCluster clu2 = tracklet.second;
+      float xyzClu1[3] = {clu1.getX(), clu1.getY(), clu1.getZ()};
+      float xyzClu2[3] = {clu2.getX(), clu2.getY(), clu2.getZ()};
+
+      if (xyzClu1[2] > xyzClu2[2]) {
+        float tmp[3] = {xyzClu1[0], xyzClu1[1], xyzClu1[2]};
+        for (int j = 0; j < 3; ++j) {
+          xyzClu1[j] = xyzClu2[j];
+          xyzClu2[j] = tmp[j];
+        }
+      }
+      float zToProp = xyzClu1[2];
+      float dirSegm[3];
+      float norm = 0.f;
+      for (int j = 0; j < 3; ++j) {
+        dirSegm[j] = xyzClu2[j] - xyzClu1[j];
+        norm += dirSegm[j] * dirSegm[j];
+      }
+      norm = std::sqrt(norm);
+      for (int j = 0; j < 3; ++j)
+        dirSegm[j] /= norm;
+      auto trOuter = tr.getOuterParam();
+      if (!Propagator::Instance()->propagateToZ(trOuter, zToProp, fitter->getPropOpt())) {
+        continue;
+      }
+      auto xyzTr = trOuter.getXYZ<float>();
+      auto pxyzTr = trOuter.getPXYZ<float>();
+      norm = 0.f;
+      for (int j = 0; j < 3; ++j)
+        norm += pxyzTr[j] * pxyzTr[j];
+      norm = std::sqrt(norm);
+      for (int j = 0; j < 3; ++j)
+        pxyzTr[j] /= norm;
+      float distXY = std::sqrt((xyzClu1[0] - xyzTr[0]) * (xyzClu1[0] - xyzTr[0]) + (xyzClu1[1] - xyzTr[1]) * (xyzClu1[1] - xyzTr[1]));
+      float costh = dirSegm[0] * pxyzTr[0] + dirSegm[1] * pxyzTr[1] + dirSegm[2] * pxyzTr[2];
+      if (distXY < param.msMaxDistTrackMSTrackletMID && costh > param.msMinCosThetaTrackMSTrackletMID) {
+        costh = std::clamp(costh, -1.f, 1.f);
+        float score = distXY / 2. + (1 - costh) / 1.e-4;
+        candidates.push_back({jT, jS, score});
+      }
+    }
+  }
+  std::sort(candidates.begin(), candidates.end(),
+            [](auto& a, auto& b) { return a.score < b.score; });
+
+  std::vector<bool> trackUsed(nTrks, false);
+  std::vector<bool> segmentUsed(nTrklets, false);
+  std::vector<int> trackMatch(nTrks, -1);
+
+  for (auto& c : candidates) {
+    if (trackUsed[c.track])
+      continue;
+    if (segmentUsed[c.segment])
+      continue;
+    trackMatch[c.track] = c.segment;
+    trackUsed[c.track] = true;
+    segmentUsed[c.segment] = true;
+  }
+
+  for (int jT = 0; jT < nTrks; jT++) {
+    NA6PTrack tr = trks[jT];
+    int jS = trackMatch[jT];
+    if (jS < 0) {
+      // track not matched to MID: save with specific status flag
+      tr.setStatusMS(NA6PTrack::kMSNotMatchedToMID);
+      mTracks.push_back(tr);
+      continue;
+    }
+    const auto& tracklet = trkltsMID[jS];
+    NA6PMuonSpecCluster clu1 = tracklet.first;
+    NA6PMuonSpecCluster clu2 = tracklet.second;
+    fitter->cleanupAndStartFit();
+    for (int jl = 0; jl < 4; ++jl) {
+      int originalID = tr.getClusterIndex(jl + param.vtNLayers);
+      if (originalID >= 0 && (size_t)originalID < clusterLookup.size()) {
+        int jNewPos = clusterLookup[originalID];
+        if (jNewPos < 0) {
+          LOGP(error, "Cluster originalID={} not found for track {} layer {}", originalID, jT, jl);
+          continue;
+        }
+        const auto& cl = clusters[jNewPos];
+        fitter->addCluster(cl);
+      }
+    }
+    NA6PTrack outTr = tr;
+    static_cast<NA6PTrackParCov&>(outTr) = tr.getOuterParam();
+    outTr.setChi2(tr.getChi2Outer());
+    float zToProp = param.msZForMSMIDmatch;
+    if (!Propagator::Instance()->propagateToZ(outTr, zToProp, fitter->getPropOpt())) {
+      // track not refitted: save with specific status flag
+      tr.setStatusMS(NA6PTrack::kMSMatchedToMIDnotRefitted);
+      mTracks.push_back(tr);
+      continue;
+    }
+    float zFirst = -999.;
+    float zSecond = -999.;
+    if (clu1.getZ() < clu2.getZ()) {
+      fitter->addCluster(clu1);
+      fitter->addCluster(clu2);
+      zFirst = clu1.getZ();
+      zSecond = clu2.getZ();
+    } else {
+      fitter->addCluster(clu2);
+      fitter->addCluster(clu1);
+      zFirst = clu2.getZ();
+      zSecond = clu1.getZ();
+    }
+    if (!Propagator::Instance()->propagateToZ(outTr, zFirst, fitter->getPropOpt())) {
+      // track not refitted: save with specific status flag
+      tr.setStatusMS(NA6PTrack::kMSMatchedToMIDnotRefitted);
+      mTracks.push_back(tr);
+      continue;
+    }
+    bool success = false;
+    if (outTr.update(clu1)) {
+      if (!Propagator::Instance()->propagateToZ(outTr, zSecond, fitter->getPropOpt())) {
+        // track not refitted: save with specific status flag
+        tr.setStatusMS(NA6PTrack::kMSMatchedToMIDnotRefitted);
+        mTracks.push_back(tr);
+        continue;
+      }
+      if (outTr.update(clu2)) {
+        success = true;
+      }
+    }
+    if (!success) {
+      // track not refitted: save with specific status flag
+      tr.setStatusMS(NA6PTrack::kMSMatchedToMIDnotRefitted);
+      mTracks.push_back(tr);
+      continue;
+    }
+    NA6PTrack refitInw = outTr;
+    float chi2Refit = fitter->fitSeedInward(refitInw, true);
+    if (chi2Refit < 0.f) {
+      // track not refitted: save with specific status flag
+      tr.setStatusMS(NA6PTrack::kMSMatchedToMIDnotRefitted);
+      mTracks.push_back(tr);
+      continue;
+    }
+    refitInw.setChi2(chi2Refit);
+    refitInw.setOuterParam(outTr);
+    refitInw.resetClusters();
+    fitter->addClustersToTrack(refitInw);
+    if (param.vtDoConstrainedTrack) {
+      fitter->constrainTrackToVertex(refitInw, *mPrimaryVertex);
+    } else {
+      refitInw.getVertexConstrainedParam().invalidate();
+    }
+    refitInw.setStatusMS(NA6PTrack::kMSMatchedToMIDRefitted);
+    mTracks.push_back(refitInw);
+  }
 }

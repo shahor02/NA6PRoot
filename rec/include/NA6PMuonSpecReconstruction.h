@@ -33,6 +33,12 @@ class NA6PMuonSpecModularHit;
 class NA6PMuonSpecVertexerTracklets;
 class NA6PTrackerCA;
 
+struct MatchCandidate {
+  int track;
+  int segment;
+  float score;
+};
+
 class NA6PMuonSpecReconstruction : public NA6PReconstruction
 {
  public:
@@ -45,6 +51,10 @@ class NA6PMuonSpecReconstruction : public NA6PReconstruction
   void clearClusters() override { mClusters.clear(); }
   void writeClusters() override;
   void closeClustersOutput() override;
+  std::vector<NA6PMuonSpecCluster>& getClusters() { return *hClusPtr; }
+  const std::vector<NA6PMuonSpecCluster>& getClusters() const { return *hClusPtr; }
+  void useOwnedClusterStorage() { hClusPtr = &mClusters; }
+
   // fast method to smear the hits bypassing digitization and cluster finder
   void setClusterSpaceResolutionX(double clures) { mCluResX = clures; }
   void setClusterSpaceResolutionY(double clures) { mCluResY = clures; }
@@ -59,6 +69,7 @@ class NA6PMuonSpecReconstruction : public NA6PReconstruction
   void writeTracks() override;
   void closeTracksOutput() override;
   void runTracking();
+  void runMSTrackMIDTrackletMatching();
 
  private:
   std::vector<NA6PMuonSpecCluster> mClusters, *hClusPtr = &mClusters; // vector of clusters
