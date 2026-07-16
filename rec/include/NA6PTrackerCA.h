@@ -22,6 +22,7 @@
 #include "NA6PFastTrackFitter.h"
 #include "NA6PTrack.h"
 #include "NA6PTreeStreamRedirector.h"
+#include "NA6PMCTruthContainer.h"
 
 // Cellular Automaton track finder
 
@@ -128,7 +129,13 @@ class NA6PTrackerCA
   bool loadGeometry(const char* filename, const char* geoname = "NA6P");
 
   template <typename ClusterType>
-  void findTracks(std::vector<ClusterType>& cluArr, const NA6PVertex* primVert);
+  void findTracks(std::vector<ClusterType>& cluArr, const NA6PMCTruthContainer& mcCluLabels, const NA6PVertex* primVert, bool useMCCont = true);
+  template <typename ClusterType>
+  void findTracks(std::vector<ClusterType>& cluArr, const NA6PVertex* primVert)
+  {
+    NA6PMCTruthContainer trCont; // dummy object
+    findTracks(cluArr, trCont, primVert, false);
+  }
   const auto& getFinalTracks() const { return mFinalTracks; }
   std::vector<NA6PTrack> getTracks();
 
@@ -203,11 +210,13 @@ class NA6PTrackerCA
   template <typename ClusterType>
   void fitAndSelectTracks(const std::vector<TrackCandidate>& trackCands,
                           const std::vector<ClusterType>& cluArr,
+                          const NA6PMCTruthContainer& mcCluLabels,
                           std::vector<TrackFitted>& tracks,
                           const NA6PVertex* primVert,
                           float maxChi2TrClu,
                           int minNClu,
-                          float maxChi2NDF);
+                          float maxChi2NDF,
+                          bool useMCCont = false);
   template <typename T, typename ClusterType>
   void printStats(const std::vector<T>& candidates,
                   const std::vector<ClusterType>& cluArr,
