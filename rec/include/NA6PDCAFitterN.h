@@ -752,16 +752,9 @@ template <int N, typename... Args>
 void NA6PDCAFitterN<N, Args...>::calcTrackDerivatives()
 {
   // calculate track derivatives over Z param
+  float by = mUseFullFieldPropagation ? Propagator::Instance()->getBy(mCandTr[mCurHyp][0].getXYZ()) : mBy;
   for (int i = N; i--;) {
-    const auto& trc = mCandTr[mCurHyp][i];
-    float by = mBy;
-    if (mUseFullFieldPropagation) {
-      const auto* propagator = Propagator::Instance();
-      if (propagator->hasMagFieldSet()) {
-        by = propagator->getBy(trc.getXYZ());
-      }
-    }
-    mTrDer[mCurHyp][i].set(trc, by);
+    mTrDer[mCurHyp][i].set(mCandTr[mCurHyp][i], by);
   }
 }
 //___________________________________________________________________
@@ -1040,12 +1033,12 @@ NA6PTrack NA6PDCAFitterN<N, Args...>::createParentTrackParCov(int cand) const
     auto pvecT = trc.getPXYZ();
     const double pxz = trc.getPxz();
     const double tx = trc.getTx();
-    const double q2pxz = trc.getQ2Pxz();
+    const double q2pxzI = 1. / trc.getQ2Pxz();
     const double cosPsi = trc.getCosPsi();
-    const double dPxdQ = -pvecT[0] / q2pxz;
-    const double dPydQ = -pvecT[1] / q2pxz;
+    const double dPxdQ = -pvecT[0] * q2pxzI;
+    const double dPydQ = -pvecT[1] * q2pxzI;
     const double dPzdTx = -pxz * tx / cosPsi;
-    const double dPzdQ = -pvecT[2] / q2pxz;
+    const double dPzdQ = -pvecT[2] * q2pxzI;
     const double cTxTx = trc.getSigmaTx2();
     const double cTyTx = trc.getSigmaTyTx();
     const double cTyTy = trc.getSigmaTy2();
