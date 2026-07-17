@@ -92,10 +92,9 @@ void NA6PVerTelReconstruction::setClusters(std::vector<NA6PVerTelCluster>& clust
   }
 }
 
-void NA6PVerTelReconstruction::hitsToRecPoints(const std::vector<NA6PVerTelHit>& hits)
+void NA6PVerTelReconstruction::hitsToRecPoints(const std::vector<NA6PVerTelHit>& hits, int evID)
 {
   int nHits = hits.size();
-
   for (int jHit = 0; jHit < nHits; ++jHit) {
     const auto& hit = hits[jHit];
     double x = hit.getX();
@@ -131,7 +130,7 @@ void NA6PVerTelReconstruction::hitsToRecPoints(const std::vector<NA6PVerTelHit>&
     clu.setParticleID(idPart);
     clu.setHitID(jHit);
     clu.setClusterIndex(cluID);
-    NA6PMCComposedLabel lbl(hit.getTrackID(), 0, 0);
+    NA6PMCComposedLabel lbl(hit.getTrackID(), evID, 0);
     mCluMCLabels.addElement(cluID, lbl);
   }
 }

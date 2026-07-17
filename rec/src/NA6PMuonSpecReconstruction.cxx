@@ -10,9 +10,7 @@
 #include "NA6PMuonSpecReconstruction.h"
 #include "NA6PLayoutParam.h"
 
-ClassImp(NA6PMuonSpecReconstruction)
-
-  NA6PMuonSpecReconstruction::NA6PMuonSpecReconstruction() : NA6PReconstruction("MuonSpec")
+NA6PMuonSpecReconstruction::NA6PMuonSpecReconstruction() : NA6PReconstruction("MuonSpec")
 {
   initTracker();
 }
@@ -84,7 +82,7 @@ void NA6PMuonSpecReconstruction::setClusters(std::vector<NA6PMuonSpecCluster>& c
   }
 }
 
-void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecModularHit>& hits)
+void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecModularHit>& hits, int evID)
 {
   int nHits = hits.size();
   const auto& layout = NA6PLayoutParam::Instance();
@@ -128,7 +126,7 @@ void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecM
     clu.setParticleID(idPart);
     clu.setHitID(jHit);
     clu.setClusterIndex(cluID);
-    NA6PMCComposedLabel lbl(hit.getTrackID(), 0, 0);
+    NA6PMCComposedLabel lbl(hit.getTrackID(), evID, 0);
     mCluMCLabels.addElement(cluID, lbl);
   }
 }

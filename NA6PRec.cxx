@@ -159,7 +159,7 @@ int main(int argc, char** argv)
           int nHits = vtHits.size();
           LOGP(info, "VerTel Event {} nHits= {}", jEv, nHits);
           vtrec->clearClusters();
-          vtrec->hitsToRecPoints(vtHits);
+          vtrec->hitsToRecPoints(vtHits, jEv);
           vtrec->writeClusters();
         }
         vtrec->closeClustersOutput();
@@ -177,7 +177,7 @@ int main(int argc, char** argv)
         int nHits = msHits.size();
         LOGP(info, "MuonSpec Event {} nHits= {}", jEv, nHits);
         msrec->clearClusters();
-        msrec->hitsToRecPoints(msHits);
+        msrec->hitsToRecPoints(msHits, jEv);
         msrec->writeClusters();
       }
       msrec->closeClustersOutput();
