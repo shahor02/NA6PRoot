@@ -49,6 +49,7 @@ void NA6PMuonSpecReconstruction::createClustersOutput()
   mClusFile = TFile::Open(nm.c_str(), "recreate");
   mClusTree = new TTree(fmt::format("clusters{}", getName()).c_str(), fmt::format("{} Clusters", getName()).c_str());
   mClusTree->Branch(getName().c_str(), &hClusPtr);
+  mClusTree->Branch(fmt::format("{}MCTruth", getName()).c_str(), &hCluMCLabelsPtr);
   LOGP(info, "Will store {} clusters in {}", getName(), nm);
 }
 
@@ -127,6 +128,8 @@ void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecM
     clu.setParticleID(idPart);
     clu.setHitID(jHit);
     clu.setClusterIndex(cluID);
+    NA6PMCComposedLabel lbl(hit.getTrackID(), 0, 0);
+    mCluMCLabels.addElement(cluID, lbl);
   }
 }
 

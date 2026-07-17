@@ -215,8 +215,7 @@ class NA6PTrackerCA
                           const NA6PVertex* primVert,
                           float maxChi2TrClu,
                           int minNClu,
-                          float maxChi2NDF,
-                          bool useMCCont = false);
+                          float maxChi2NDF);
   template <typename T, typename ClusterType>
   void printStats(const std::vector<T>& candidates,
                   const std::vector<ClusterType>& cluArr,
