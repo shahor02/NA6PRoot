@@ -216,7 +216,7 @@ void plotTracks(const char* dirSimu = ".")
       hImpParYVsP->Fill(momReco, impparY * 1e4);
       hMomAllReco->Fill(momReco);
       hEtaAllReco->Fill(etaReco);
-      int mcLabel =  mcCompLabel.getTrackID();
+      int mcLabel = mcCompLabel.getTrackID();
       if (!mcCompLabel.isFake()) {
         hMomGoodReco->Fill(momReco);
         hEtaGoodReco->Fill(etaReco);
@@ -471,8 +471,8 @@ void plotTracks(const char* dirSimu = ".")
   hRelDeltaPzSig->SetMaximum(0.05);
   hRelDeltaPzSig->Draw("P");
 
-  TCanvas* c2d = new TCanvas("c2d","",1500,500);
-  c2d->Divide(3,1);
+  TCanvas* c2d = new TCanvas("c2d", "", 1500, 500);
+  c2d->Divide(3, 1);
   c2d->cd(1);
   hDeltaPxVsP->Draw("colz");
   c2d->cd(2);
