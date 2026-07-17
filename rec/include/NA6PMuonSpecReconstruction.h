@@ -53,7 +53,7 @@ class NA6PMuonSpecReconstruction : public NA6PReconstruction
   // fast method to smear the hits bypassing digitization and cluster finder
   void setClusterSpaceResolutionX(double clures) { mCluResX = clures; }
   void setClusterSpaceResolutionY(double clures) { mCluResY = clures; }
-  void hitsToRecPoints(const std::vector<NA6PMuonSpecModularHit>& hits);
+  void hitsToRecPoints(const std::vector<NA6PMuonSpecModularHit>& hits, int evID = 0);
   NA6PTrackerCA* getTracker() const { return mMSTracker.get(); }
 
   // methods to steer tracking
