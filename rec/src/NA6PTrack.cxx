@@ -35,6 +35,7 @@ void NA6PTrack::reset()
   resetCovariance();
   resetClusters();
   mParticleID = -2;
+  mStatusMS = kNotMS;
   invalidate();
   mOuter.invalidate();
   mConstrained.invalidate();

@@ -179,11 +179,13 @@ void NA6PMuonSpecReconstruction::runTracking()
 void NA6PMuonSpecReconstruction::runMSTrackMIDTrackletMatching()
 {
   const auto& param = NA6PRecoParam::Instance();
+  const auto& layout = NA6PLayoutParam::Instance();
   auto& clusters = getClusters();
 
   std::vector<NA6PTrack> trks = mMSTracker->getTracks();
   int nTrks = trks.size();
-  std::vector<std::pair<NA6PMuonSpecCluster, NA6PMuonSpecCluster>> trkltsMID = mMSTracker->findTracklets(9, 10, clusters, mPrimaryVertex);
+  int firstMID = layout.nVerTelPlanes + layout.nMSPlanes - 2;
+  std::vector<std::pair<NA6PMuonSpecCluster, NA6PMuonSpecCluster>> trkltsMID = mMSTracker->findTracklets(firstMID, firstMID + 1, clusters, mPrimaryVertex);
   int nTrklets = trkltsMID.size();
   NA6PFastTrackFitter* fitter = mMSTracker->getTrackFitter();
 
