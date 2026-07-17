@@ -22,6 +22,7 @@
 
 #include "NA6PVerTelCluster.h"
 #include "NA6PMCTruthContainer.h"
+#include "NA6PMCComposedLabel.h"
 #include "NA6PVerTelClusterizer.h"
 #include "NA6PTrack.h"
 #include "NA6PVertex.h"
@@ -76,28 +77,34 @@ class NA6PVerTelReconstruction : public NA6PReconstruction
   const std::vector<NA6PVertex>& getVertices() const { return mVertices; }
 
   void createTracksOutput() override;
-  void clearTracks() override { mTracks.clear(); }
+  void clearTracks() override
+  {
+    mTracks.clear();
+    mTrkMCLabels.clear();
+  }
   void writeTracks() override;
   void closeTracksOutput() override;
   void runTracking();
 
  private:
-  std::vector<NA6PVerTelCluster> mClusters, *hClusPtr = &mClusters;    // vector of clusters
-  NA6PMCTruthContainer mCluMCLabels, *hCluMCLabelsPtr = &mCluMCLabels; // MC labels
-  NA6PVerTelClusterizer mClusterizer;                                  // cluster finder
-  TFile* mClusFile = nullptr;                                          // file with clusters
-  TTree* mClusTree = nullptr;                                          // tree of clusters
-  double mCluRes = 5.e-4;                                              // cluster resolution, cm (for fast simu)
-  std::vector<NA6PVertex> mVertices, *hVerticesPtr = &mVertices;       // vector of vertices
-  TFile* mVertexFile = nullptr;                                        // file with vertices
-  TTree* mVertexTree = nullptr;                                        // tree of vertices
-  std::vector<NA6PTrack> mTracks, *hTrackPtr = &mTracks;               // vector of tracks
-  TFile* mTrackFile = nullptr;                                         // file with tracks
-  TTree* mTrackTree = nullptr;                                         // tree of tracks
-  std::unique_ptr<NA6PVertexerTracklets> mVTTrackletVertexer;          // vertexer
-  std::unique_ptr<NA6PTrackerCA> mVTTracker;                           // tracker
-  NA6PVerTelSegmentation mSegmentation;                                // segmentation class
-  NA6PVerTelDigitizer mDigitizer;                                      // digitizer class
+  std::vector<NA6PVerTelCluster> mClusters, *hClusPtr = &mClusters;                // vector of clusters
+  NA6PMCTruthContainer mCluMCLabels, *hCluMCLabelsPtr = &mCluMCLabels;             // cluster MC labels
+  NA6PVerTelClusterizer mClusterizer;                                              // cluster finder
+  TFile* mClusFile = nullptr;                                                      // file with clusters
+  TTree* mClusTree = nullptr;                                                      // tree of clusters
+  double mCluRes = 5.e-4;                                                          // cluster resolution, cm (for fast simu)
+  bool mEmulateNoGaps = false;                                                     // enable sensor acceptance overlaps in hitsToRecPoints
+  std::vector<NA6PVertex> mVertices, *hVerticesPtr = &mVertices;                   // vector of vertices
+  TFile* mVertexFile = nullptr;                                                    // file with vertices
+  TTree* mVertexTree = nullptr;                                                    // tree of vertices
+  std::vector<NA6PTrack> mTracks, *hTrackPtr = &mTracks;                           // vector of tracks
+  std::vector<NA6PMCComposedLabel> mTrkMCLabels, *hTrkMCLabelsPtr = &mTrkMCLabels; // track MC labels
+  TFile* mTrackFile = nullptr;                                                     // file with tracks
+  TTree* mTrackTree = nullptr;                                                     // tree of tracks
+  std::unique_ptr<NA6PVertexerTracklets> mVTTrackletVertexer;                      // vertexer
+  std::unique_ptr<NA6PTrackerCA> mVTTracker;                                       // tracker
+  NA6PVerTelSegmentation mSegmentation;                                            // segmentation class
+  NA6PVerTelDigitizer mDigitizer;                                                  // digitizer class
 
   ClassDefNV(NA6PVerTelReconstruction, 1);
 };

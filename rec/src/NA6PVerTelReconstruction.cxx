@@ -5,7 +5,6 @@
 #include <TRandom3.h>
 #include <fairlogger/Logger.h>
 #include "NA6PVerTelHit.h"
-#include "NA6PMCComposedLabel.h"
 #include "NA6PVerTelDigit.h"
 #include "NA6PTrackerCA.h"
 #include "NA6PVertexerTracklets.h"
@@ -197,6 +196,7 @@ void NA6PVerTelReconstruction::createTracksOutput()
   mTrackFile = TFile::Open(nm.c_str(), "recreate");
   mTrackTree = new TTree(fmt::format("tracks{}", getName()).c_str(), fmt::format("{} Tracks", getName()).c_str());
   mTrackTree->Branch(getName().c_str(), &hTrackPtr);
+  mTrackTree->Branch(fmt::format("{}MCTruth", getName()).c_str(), &hTrkMCLabelsPtr);
   LOGP(info, "Will store {} tracks in {}", getName(), nm);
 }
 
@@ -224,7 +224,8 @@ void NA6PVerTelReconstruction::closeTracksOutput()
 void NA6PVerTelReconstruction::runTracking()
 {
   clearTracks();
-  mVTTracker->findTracks(*hClusPtr, *hCluMCLabelsPtr, mPrimaryVertex);
-  mTracks = mVTTracker->getTracks();
+  mVTTracker->findTracks(*hClusPtr, mPrimaryVertex);
+  mVTTracker->assignMCLabels(*hCluMCLabelsPtr);
+  mTracks = mVTTracker->getTracks(hTrkMCLabelsPtr);
   writeTracks();
 }

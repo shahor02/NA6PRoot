@@ -126,6 +126,7 @@ void NA6PMuonSpecReconstruction::createTracksOutput()
   mTrackFile = TFile::Open(nm.c_str(), "recreate");
   mTrackTree = new TTree(fmt::format("tracks{}", getName()).c_str(), fmt::format("{} Tracks", getName()).c_str());
   mTrackTree->Branch(getName().c_str(), &hTrackPtr);
+  mTrackTree->Branch(fmt::format("{}MCTruth", getName()).c_str(), &hTrkMCLabelsPtr);
   LOGP(info, "Will store {} tracks in {}", getName(), nm);
 }
 
@@ -153,7 +154,8 @@ void NA6PMuonSpecReconstruction::closeTracksOutput()
 void NA6PMuonSpecReconstruction::runTracking()
 {
   clearTracks();
-  mMSTracker->findTracks(*hClusPtr, *hCluMCLabelsPtr, mPrimaryVertex);
-  mTracks = mMSTracker->getTracks();
+  mMSTracker->findTracks(*hClusPtr, mPrimaryVertex);
+  mMSTracker->assignMCLabels(*hCluMCLabelsPtr);
+  mTracks = mMSTracker->getTracks(hTrkMCLabelsPtr);
   writeTracks();
 }
