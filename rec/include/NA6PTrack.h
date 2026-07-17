@@ -82,12 +82,12 @@ class NA6PTrack : public NA6PTrackParCov
   NA6PTrackParCov mOuter{};                  // parametrization for outward fit
   NA6PTrackParCov mConstrained{};            // parametrization with vertex constrain
   std::array<int, kMaxLr> mClusterIndices{}; // cluster indices
-  float mChi2 = 0.f;        // total chi2
-  float mChi2Outer = 0.f;   // total chi2 outward fit
-  uint32_t mClusterMap = 0; // pattern of clusters per layer
-  int mNClusters = 0;       // total hits
-  int mParticleID = -1;     // particle ID (MC truth)
-  int mCAIteration = -1;    //! CA iteration (for debug)
+  float mChi2 = 0.f;                         // total chi2
+  float mChi2Outer = 0.f;                    // total chi2 outward fit
+  uint32_t mClusterMap = 0;                  // pattern of clusters per layer
+  int mNClusters = 0;                        // total hits
+  int mParticleID = -1;                      // particle ID (MC truth)
+  int mCAIteration = -1;                     //! CA iteration (for debug)
 
  private:
   ClassDefNV(NA6PTrack, 3)
