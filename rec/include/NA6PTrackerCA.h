@@ -72,6 +72,7 @@ struct TrackFitted {
   int nClus;
   std::vector<int> cluIDs;
   NA6PTrack trackFitFast;
+  NA6PMCComposedLabel mcLabel;
   //    genfit::Track trackFit;
   float chi2ndf;
 };
@@ -129,7 +130,7 @@ class NA6PTrackerCA
   bool loadGeometry(const char* filename, const char* geoname = "NA6P");
 
   template <typename ClusterType>
-  void findTracks(std::vector<ClusterType>& cluArr, const NA6PMCTruthContainer& mcCluLabels, const NA6PVertex* primVert);
+  void findTracks(std::vector<ClusterType>& cluArr, const NA6PVertex* primVert);
   void assignMCLabels(const NA6PMCTruthContainer& mcCluLabels);
   const auto& getFinalTracks() const { return mFinalTracks; }
   std::vector<NA6PTrack> getTracks();

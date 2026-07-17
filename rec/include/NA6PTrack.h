@@ -17,7 +17,6 @@
 
 #include <string>
 #include <Rtypes.h>
-#include "NA6PMCComposedLabel.h"
 #include "NA6PTrackParCov.h"
 
 class NA6PBaseCluster;
@@ -72,7 +71,6 @@ class NA6PTrack : public NA6PTrackParCov
   int getClusterIndex(int lr) const { return lr < kMaxLr ? mClusterIndices[lr] : -1; }
   int getParticleLabel(int lr) const { return lr < kMaxLr ? mClusterPartID[lr] : -2; }
   int getParticleID() const { return mParticleID; }
-  NA6PMCComposedLabel getMCLabel() const { return mMCCompLab; }
   int getCAIteration() const { return mCAIteration; }
 
   void setParticleLabel(int idx, int lr)
@@ -86,7 +84,6 @@ class NA6PTrack : public NA6PTrackParCov
       mClusterIndices[lr] = idx;
   }
   void setParticleID(int idx) { mParticleID = idx; }
-  void setMCLabel(NA6PMCComposedLabel& lab) { mMCCompLab = lab; }
   void setCAIteration(int iter) { mCAIteration = iter; }
 
   void setStatusMS(int val) { mStatusMS = val; }
@@ -113,7 +110,7 @@ class NA6PTrack : public NA6PTrackParCov
   short mStatusMS = kNotMS;                  // status of MS track
 
  private:
-  ClassDefNV(NA6PTrack, 3)
+  ClassDefNV(NA6PTrack, 2)
 };
 
 #endif
