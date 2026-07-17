@@ -276,6 +276,28 @@ void NA6PMuonSpecReconstruction::runMSTrackMIDTrackletMatching()
     NA6PMuonSpecCluster clu1 = tracklet.first;
     NA6PMuonSpecCluster clu2 = tracklet.second;
     fitter->cleanupAndStartFit();
+    NA6PTrack outTr = tr;
+    static_cast<NA6PTrackParCov&>(outTr) = tr.getOuterParam();
+    outTr.setChi2(tr.getChi2Outer());
+    float zToProp = param.msZForMSMIDmatch;
+    if (!Propagator::Instance()->propagateToZ(outTr, zToProp, fitter->getPropOpt())) {
+      // track not refitted: save with specific status flag
+      tr.setStatusMS(NA6PTrack::kMSMatchedToMIDnotRefitted);
+      mTracks.push_back(tr);
+      continue;
+    }
+    fitter->addCluster(clu1);
+    fitter->addCluster(clu2);
+    outTr.resetClusters();
+    if (!fitter->fitSeedOutward(outTr, false)) {
+      // track not refitted: save with specific status flag
+      tr.setStatusMS(NA6PTrack::kMSMatchedToMIDnotRefitted);
+      mTracks.push_back(tr);
+      continue;
+    }
+
+    NA6PTrack refitInw = outTr;
+    // add MS clusters for refit inward
     for (int jl = 0; jl < 4; ++jl) {
       int originalID = tr.getClusterIndex(jl + param.vtNLayers);
       if (originalID >= 0 && (size_t)originalID < clusterLookup.size()) {
@@ -288,54 +310,6 @@ void NA6PMuonSpecReconstruction::runMSTrackMIDTrackletMatching()
         fitter->addCluster(cl);
       }
     }
-    NA6PTrack outTr = tr;
-    static_cast<NA6PTrackParCov&>(outTr) = tr.getOuterParam();
-    outTr.setChi2(tr.getChi2Outer());
-    float zToProp = param.msZForMSMIDmatch;
-    if (!Propagator::Instance()->propagateToZ(outTr, zToProp, fitter->getPropOpt())) {
-      // track not refitted: save with specific status flag
-      tr.setStatusMS(NA6PTrack::kMSMatchedToMIDnotRefitted);
-      mTracks.push_back(tr);
-      continue;
-    }
-    float zFirst = -999.;
-    float zSecond = -999.;
-    if (clu1.getZ() < clu2.getZ()) {
-      fitter->addCluster(clu1);
-      fitter->addCluster(clu2);
-      zFirst = clu1.getZ();
-      zSecond = clu2.getZ();
-    } else {
-      fitter->addCluster(clu2);
-      fitter->addCluster(clu1);
-      zFirst = clu2.getZ();
-      zSecond = clu1.getZ();
-    }
-    if (!Propagator::Instance()->propagateToZ(outTr, zFirst, fitter->getPropOpt())) {
-      // track not refitted: save with specific status flag
-      tr.setStatusMS(NA6PTrack::kMSMatchedToMIDnotRefitted);
-      mTracks.push_back(tr);
-      continue;
-    }
-    bool success = false;
-    if (outTr.update(clu1)) {
-      if (!Propagator::Instance()->propagateToZ(outTr, zSecond, fitter->getPropOpt())) {
-        // track not refitted: save with specific status flag
-        tr.setStatusMS(NA6PTrack::kMSMatchedToMIDnotRefitted);
-        mTracks.push_back(tr);
-        continue;
-      }
-      if (outTr.update(clu2)) {
-        success = true;
-      }
-    }
-    if (!success) {
-      // track not refitted: save with specific status flag
-      tr.setStatusMS(NA6PTrack::kMSMatchedToMIDnotRefitted);
-      mTracks.push_back(tr);
-      continue;
-    }
-    NA6PTrack refitInw = outTr;
     float chi2Refit = fitter->fitSeedInward(refitInw, true);
     if (chi2Refit < 0.f) {
       // track not refitted: save with specific status flag
