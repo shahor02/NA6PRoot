@@ -69,15 +69,9 @@ class NA6PTrack : public NA6PTrackParCov
 
   uint32_t getClusterMap() const { return mClusterMap; }
   int getClusterIndex(int lr) const { return lr < kMaxLr ? mClusterIndices[lr] : -1; }
-  int getParticleLabel(int lr) const { return lr < kMaxLr ? mClusterPartID[lr] : -2; }
   int getParticleID() const { return mParticleID; }
   int getCAIteration() const { return mCAIteration; }
 
-  void setParticleLabel(int idx, int lr)
-  {
-    if (lr < kMaxLr)
-      mClusterPartID[lr] = idx;
-  }
   void setClusterIndex(int idx, int lr)
   {
     if (lr < kMaxLr)
@@ -99,18 +93,16 @@ class NA6PTrack : public NA6PTrackParCov
   NA6PTrackParCov mOuter{};                  // parametrization for outward fit
   NA6PTrackParCov mConstrained{};            // parametrization with vertex constrain
   std::array<int, kMaxLr> mClusterIndices{}; // cluster indices
-  std::array<int, kMaxLr> mClusterPartID{};  // particle ID (per cluster) // RSTOD why this is needed? This info must be available from the cluster indices
   float mChi2 = 0.f;                         // total chi2
   float mChi2Outer = 0.f;                    // total chi2 outward fit
   uint32_t mClusterMap = 0;                  // pattern of clusters per layer
   int mNClusters = 0;                        // total hits
   int mParticleID = -1;                      // particle ID (MC truth)
-  NA6PMCComposedLabel mMCCompLab;            // MC composed label (will replace particle ID)
   int mCAIteration = -1;                     //! CA iteration (for debug)
   short mStatusMS = kNotMS;                  // status of MS track
 
  private:
-  ClassDefNV(NA6PTrack, 2)
+  ClassDefNV(NA6PTrack, 3)
 };
 
 #endif
