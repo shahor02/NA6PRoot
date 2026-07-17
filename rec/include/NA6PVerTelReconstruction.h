@@ -93,7 +93,6 @@ class NA6PVerTelReconstruction : public NA6PReconstruction
   TFile* mClusFile = nullptr;                                                      // file with clusters
   TTree* mClusTree = nullptr;                                                      // tree of clusters
   double mCluRes = 5.e-4;                                                          // cluster resolution, cm (for fast simu)
-  bool mEmulateNoGaps = false;                                                     // enable sensor acceptance overlaps in hitsToRecPoints
   std::vector<NA6PVertex> mVertices, *hVerticesPtr = &mVertices;                   // vector of vertices
   TFile* mVertexFile = nullptr;                                                    // file with vertices
   TTree* mVertexTree = nullptr;                                                    // tree of vertices
