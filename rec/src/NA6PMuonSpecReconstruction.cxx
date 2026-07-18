@@ -181,10 +181,10 @@ void NA6PMuonSpecReconstruction::runMSTrackMIDTrackletMatching()
   const auto& param = NA6PRecoParam::Instance();
   const auto& layout = NA6PLayoutParam::Instance();
   auto& clusters = getClusters();
-  const auto& trks = mMSTracker->getTracks();
+  const auto& trks = mMSTracker->getFinalTracks();
 
   auto saveTrack = [&trks, this](int j, int flag) {
-    this->mTracks.push_back(trks[j]);
+    this->mTracks.push_back(trks[j].trackFitFast);
     this->mTracks.back().setStatusMS(flag);
   };
 
@@ -207,7 +207,7 @@ void NA6PMuonSpecReconstruction::runMSTrackMIDTrackletMatching()
   std::vector<NA6PTrackParCov> outTrProp; // to reuse propagated outer tracks
   if (nTrklets) {
     for (int jT = 0; jT < nTrks; jT++) {
-      const auto& tr = trks[jT];
+      const auto& tr = trks[jT].trackFitFast;
       auto& trOutCopy = outTrProp.emplace_back(tr.getOuterParam());
       if (!Propagator::Instance()->propagateToZ(trOutCopy, param.msZForMSMIDmatch, fitter->getPropOpt())) {
         continue;
@@ -266,7 +266,7 @@ void NA6PMuonSpecReconstruction::runMSTrackMIDTrackletMatching()
     }
 
     // add MS clusters for refit inward
-    const auto& trMS = trks[jT];
+    const auto& trMS = trks[jT].trackFitFast;
     for (int jl = 0; jl < 4; ++jl) {
       int originalID = trMS.getClusterIndex(jl + param.vtNLayers);
       if (originalID >= 0 && (size_t)originalID < clusterLookup.size()) {

@@ -129,7 +129,9 @@ class NA6PTrackerCA
 
   template <typename ClusterType>
   void findTracks(std::vector<ClusterType>& cluArr, const NA6PVertex* primVert);
+  const auto& getFinalTracks() const { return mFinalTracks; }
   std::vector<NA6PTrack> getTracks();
+
   template <typename ClusterType>
   std::vector<std::pair<ClusterType, ClusterType>> findTracklets(int jFirstLay, int jLastLay, std::vector<ClusterType>& cluArr, const NA6PVertex* primVert);
   NA6PFastTrackFitter* getTrackFitter() { return mTrackFitter.get(); }
