@@ -70,7 +70,7 @@ class NA6PBaseCluster
   int mHitID = -1;       // hit ID (for test of hitsToRecPoints)
   short mDetectorID = 0; // the detector/sensor id
   int8_t mLayer = -1;
-  int mClusterIndex; //! Transient index for track-cluster association
+  int mClusterIndex = -1; //! Transient index for track-cluster association
 
   ClassDefNV(NA6PBaseCluster, 2);
 };

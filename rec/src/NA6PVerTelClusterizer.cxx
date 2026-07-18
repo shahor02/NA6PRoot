@@ -276,6 +276,7 @@ bool NA6PVerTelClusterizer::pixelsToRecPoint()
   float sigX = pitchX / std::sqrt(12);
   float sigY = pitchY / std::sqrt(12);
   clu.setErr(sigX * sigX, 0., sigY * sigY);
+  clu.setClusterIndex(cluID);
   // add MC labels
   int nCluLabels = 0;
   for (const auto& pix : mPixArrBuff) {

@@ -105,12 +105,14 @@ void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecM
         layer = i + layout.nVerTelPlanes;
       }
     }
+    int cluID = mClusters.size();
     mClusters.emplace_back(x, y, z, clusiz, layer);
     auto& clu = mClusters.back();
     clu.setErr(ex2clu, 0., ey2clu);
     clu.setDetectorID(nDet);
     clu.setParticleID(idPart);
     clu.setHitID(jHit);
+    clu.setClusterIndex(cluID);
   }
 }
 
