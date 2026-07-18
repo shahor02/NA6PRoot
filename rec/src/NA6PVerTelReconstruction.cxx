@@ -131,6 +131,7 @@ void NA6PVerTelReconstruction::hitsToRecPoints(const std::vector<NA6PVerTelHit>&
     clu.setDetectorID(nDet);
     clu.setParticleID(idPart);
     clu.setHitID(jHit);
+    clu.setClusterIndex(cluID);
     NA6PMCComposedLabel lbl(hit.getTrackID(), 0, 0);
     mCluMCLabels.addElement(cluID, lbl);
   }
