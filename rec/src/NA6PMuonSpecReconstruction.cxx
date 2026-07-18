@@ -181,8 +181,13 @@ void NA6PMuonSpecReconstruction::runMSTrackMIDTrackletMatching()
   const auto& param = NA6PRecoParam::Instance();
   const auto& layout = NA6PLayoutParam::Instance();
   auto& clusters = getClusters();
+  const auto& trks = mMSTracker->getTracks();
 
-  std::vector<NA6PTrack> trks = mMSTracker->getTracks();
+  auto saveTrack = [&trks, this](int j, int flag) {
+    this->mTracks.push_back(trks[j]);
+    this->mTracks.back().setStatusMS(flag);
+  };
+
   int nTrks = trks.size();
   int firstMID = layout.nVerTelPlanes + layout.nMSPlanes - 2;
   std::vector<std::pair<NA6PMuonSpecCluster, NA6PMuonSpecCluster>> trkltsMID = mMSTracker->findTracklets(firstMID, firstMID + 1, clusters, mPrimaryVertex);
@@ -199,50 +204,29 @@ void NA6PMuonSpecReconstruction::runMSTrackMIDTrackletMatching()
 
   // matching loop
   std::vector<MatchCandidate> candidates;
-  for (int jT = 0; jT < nTrks; jT++) {
-    NA6PTrack tr = trks[jT];
-    for (int jS = 0; jS < nTrklets; jS++) {
-      const auto& tracklet = trkltsMID[jS];
-      NA6PMuonSpecCluster clu1 = tracklet.first;
-      NA6PMuonSpecCluster clu2 = tracklet.second;
-      float xyzClu1[3] = {clu1.getX(), clu1.getY(), clu1.getZ()};
-      float xyzClu2[3] = {clu2.getX(), clu2.getY(), clu2.getZ()};
-
-      if (xyzClu1[2] > xyzClu2[2]) {
-        float tmp[3] = {xyzClu1[0], xyzClu1[1], xyzClu1[2]};
-        for (int j = 0; j < 3; ++j) {
-          xyzClu1[j] = xyzClu2[j];
-          xyzClu2[j] = tmp[j];
-        }
-      }
-      float zToProp = xyzClu1[2];
-      float dirSegm[3];
-      float norm = 0.f;
-      for (int j = 0; j < 3; ++j) {
-        dirSegm[j] = xyzClu2[j] - xyzClu1[j];
-        norm += dirSegm[j] * dirSegm[j];
-      }
-      norm = std::sqrt(norm);
-      for (int j = 0; j < 3; ++j)
-        dirSegm[j] /= norm;
-      auto trOuter = tr.getOuterParam();
-      if (!Propagator::Instance()->propagateToZ(trOuter, zToProp, fitter->getPropOpt())) {
+  std::vector<NA6PTrackParCov> outTrProp; // to reuse propagated outer tracks
+  if (nTrklets) {
+    for (int jT = 0; jT < nTrks; jT++) {
+      const auto& tr = trks[jT];
+      auto& trOutCopy = outTrProp.emplace_back(tr.getOuterParam());
+      if (!Propagator::Instance()->propagateToZ(trOutCopy, param.msZForMSMIDmatch, fitter->getPropOpt())) {
         continue;
       }
-      auto xyzTr = trOuter.getXYZ<float>();
-      auto pxyzTr = trOuter.getPXYZ<float>();
-      norm = 0.f;
-      for (int j = 0; j < 3; ++j)
-        norm += pxyzTr[j] * pxyzTr[j];
-      norm = std::sqrt(norm);
-      for (int j = 0; j < 3; ++j)
-        pxyzTr[j] /= norm;
-      float distXY = std::sqrt((xyzClu1[0] - xyzTr[0]) * (xyzClu1[0] - xyzTr[0]) + (xyzClu1[1] - xyzTr[1]) * (xyzClu1[1] - xyzTr[1]));
-      float costh = dirSegm[0] * pxyzTr[0] + dirSegm[1] * pxyzTr[1] + dirSegm[2] * pxyzTr[2];
-      if (distXY < param.msMaxDistTrackMSTrackletMID && costh > param.msMinCosThetaTrackMSTrackletMID) {
-        costh = std::clamp(costh, -1.f, 1.f);
-        float score = distXY / 2. + (1 - costh) / 1.e-4;
-        candidates.push_back({jT, jS, score});
+      for (int jS = 0; jS < nTrklets; jS++) {
+        const auto& tracklet = trkltsMID[jS];
+        NA6PLine trkLine(tracklet.first.getXYZ(), tracklet.second.getXYZ());
+        NA6PTrackPar trOutCopyT{trOutCopy};
+        if (!Propagator::Instance()->propagateToZ(trOutCopyT, trkLine.mOriginPoint[2], fitter->getPropOpt())) {
+          continue;
+        }
+        auto trackDirCos = trOutCopyT.getDirCos();
+        float distXY = std::hypot(trkLine.mOriginPoint[0] - trOutCopyT.getX(), trkLine.mOriginPoint[1] - trOutCopyT.getY());
+        float costh = NA6PLine::getScalar(trkLine.mCosinesDirector, trackDirCos);
+        if (distXY < param.msMaxDistTrackMSTrackletMID && costh > param.msMinCosThetaTrackMSTrackletMID) {
+          costh = std::clamp(costh, -1.f, 1.f);
+          float score = distXY / 2. + (1 - costh) / 1.e-4;
+          candidates.push_back({jT, jS, score});
+        }
       }
     }
   }
@@ -264,42 +248,27 @@ void NA6PMuonSpecReconstruction::runMSTrackMIDTrackletMatching()
   }
 
   for (int jT = 0; jT < nTrks; jT++) {
-    NA6PTrack tr = trks[jT];
     int jS = trackMatch[jT];
     if (jS < 0) {
       // track not matched to MID: save with specific status flag
-      tr.setStatusMS(NA6PTrack::kMSNotMatchedToMID);
-      mTracks.push_back(tr);
+      saveTrack(jT, NA6PTrack::kMSNotMatchedToMID);
       continue;
     }
+    auto& trOut = outTrProp[jT]; // propagated tracks are guaranteed to exist if there was at least 1 match (or even tracklet)
     const auto& tracklet = trkltsMID[jS];
-    NA6PMuonSpecCluster clu1 = tracklet.first;
-    NA6PMuonSpecCluster clu2 = tracklet.second;
     fitter->cleanupAndStartFit();
-    NA6PTrack outTr = tr;
-    static_cast<NA6PTrackParCov&>(outTr) = tr.getOuterParam();
-    outTr.setChi2(tr.getChi2Outer());
-    float zToProp = param.msZForMSMIDmatch;
-    if (!Propagator::Instance()->propagateToZ(outTr, zToProp, fitter->getPropOpt())) {
+    fitter->addCluster(tracklet.first);
+    fitter->addCluster(tracklet.second);
+    if (fitter->fitSeedOutward(trOut, false) < 0.) {
       // track not refitted: save with specific status flag
-      tr.setStatusMS(NA6PTrack::kMSMatchedToMIDnotRefitted);
-      mTracks.push_back(tr);
-      continue;
-    }
-    fitter->addCluster(clu1);
-    fitter->addCluster(clu2);
-    outTr.resetClusters();
-    if (!fitter->fitSeedOutward(outTr, false)) {
-      // track not refitted: save with specific status flag
-      tr.setStatusMS(NA6PTrack::kMSMatchedToMIDnotRefitted);
-      mTracks.push_back(tr);
+      saveTrack(jT, NA6PTrack::kMSMatchedToMIDnotRefitted);
       continue;
     }
 
-    NA6PTrack refitInw = outTr;
     // add MS clusters for refit inward
+    const auto& trMS = trks[jT];
     for (int jl = 0; jl < 4; ++jl) {
-      int originalID = tr.getClusterIndex(jl + param.vtNLayers);
+      int originalID = trMS.getClusterIndex(jl + param.vtNLayers);
       if (originalID >= 0 && (size_t)originalID < clusterLookup.size()) {
         int jNewPos = clusterLookup[originalID];
         if (jNewPos < 0) {
@@ -310,23 +279,24 @@ void NA6PMuonSpecReconstruction::runMSTrackMIDTrackletMatching()
         fitter->addCluster(cl);
       }
     }
+    auto refitInw = trOut;
     float chi2Refit = fitter->fitSeedInward(refitInw, true);
     if (chi2Refit < 0.f) {
       // track not refitted: save with specific status flag
-      tr.setStatusMS(NA6PTrack::kMSMatchedToMIDnotRefitted);
-      mTracks.push_back(tr);
+      saveTrack(jT, NA6PTrack::kMSMatchedToMIDnotRefitted);
       continue;
     }
-    refitInw.setChi2(chi2Refit);
-    refitInw.setOuterParam(outTr);
-    refitInw.resetClusters();
-    fitter->addClustersToTrack(refitInw);
+    saveTrack(jT, NA6PTrack::kMSMatchedToMIDRefitted);
+    auto& trMSMID = mTracks.back();
+    trMSMID.setInwardParam(refitInw);
+    trMSMID.setChi2(chi2Refit);
+    trMSMID.setOuterParam(trOut);
+    trMSMID.resetClusters();
+    fitter->addClustersToTrack(trMSMID);
     if (param.vtDoConstrainedTrack) {
-      fitter->constrainTrackToVertex(refitInw, *mPrimaryVertex);
+      fitter->constrainTrackToVertex(trMSMID, *mPrimaryVertex);
     } else {
-      refitInw.getVertexConstrainedParam().invalidate();
+      trMSMID.getVertexConstrainedParam().invalidate();
     }
-    refitInw.setStatusMS(NA6PTrack::kMSMatchedToMIDRefitted);
-    mTracks.push_back(refitInw);
   }
 }
