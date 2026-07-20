@@ -310,11 +310,15 @@ int main(int argc, char** argv)
 
     TreeFromFile tfTVT("TracksVerTel.root", "tracksVerTel");
     std::vector<NA6PTrack> vtTracks, *vtTracksPtr = &vtTracks;
+    std::vector<NA6PMCComposedLabel> vtTrMCLabs, *vtTrMCLabsPtr = &vtTrMCLabs;
     tfTVT.getTree()->SetBranchAddress("VerTel", &vtTracksPtr);
+    tfTVT.getTree()->SetBranchAddress("VerTelMCTruth", &vtTrMCLabsPtr);
 
     TreeFromFile tfTMS("TracksMuonSpec.root", "tracksMuonSpec");
     std::vector<NA6PTrack> msTracks, *msTracksPtr = &msTracks;
+    std::vector<NA6PMCComposedLabel> msTrMCLabs, *msTrMCLabsPtr = &msTrMCLabs;
     tfTMS.getTree()->SetBranchAddress("MuonSpec", &msTracksPtr);
+    tfTMS.getTree()->SetBranchAddress("MuonSpecMCTruth", &msTrMCLabsPtr);
 
     TreeFromFile tfCVT("ClustersVerTel.root", "clustersVerTel");
     std::vector<NA6PVerTelCluster> vtClusMatch, *vtClusMatchPtr = &vtClusMatch;
@@ -350,7 +354,9 @@ int main(int argc, char** argv)
       matching->setVerTelClusters(vtClusMatch);
       matching->setMuonSpecClusters(msClusMatch);
       matching->setVerTelTracks(vtTracks);
+      matching->setVerTelTrackMCLabels(vtTrMCLabs);
       matching->setMuonSpecTracks(msTracks);
+      matching->setMuonSpecTrackMCLabels(msTrMCLabs);
 
       matching->runMatching();
     }

@@ -49,6 +49,8 @@ void NA6PMatching::createTracksOutput()
   mMatchedTrackFile = TFile::Open(nm.c_str(), "recreate");
   mMatchedTrackTree = new TTree(fmt::format("tracks{}", getName()).c_str(), fmt::format("{} Tracks", getName()).c_str());
   mMatchedTrackTree->Branch(getName().c_str(), &hMatchedTrackPtr);
+  if (mReadMCTruth)
+    mMatchedTrackTree->Branch(fmt::format("{}MCTruth", getName()).c_str(), &hMatchedTrkMCLabelsPtr);
   LOGP(info, "Will store {} tracks in {}", getName(), nm);
 }
 
@@ -81,6 +83,15 @@ void NA6PMatching::setVerTelTracks(std::vector<NA6PTrack>& tracks)
 void NA6PMatching::setMuonSpecTracks(std::vector<NA6PTrack>& tracks)
 {
   hMuonSpecTrackPtr = &tracks;
+}
+void NA6PMatching::setVerTelTrackMCLabels(std::vector<NA6PMCComposedLabel>& trLab)
+{
+  hVerTelTrkMCLabelsPtr = &trLab;
+}
+
+void NA6PMatching::setMuonSpecTrackMCLabels(std::vector<NA6PMCComposedLabel>& trLab)
+{
+  hMuonSpecTrkMCLabelsPtr = &trLab;
 }
 
 void NA6PMatching::setMuonSpecClusters(std::vector<NA6PMuonSpecCluster>& clusters)
@@ -168,7 +179,8 @@ void NA6PMatching::buildMatchingCandidates(int iMS)
     for (int i = 0; i < 5; i++) {
       nsigcrude2[i] = nsig2[i];
     }
-    (*dbgStream) << "match" << "vtTrack=" << vtTrackOut << "msTrack=" << ((NA6PTrackParCov&)msTrack)
+    (*dbgStream) << "match"
+                 << "vtTrack=" << vtTrackOut << "msTrack=" << ((NA6PTrackParCov&)msTrack)
                  << "nsig2crude=" << nsigcrude2 << "chi2Match=" << chi2Match << "chi2Crude=" << chi2Crude
                  << "vtPartID=" << (*hVerTelTrackPtr)[*it].getParticleID() << "msPartID=" << msTrack.getParticleID()
                  << "\n";
@@ -217,8 +229,10 @@ void NA6PMatching::prefilterTracks()
   std::sort(mSelIDMS.begin(), mSelIDMS.end(), [&](const int i, const int j) { return (*hMuonSpecTrackPtr)[i].getQ2Pxz() < (*hMuonSpecTrackPtr)[j].getQ2Pxz(); });
 }
 
-bool NA6PMatching::fitAndStoreMatchedTrack(const NA6PTrack& vtTrk, const NA6PTrack& msTrk, float chi2Match)
+bool NA6PMatching::fitAndStoreMatchedTrack(int vtIdx, int msIdx, float chi2Match)
 {
+  const NA6PTrack& vtTrk = (*hVerTelTrackPtr)[vtIdx];
+  const NA6PTrack& msTrk = (*hMuonSpecTrackPtr)[msIdx];
   mTrackFitter->cleanupAndStartFit();
   addClustersToFitter(vtTrk, hVerTelClusPtr);
   addClustersToFitter(msTrk, hMuonSpecClusPtr);
@@ -256,8 +270,20 @@ bool NA6PMatching::fitAndStoreMatchedTrack(const NA6PTrack& vtTrk, const NA6PTra
   matchedTrack.setChi2Match(chi2Match);
   matchedTrack.setChi2Refit(chi2Inw);
   matchedTrack.setNClusters(mTrackFitter->getNumberOfClusters());
+  matchedTrack.setIndexVT(vtIdx);
+  matchedTrack.setIndexMS(msIdx);
+  if (mReadMCTruth) {
+    NA6PMCComposedLabel lblVT = (*hVerTelTrkMCLabelsPtr)[vtIdx];
+    NA6PMCComposedLabel lblMS = (*hMuonSpecTrkMCLabelsPtr)[msIdx];
+    NA6PMCComposedLabel lblGlo = lblMS;
+    if (lblVT != lblMS)
+      lblGlo.setFakeFlag();
+    mMatchedTrkMCLabels.push_back(lblGlo);
+  }
+
 #ifdef _CHI2_TUNING_MODE_
-  (*dbgStream) << "refit" << "vtTrack=" << ((NA6PTrackParCov&)vtTrk) << "msTrack=" << ((NA6PTrackParCov&)msTrk)
+  (*dbgStream) << "refit"
+               << "vtTrack=" << ((NA6PTrackParCov&)vtTrk) << "msTrack=" << ((NA6PTrackParCov&)msTrk)
                << "chi2vec=" << mTrackFitter->getChi2Buffer() << "chi2Match=" << chi2Match
                << "chi2Out=" << chi2Out << "chi2Inw=" << chi2Inw
                << "vtPartID=" << vtTrk.getParticleID() << "msPartID=" << msTrk.getParticleID()
@@ -269,10 +295,10 @@ bool NA6PMatching::fitAndStoreMatchedTrack(const NA6PTrack& vtTrk, const NA6PTra
 void NA6PMatching::runMCMatching()
 {
   auto vtByPid = buildMCMatchingIndex();
-  for (const auto& msTrack : *hMuonSpecTrackPtr) {
+  for (size_t msIdx = 0; msIdx < hMuonSpecTrackPtr->size(); ++msIdx) {
+    const auto& msTrack = (*hMuonSpecTrackPtr)[msIdx];
     if (msTrack.getNHits() < mRecoParam->mtMinMSHits)
       continue;
-
     int msPartId = msTrack.getParticleID();
     if (msPartId <= 0)
       continue;
@@ -282,8 +308,7 @@ void NA6PMatching::runMCMatching()
       continue;
 
     int vtIdx = it->second;
-    const auto& vtTrack = (*hVerTelTrackPtr)[vtIdx];
-    fitAndStoreMatchedTrack(vtTrack, msTrack, 0.0);
+    fitAndStoreMatchedTrack(vtIdx, msIdx, 0.0);
   }
 }
 
@@ -306,7 +331,7 @@ void NA6PMatching::runDataMatching()
     if (mSelIDVT[mtc.vtID] < 0 || mSelIDMS[mtc.msID] < 0) { // one of these tracke was already used for a match
       continue;
     }
-    if (fitAndStoreMatchedTrack((*hVerTelTrackPtr)[mSelIDVT[mtc.vtID]], (*hMuonSpecTrackPtr)[mSelIDMS[mtc.msID]], mtc.chi2Match)) { // register if good fit and flag tracks as used
+    if (fitAndStoreMatchedTrack(mSelIDVT[mtc.vtID], mSelIDMS[mtc.msID], mtc.chi2Match)) { // register if good fit and flag tracks as used
       mSelIDVT[mtc.vtID] = -1;
       mSelIDMS[mtc.msID] = -1;
     }
