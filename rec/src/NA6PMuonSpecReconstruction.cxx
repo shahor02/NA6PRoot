@@ -171,7 +171,7 @@ void NA6PMuonSpecReconstruction::runTracking()
   mMSTracker->findTracks(getClusters(), mPrimaryVertex);
   mMSTracker->assignMCLabels(*hCluMCLabelsPtr);
   if (param.msDoTrackMSTrackletMID == false) {
-    mTracks = mMSTracker->getTracks();
+    mTracks = mMSTracker->getTracks(hTrkMCLabelsPtr);
     for (auto& t : mTracks) {
       t.setStatusMS(NA6PTrack::kFullMSMID);
     }
