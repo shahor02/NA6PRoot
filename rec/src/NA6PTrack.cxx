@@ -44,7 +44,6 @@ void NA6PTrack::resetClusters()
   mNClusters = 0;
   mClusterMap = 0;
   mClusterIndices.fill(-1);
-  mClusterPartID.fill(-2);
 }
 
 //_______________________________________________________________________
