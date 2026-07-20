@@ -133,7 +133,7 @@ class NA6PTrackerCA
   void findTracks(std::vector<ClusterType>& cluArr, const NA6PVertex* primVert);
   void assignMCLabels(const NA6PMCTruthContainer& mcCluLabels);
   const auto& getFinalTracks() const { return mFinalTracks; }
-  std::vector<NA6PTrack> getTracks();
+  std::vector<NA6PTrack> getTracks(std::vector<NA6PMCComposedLabel>* mcLabels = nullptr);
 
   template <typename ClusterType>
   std::vector<std::pair<ClusterType, ClusterType>> findTracklets(int jFirstLay, int jLastLay, std::vector<ClusterType>& cluArr, const NA6PVertex* primVert);
