@@ -22,7 +22,6 @@
 #include "NA6PFastTrackFitter.h"
 #include "NA6PTrack.h"
 #include "NA6PTreeStreamRedirector.h"
-#include "NA6PMCTruthContainer.h"
 
 // Cellular Automaton track finder
 
@@ -72,7 +71,6 @@ struct TrackFitted {
   int nClus;
   std::vector<int> cluIDs;
   NA6PTrack trackFitFast;
-  NA6PMCComposedLabel mcLabel;
   //    genfit::Track trackFit;
   float chi2ndf;
 };
@@ -131,9 +129,8 @@ class NA6PTrackerCA
 
   template <typename ClusterType>
   void findTracks(std::vector<ClusterType>& cluArr, const NA6PVertex* primVert);
-  void assignMCLabels(const NA6PMCTruthContainer& mcCluLabels);
   const auto& getFinalTracks() const { return mFinalTracks; }
-  std::vector<NA6PTrack> getTracks(std::vector<NA6PMCComposedLabel>* mcLabels = nullptr);
+  std::vector<NA6PTrack> getTracks();
 
   template <typename ClusterType>
   std::vector<std::pair<ClusterType, ClusterType>> findTracklets(int jFirstLay, int jLastLay, std::vector<ClusterType>& cluArr, const NA6PVertex* primVert);

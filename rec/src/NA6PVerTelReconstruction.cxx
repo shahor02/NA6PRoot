@@ -196,7 +196,8 @@ void NA6PVerTelReconstruction::createTracksOutput()
   mTrackFile = TFile::Open(nm.c_str(), "recreate");
   mTrackTree = new TTree(fmt::format("tracks{}", getName()).c_str(), fmt::format("{} Tracks", getName()).c_str());
   mTrackTree->Branch(getName().c_str(), &hTrackPtr);
-  mTrackTree->Branch(fmt::format("{}MCTruth", getName()).c_str(), &hTrkMCLabelsPtr);
+  if (mReadMCTruth)
+    mTrackTree->Branch(fmt::format("{}MCTruth", getName()).c_str(), &hTrkMCLabelsPtr);
   LOGP(info, "Will store {} tracks in {}", getName(), nm);
 }
 
@@ -225,7 +226,8 @@ void NA6PVerTelReconstruction::runTracking()
 {
   clearTracks();
   mVTTracker->findTracks(*hClusPtr, mPrimaryVertex);
-  mVTTracker->assignMCLabels(*hCluMCLabelsPtr);
-  mTracks = mVTTracker->getTracks(hTrkMCLabelsPtr);
+  mTracks = mVTTracker->getTracks();
+  if (mReadMCTruth)
+    assignMCLabels(mTracks, *hTrkMCLabelsPtr, *hCluMCLabelsPtr);
   writeTracks();
 }

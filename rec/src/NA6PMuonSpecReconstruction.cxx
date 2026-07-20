@@ -139,7 +139,8 @@ void NA6PMuonSpecReconstruction::createTracksOutput()
   mTrackFile = TFile::Open(nm.c_str(), "recreate");
   mTrackTree = new TTree(fmt::format("tracks{}", getName()).c_str(), fmt::format("{} Tracks", getName()).c_str());
   mTrackTree->Branch(getName().c_str(), &hTrackPtr);
-  mTrackTree->Branch(fmt::format("{}MCTruth", getName()).c_str(), &hTrkMCLabelsPtr);
+  if (mReadMCTruth)
+    mTrackTree->Branch(fmt::format("{}MCTruth", getName()).c_str(), &hTrkMCLabelsPtr);
   LOGP(info, "Will store {} tracks in {}", getName(), nm);
 }
 
@@ -169,15 +170,16 @@ void NA6PMuonSpecReconstruction::runTracking()
   clearTracks();
   const auto& param = NA6PRecoParam::Instance();
   mMSTracker->findTracks(getClusters(), mPrimaryVertex);
-  mMSTracker->assignMCLabels(*hCluMCLabelsPtr);
   if (param.msDoTrackMSTrackletMID == false) {
-    mTracks = mMSTracker->getTracks(hTrkMCLabelsPtr);
+    mTracks = mMSTracker->getTracks();
     for (auto& t : mTracks) {
       t.setStatusMS(NA6PTrack::kFullMSMID);
     }
   } else {
     runMSTrackMIDTrackletMatching();
   }
+  if (mReadMCTruth)
+    assignMCLabels(mTracks, *hTrkMCLabelsPtr, *hCluMCLabelsPtr);
   writeTracks();
 }
 

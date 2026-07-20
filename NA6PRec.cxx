@@ -86,6 +86,7 @@ int main(int argc, char** argv)
     add_option("geometry,g", bpo::value<std::string>()->default_value("geometry.root"), "geometry file name");
     add_option("firstevent,f", bpo::value<int32_t>()->default_value(0), "first event");
     add_option("lastevent,l", bpo::value<int32_t>()->default_value(-1), "last event");
+    add_option("readMC", bpo::value<bool>()->default_value(true)->implicit_value(true), "read MC truth info");
     add_option("doHitsToRecPoints,hitcl", bpo::value<bool>()->default_value(true), "run hits->clusters");
     add_option("doDigitsToRecPoints,cl", bpo::value<bool>()->default_value(false), "run digits->clusters");
     add_option("doTrackletVertex,vert", bpo::value<bool>()->default_value(true), "run tracklet vertexer");
@@ -129,6 +130,7 @@ int main(int argc, char** argv)
   const bool doVTTracking = vm["doVTTracking"].as<bool>();
   const bool doMSTracking = vm["doMSTracking"].as<bool>();
   const bool doMatching = vm["doMatching"].as<bool>();
+  const bool readMC = vm["readMC"].as<bool>();
 
   int firstEv = vm["firstevent"].as<int32_t>();
   int lastEv = vm["lastevent"].as<int32_t>();
@@ -142,7 +144,9 @@ int main(int argc, char** argv)
   }
 
   std::unique_ptr<NA6PVerTelReconstruction> vtrec = std::make_unique<NA6PVerTelReconstruction>();
+  vtrec->setReadMCTruth(readMC);
   std::unique_ptr<NA6PMuonSpecReconstruction> msrec = std::make_unique<NA6PMuonSpecReconstruction>();
+  msrec->setReadMCTruth(readMC);
   std::unique_ptr<NA6PMatching> matching = std::make_unique<NA6PMatching>();
 
   if (doHitsToRecPoints) {

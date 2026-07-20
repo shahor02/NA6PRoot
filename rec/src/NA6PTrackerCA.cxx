@@ -944,68 +944,6 @@ void NA6PTrackerCA::fitAndSelectTracks(const std::vector<TrackCandidate>& trackC
   }
 }
 
-void NA6PTrackerCA::assignMCLabels(const NA6PMCTruthContainer& mcCluLabels)
-{
-  for (auto& fittr : mFinalTracks) {
-    NA6PTrack& tr = fittr.trackFitFast;
-    // assign label using MCTruthContainer
-    std::vector<std::pair<NA6PMCComposedLabel, int>> countLabs;
-    for (int jLay = 0; jLay < NA6PTrack::kMaxLr; ++jLay) {
-      int cluID = tr.getClusterIndex(jLay);
-      if (cluID >= 0) {
-        std::span labels = mcCluLabels.getLabels(cluID);
-        int nLabels = labels.size();
-        for (int jLab = 0; jLab < nLabels; jLab++) {
-          NA6PMCComposedLabel lbl = labels[jLab];
-          bool found = false;
-          for (auto& p : countLabs) {
-            if (p.first == lbl) {
-              ++p.second;
-              found = true;
-              break;
-            }
-          }
-          if (!found) {
-            countLabs.push_back({lbl, 1});
-          }
-        }
-      }
-    }
-    NA6PMCComposedLabel lblTrack;
-    lblTrack.unset();
-    int maxCountLabs = 0;
-    for (const auto& p : countLabs) {
-      if (p.second > maxCountLabs) {
-        maxCountLabs = p.second;
-        lblTrack = p.first;
-      }
-    }
-    // assign fake label to tracks with misassociations
-    if (lblTrack.isSet()) {
-      for (int jLay = 0; jLay < NA6PTrack::kMaxLr; ++jLay) {
-        int cluID = tr.getClusterIndex(jLay);
-        if (cluID >= 0) {
-          std::span labels = mcCluLabels.getLabels(cluID);
-          int nLabels = labels.size();
-          bool found = false;
-          for (int jLab = 0; jLab < nLabels; jLab++) {
-            NA6PMCComposedLabel lbl = labels[jLab];
-            if (lbl == lblTrack) {
-              found = true;
-              break;
-            }
-          }
-          if (!found) {
-            lblTrack.setFakeFlag();
-            break;
-          }
-        }
-      }
-    }
-    fittr.mcLabel = lblTrack;
-  }
-}
-
 //______________________________________________________________________
 
 template <typename ClusterType>
@@ -1099,16 +1037,12 @@ void NA6PTrackerCA::findTracks(std::vector<ClusterType>& cluArr,
 }
 
 //______________________________________________________________________
-std::vector<NA6PTrack> NA6PTrackerCA::getTracks(std::vector<NA6PMCComposedLabel>* mcLabels)
+std::vector<NA6PTrack> NA6PTrackerCA::getTracks()
 {
   std::vector<NA6PTrack> trackArr;
   trackArr.reserve(mFinalTracks.size());
-  if (mcLabels)
-    mcLabels->reserve(mFinalTracks.size());
   for (auto& track : mFinalTracks) {
     trackArr.push_back(std::move(track.trackFitFast));
-    if (mcLabels)
-      mcLabels->push_back(track.mcLabel);
   }
   return trackArr;
 }

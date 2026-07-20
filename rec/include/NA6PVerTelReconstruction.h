@@ -104,6 +104,7 @@ class NA6PVerTelReconstruction : public NA6PReconstruction
   std::unique_ptr<NA6PTrackerCA> mVTTracker;                                       // tracker
   NA6PVerTelSegmentation mSegmentation;                                            // segmentation class
   NA6PVerTelDigitizer mDigitizer;                                                  // digitizer class
+
   ClassDefNV(NA6PVerTelReconstruction, 1);
 };
 
