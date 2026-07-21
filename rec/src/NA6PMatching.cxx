@@ -183,7 +183,7 @@ void NA6PMatching::buildMatchingCandidates(int iMS)
     (*dbgStream) << "match"
                  << "vtTrack=" << vtTrackOut << "msTrack=" << ((NA6PTrackParCov&)msTrack)
                  << "nsig2crude=" << nsigcrude2 << "chi2Match=" << chi2Match << "chi2Crude=" << chi2Crude
-                 << "vtPartID=" << (*hVerTelTrkMCLabelsPtr)[*it].getTrackID() << "msPartID=" << lblMS.getTrackID()
+                 << "vtPartID=" << (*hVerTelTrkMCLabelsPtr)[*it] << "msPartID=" << lblMS
                  << "\n";
 #endif
   }
@@ -247,7 +247,7 @@ bool NA6PMatching::fitAndStoreMatchedTrack(int vtIdx, int msIdx, float chi2Match
     matchedTrack.setPID(PID::Muon);
     chi2Out = mTrackFitter->fitSeedOutward(matchedTrack, true, mRecoParam->mtUseLinRefOut);
     if (chi2Out < 0 || chi2Out >= mRecoParam->mtMaxChi2NormRefit * ndf) {
-      LOGP(warn, "Forward fit of matched track failed, skipping (MCTruth: VTID:{} MSID:{})", (*hVerTelTrkMCLabelsPtr)[vtIdx].getTrackID(), (*hMuonSpecTrkMCLabelsPtr)[msIdx].getTrackID());
+      LOGP(warn, "Forward fit of matched track failed, skipping (MCTruth: VTID:{} MSID:{})", (*hVerTelTrkMCLabelsPtr)[vtIdx].asString(), (*hMuonSpecTrkMCLabelsPtr)[msIdx].asString());
       mMatchedTracks.pop_back();
       return false;
     }
@@ -257,7 +257,7 @@ bool NA6PMatching::fitAndStoreMatchedTrack(int vtIdx, int msIdx, float chi2Match
   }
   chi2Inw = mTrackFitter->fitSeedInward(matchedTrack, true, mRecoParam->mtUseLinRefInw);
   if (chi2Inw < 0 || chi2Inw >= mRecoParam->mtMaxChi2NormRefit * ndf) {
-    LOGP(warn, "Inward fit of matched track failed, skipping (MCTruth: VTID:{} MSID:{})", (*hVerTelTrkMCLabelsPtr)[vtIdx].getTrackID(), (*hMuonSpecTrkMCLabelsPtr)[msIdx].getTrackID());
+    LOGP(warn, "Inward fit of matched track failed, skipping (MCTruth: VTID:{} MSID:{})", (*hVerTelTrkMCLabelsPtr)[vtIdx].asString(), (*hMuonSpecTrkMCLabelsPtr)[msIdx].asString());
     mMatchedTracks.pop_back();
     return false;
   }
@@ -283,7 +283,7 @@ bool NA6PMatching::fitAndStoreMatchedTrack(int vtIdx, int msIdx, float chi2Match
                << "vtTrack=" << ((NA6PTrackParCov&)vtTrk) << "msTrack=" << ((NA6PTrackParCov&)msTrk)
                << "chi2vec=" << mTrackFitter->getChi2Buffer() << "chi2Match=" << chi2Match
                << "chi2Out=" << chi2Out << "chi2Inw=" << chi2Inw
-               << "vtPartID=" << (*hVerTelTrkMCLabelsPtr)[vtIdx].getTrackID() << "msPartID=" << (*hMuonSpecTrkMCLabelsPtr)[msIdx].getTrackID()
+               << "vtPartID=" << (*hVerTelTrkMCLabelsPtr)[vtIdx]() << "msPartID=" << (*hMuonSpecTrkMCLabelsPtr)[msIdx]()
                << "\n";
 #endif
   return true;
