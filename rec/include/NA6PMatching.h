@@ -70,7 +70,7 @@ class NA6PMatching : public NA6PReconstruction
   void prefilterTracks();
   void buildMatchingCandidates(int msID);
 
-  std::unordered_map<int, int> buildMCMatchingIndex();
+  std::unordered_map<NA6PMCComposedLabel, int> buildMCMatchingIndex();
 
   const NA6PRecoParam* mRecoParam = nullptr;
 

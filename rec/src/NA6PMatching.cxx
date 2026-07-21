@@ -188,21 +188,21 @@ void NA6PMatching::buildMatchingCandidates(int iMS)
   }
 }
 
-std::unordered_map<int, int> NA6PMatching::buildMCMatchingIndex()
+std::unordered_map<NA6PMCComposedLabel, int> NA6PMatching::buildMCMatchingIndex()
 {
-  std::unordered_map<int, int> vtByPid;
+  std::unordered_map<NA6PMCComposedLabel, int> vtByPid;
   vtByPid.reserve(hVerTelTrackPtr->size());
 
   for (size_t i = 0; i < hVerTelTrackPtr->size(); ++i) {
     const auto& vt = (*hVerTelTrackPtr)[i];
-    int pid = vt.getParticleID();
-    if (pid <= 0 || vt.getNHits() < mRecoParam->mtMinVTHits) {
+    NA6PMCComposedLabel lab = (*hVerTelTrkMCLabelsPtr)[i];
+    if (lab.isFake() || vt.getNHits() < mRecoParam->mtMinVTHits) {
       continue;
     }
     // Prefer track with more hits if there are duplicates with same particle ID
-    auto it = vtByPid.find(pid);
+    auto it = vtByPid.find(lab);
     if (it == vtByPid.end() || vt.getNHits() > (*hVerTelTrackPtr)[it->second].getNHits()) {
-      vtByPid[pid] = static_cast<int>(i);
+      vtByPid[lab] = static_cast<int>(i);
     }
   }
   return vtByPid;
@@ -299,11 +299,11 @@ void NA6PMatching::runMCMatching()
     const auto& msTrack = (*hMuonSpecTrackPtr)[msIdx];
     if (msTrack.getNHits() < mRecoParam->mtMinMSHits)
       continue;
-    int msPartId = msTrack.getParticleID();
-    if (msPartId <= 0)
+    NA6PMCComposedLabel lblMS = (*hMuonSpecTrkMCLabelsPtr)[msIdx];
+    if (lblMS.isFake())
       continue;
 
-    auto it = vtByPid.find(msPartId);
+    auto it = vtByPid.find(lblMS);
     if (it == vtByPid.end())
       continue;
 
