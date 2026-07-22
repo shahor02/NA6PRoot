@@ -218,7 +218,7 @@ class NA6PTrackerCA
                   int requiredClus = -1);
 
   template <typename T, typename ClusterType>
-  std::pair<NA6PMCComposedLabel, bool> getTrackMCTruthStatus(const T& clIDs, const std::vector<ClusterType>& cluArr) const;
+  NA6PMCComposedLabel getTrackMCTruthStatus(const T& clIDs, const std::vector<ClusterType>& cluArr) const;
   template <typename ClusterType>
   bool clusterMCTruthMatch(const ClusterType& clu, const NA6PMCComposedLabel lblToMatch) const;
 
@@ -261,12 +261,11 @@ class NA6PTrackerCA
 };
 
 template <typename T, typename ClusterType>
-std::pair<NA6PMCComposedLabel, bool> NA6PTrackerCA::getTrackMCTruthStatus(const T& clIDs, const std::vector<ClusterType>& cluArr) const
+NA6PMCComposedLabel NA6PTrackerCA::getTrackMCTruthStatus(const T& clIDs, const std::vector<ClusterType>& cluArr) const
 {
+  NA6PMCComposedLabel lbl;
   if (!mCluMCLabels) {
-    NA6PMCComposedLabel dummyLbl;
-    dummyLbl.unset();
-    return {dummyLbl, 0};
+    return lbl;
   }
   std::vector<std::pair<NA6PMCComposedLabel, int>> occurrences;
   int ncl = 0;
@@ -277,24 +276,28 @@ std::pair<NA6PMCComposedLabel, bool> NA6PTrackerCA::getTrackMCTruthStatus(const 
     ncl++;
     int cluID = cluArr[id].getClusterIndex();
     std::span labels = mCluMCLabels->getLabels(cluID);
-    int nLabels = labels.size();
-    for (int jLab = 0; jLab < nLabels; jLab++) {
-      NA6PMCComposedLabel lbl = labels[jLab];
+    for (const auto lbl : labels) {
       bool found{false};
-      for (int i = 0; i < (int)occurrences.size(); i++) {
-        if (lbl == occurrences[i].first) {
-          occurrences[i].second++;
+      for (auto& occ : occurrences) {
+        if (lbl == occ.first) {
+          occ.second++;
           found = true;
           break;
         }
       }
-      if (!found) {
-        occurrences.emplace_back(lbl, 1);
-      }
+      occurrences.emplace_back(lbl, 1);
     }
   }
-  std::sort(std::begin(occurrences), std::end(occurrences), [](auto e1, auto e2) { return e1.second > e2.second; });
-  return {occurrences.front().first, occurrences.front().second == ncl};
+  auto occIter = occurrences.begin();
+  auto occWin = occIter;
+  while (++occIter != occurrences.end()) {
+    if (occWin->second < occIter->second) {
+      occWin = occIter;
+    }
+  }
+  lbl = occWin->first;
+  lbl.setFakeFlag(occWin->second < ncl);
+  return lbl;
 }
 
 template <typename ClusterType>

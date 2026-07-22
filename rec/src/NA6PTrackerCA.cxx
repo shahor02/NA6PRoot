@@ -599,7 +599,7 @@ void NA6PTrackerCA::findCellsNeighbours(const std::vector<CellCandidate>& cells,
         float cluchi2b = computeTrackToClusterChi2(cell2.trackFitFast, clu0);
 #ifdef _CHI2_TUNING_MODE_
         auto mcTruth = getTrackMCTruthStatus(cell2.cluIDs, cluArr);
-        if (mcTruth.second && clusterMCTruthMatch(clu0, mcTruth.first)) {
+        if (mcTruth.isSet() && !mcTruth.isFake()) {
           (*dbgStream) << "chiNb"
                        << "iter=" << mCurIteration << "trc=" << ((NA6PTrackParCov&)cell2.trackFitFast) << "trackNcl=" << cell2.trackFitFast.getNHits() << "trackChi2=" << cell2.trackFitFast.getChi2() << "chi2cl=" << cluchi2b << "\n";
         }
@@ -676,7 +676,7 @@ std::vector<TrackCandidate> NA6PTrackerCA::prolongSeed(const TrackCandidate& see
         float chi2 = computeTrackToClusterChi2(fitCurr, cluToAdd);
 #ifdef _CHI2_TUNING_MODE_
         auto mcTruth = getTrackMCTruthStatus(cellTst.cluIDs, cluArr);
-        if (mcTruth.second && clusterMCTruthMatch(cluToAdd, mcTruth.first)) {
+        if (mcTruth.isSet() && !mcTruth.isFake()) {
           (*dbgStream) << "chiProl"
                        << "iter=" << mCurIteration << "trc=" << ((NA6PTrackParCov&)fitCurr) << "trackNcl=" << fitCurr.getNHits() << "trackChi2=" << fitCurr.getChi2() << "chi2cl=" << chi2 << "\n";
         }
