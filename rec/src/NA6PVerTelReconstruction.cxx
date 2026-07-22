@@ -127,7 +127,6 @@ void NA6PVerTelReconstruction::hitsToRecPoints(const std::vector<NA6PVerTelHit>&
     auto& clu = mClusters.back();
     clu.setErr(ex2clu, 0., ey2clu);
     clu.setDetectorID(nDet);
-    clu.setParticleID(idPart);
     clu.setHitID(jHit);
     clu.setClusterIndex(cluID);
     NA6PMCComposedLabel lbl(hit.getTrackID(), evID, 0);
@@ -227,6 +226,8 @@ void NA6PVerTelReconstruction::closeTracksOutput()
 void NA6PVerTelReconstruction::runTracking()
 {
   clearTracks();
+  if (mReadMCTruth)
+    mVTTracker->setClusterMCTruth(hCluMCLabelsPtr);
   mVTTracker->findTracks(*hClusPtr, mPrimaryVertex);
   mTracks = mVTTracker->getTracks();
   if (mReadMCTruth)

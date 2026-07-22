@@ -121,7 +121,11 @@ class NA6PTrackerCA
   void configureFromRecoParamVT();
   void configureFromRecoParamMS();
   void setVerbosity(bool opt = true) { mVerbose = opt; }
-  void setClusterMCTruth(NA6PMCTruthContainer* cont) { mCluMCLabels = cont; }
+  void setClusterMCTruth(NA6PMCTruthContainer* cont)
+  {
+    mCluMCLabels = cont;
+    mTrackFitter->setClusterMCTruth(cont);
+  }
   void setUseLinRef(bool v) { mUseLinRef = v; }
 
   void printConfiguration() const;
@@ -276,17 +280,22 @@ NA6PMCComposedLabel NA6PTrackerCA::getTrackMCTruthStatus(const T& clIDs, const s
     ncl++;
     int cluID = cluArr[id].getClusterIndex();
     std::span labels = mCluMCLabels->getLabels(cluID);
-    for (const auto lbl : labels) {
+    for (const auto currLbl : labels) {
       bool found{false};
       for (auto& occ : occurrences) {
-        if (lbl == occ.first) {
+        if (currLbl == occ.first) {
           occ.second++;
           found = true;
           break;
         }
       }
-      occurrences.emplace_back(lbl, 1);
+      if (!found) {
+        occurrences.emplace_back(currLbl, 1);
+      }
     }
+  }
+  if (occurrences.empty()) {
+    return lbl;
   }
   auto occIter = occurrences.begin();
   auto occWin = occIter;

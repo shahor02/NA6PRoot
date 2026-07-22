@@ -477,7 +477,7 @@ void NA6PTrackerCA::computeLayerCells(const std::vector<TrackletCandidate>& trac
           if (chi >= 0) {
 #ifdef _CHI2_TUNING_MODE_
             auto mcTruth = mTrackFitter->getMCTruthStatus();
-            if (mcTruth.second) {
+            if (mcTruth.isSet() && !mcTruth.isFake()) {
               (*dbgStream) << "chiCells"
                            << "iter=" << mCurIteration << "trc=" << ((NA6PTrackParCov&)fitTrackFast) << "chi2vec=" << mTrackFitter->getChi2Buffer() << "chi2Tot=" << chi << "\n";
             }
@@ -830,7 +830,7 @@ void NA6PTrackerCA::fitAndSelectTracks(const std::vector<TrackCandidate>& trackC
     float chi2Inw = fitTrackPointsFast(cluIDsForfit, cluArr, fitTrackFast, maxChi2TrClu, maxChi2NDF);
 #ifdef _CHI2_TUNING_MODE_
     auto mcTruth = mTrackFitter->getMCTruthStatus();
-    if (mcTruth.second) {
+    if (mcTruth.isSet() && !mcTruth.isFake()) {
       (*dbgStream) << "chiTracks"
                    << "iter=" << mCurIteration << "trc=" << ((NA6PTrackParCov&)fitTrackFast) << "chi2vec=" << mTrackFitter->getChi2Buffer() << "chi2Tot=" << chi2Inw << "\n";
     }

@@ -123,7 +123,6 @@ void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecM
     auto& clu = mClusters.back();
     clu.setErr(ex2clu, 0., ey2clu);
     clu.setDetectorID(nDet);
-    clu.setParticleID(idPart);
     clu.setHitID(jHit);
     clu.setClusterIndex(cluID);
     NA6PMCComposedLabel lbl(hit.getTrackID(), evID, 0);
@@ -168,6 +167,8 @@ void NA6PMuonSpecReconstruction::closeTracksOutput()
 void NA6PMuonSpecReconstruction::runTracking()
 {
   clearTracks();
+  if (mReadMCTruth)
+    mMSTracker->setClusterMCTruth(hCluMCLabelsPtr);
   const auto& param = NA6PRecoParam::Instance();
   mMSTracker->findTracks(getClusters(), mPrimaryVertex);
   if (param.msDoTrackMSTrackletMID == false) {
