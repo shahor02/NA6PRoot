@@ -62,7 +62,7 @@ class NA6PVerTelReconstruction : public NA6PReconstruction
   void digitsToRecPoints(const std::vector<NA6PVerTelDigit>& vtDigits, const NA6PMCTruthContainer& digMCLabels);
 
   NA6PTrackerCA* getTracker() const { return mVTTracker.get(); }
-
+  NA6PVertexerTracklets* getVertexerTracklets() const { return mVTTrackletVertexer.get(); }
   // methods to steer tracking
   void setClusters(std::vector<NA6PVerTelCluster>& clusters);
   void setClustersMCLabels(NA6PMCTruthContainer& mcCluLabels)

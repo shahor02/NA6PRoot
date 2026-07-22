@@ -185,6 +185,8 @@ void NA6PVerTelReconstruction::runVertexerTracklets()
     initVertexer();
   }
   clearVertices();
+  if (mReadMCTruth)
+    mVTTrackletVertexer->setClusterMCTruth(hCluMCLabelsPtr);
   mVTTrackletVertexer->findVertices(*hClusPtr, mVertices);
   writeVertices();
 }
