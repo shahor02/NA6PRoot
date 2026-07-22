@@ -906,40 +906,6 @@ void NA6PTrackerCA::fitAndSelectTracks(const std::vector<TrackCandidate>& trackC
         track.trackFitFast.addCluster(&cluArr[cluID]);
       }
     }
-    // assign overall MC label to the track
-    int nClus = track.cluIDs.size();
-    std::vector<std::pair<int, int>> counts;
-    for (int jClu = 0; jClu < nClus; jClu++) {
-      int cluID = track.cluIDs[jClu];
-      if (cluID >= 0) {
-        const auto& clu = cluArr[cluID];
-        int idPartClu = clu.getParticleID();
-        bool found = false;
-        for (auto& p : counts) {
-          if (p.first == idPartClu) {
-            ++p.second;
-            found = true;
-            break;
-          }
-        }
-        if (!found) {
-          counts.push_back({idPartClu, 1});
-        }
-      }
-    }
-    int idPartTrack = -9999999;
-    int maxCount = 0;
-    for (const auto& p : counts) {
-      if (p.second > maxCount) {
-        maxCount = p.second;
-        idPartTrack = p.first;
-      }
-    }
-    // assign negative label to tracks with misassociations
-    if (counts.size() > 1 && idPartTrack > 0) {
-      idPartTrack *= -1;
-    }
-    track.trackFitFast.setParticleID(idPartTrack);
     tracks.push_back(std::move(track));
   }
 }

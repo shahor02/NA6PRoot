@@ -86,9 +86,11 @@ void runMSTrackMIDTrackletMatching(int firstEv = 0,
   TH1F* hNClusRefitTracks = new TH1F("hNClusRefitTracks", ";n_{clusters};counts", 7, -0.5, 6.5);
 
   std::vector<NA6PTrack> ms42Tracks, *hTrackPtr = &ms42Tracks;
+  std::vector<NA6PMCComposedLabel> ms42TrackLabs, *hTrackLabPtr = &ms42TrackLabs;
   TFile* fouttr = TFile::Open("TracksFourPlusTwo.root", "recreate");
   TTree* trackTree = new TTree("tracksMuonSpec", "MuonSpec Tracks");
   trackTree->Branch("MuonSpec", &hTrackPtr);
+  trackTree->Branch("MuonSpecMCTruth", &hTrackLabPtr);
 
   NA6PReconstruction rec("dummy");
   std::vector<NA6PMCComposedLabel> trkMCLabs;
@@ -97,6 +99,7 @@ void runMSTrackMIDTrackletMatching(int firstEv = 0,
 
   for (int jEv = firstEv; jEv < lastEv; jEv++) {
     ms42Tracks.clear();
+    ms42TrackLabs.clear();
     mcTree->GetEvent(jEv);
     int nPart = mcArr->size();
     double xvert = 0.;
@@ -379,20 +382,9 @@ void runMSTrackMIDTrackletMatching(int firstEv = 0,
       etatr = -std::log(std::tan(thetatr / 2.));
       hEtaRefitTracks->Fill(etatr);
       fitter->constrainTrackToVertex(refitInw, primVert);
-      int id42track = -2;
-      if (idTrack >= 0) {
-        // good track in the MS
-        if (ok1 && ok2)
-          id42track = idTrack;
-        else
-          id42track = -idTrack;
-      } else {
-        // fake track in the MS, has negative ID. Keep negative also for the 4+2 track
-        id42track = idTrack;
-      }
-      refitInw.setParticleID(id42track);
       ms42Tracks.push_back(refitInw);
     }
+    rec.assignMCLabels(ms42Tracks, ms42TrackLabs, vtCluMCLabels);
     trackTree->Fill();
   }
   fouttr->cd();

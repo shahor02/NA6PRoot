@@ -32,7 +32,6 @@ void NA6PTrack::reset()
   mChi2Outer = 0;
   resetCovariance();
   resetClusters();
-  mParticleID = -2;
   mStatusMS = kNotMS;
   invalidate();
   mOuter.invalidate();
@@ -66,7 +65,6 @@ void NA6PTrack::addCluster(const ClusterType* clu)
 {
 
   mNClusters++;
-  int trackID = clu->getParticleID();
   int nLay = clu->getLayer();
   mClusterIndices[nLay] = clu->getClusterIndex();
   mClusterMap |= (1 << nLay);
