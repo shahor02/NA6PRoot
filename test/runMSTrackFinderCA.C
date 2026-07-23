@@ -29,6 +29,7 @@
 #include <TDatabasePDG.h>
 #include <TParticlePDG.h>
 #include "NA6PMCTruthContainer.h"
+#include "NA6PReconstruction.h"
 #endif
 
 const int maxIterationsCA = NA6PTrackerCA::kMaxIterationsCA;
@@ -87,6 +88,8 @@ void runMSTrackFinderCA(int firstEv = 0,
   if (firstEv < 0)
     firstEv = 0;
   NA6PVertex primVert;
+  NA6PReconstruction rec("dummy");
+  std::vector<NA6PMCComposedLabel> trkMCLabs;
 
   int nIterationsCA = tracker->getNIterations();
   std::vector<int> hitSelID;
@@ -143,14 +146,16 @@ void runMSTrackFinderCA(int firstEv = 0,
       }
     }
     tc->GetEvent(jEv);
+    for (size_t i = 0; i < msClus.size(); ++i) {
+      msClus[i].setClusterIndex(static_cast<int>(i));
+    }
     tracker->findTracks(msClus, &primVert);
-    tracker->assignMCLabels(msCluMCLabels);
-    std::vector<NA6PMCComposedLabel> trkLabels;
-    std::vector<NA6PTrack> trks = tracker->getTracks(&trkLabels);
+    std::vector<NA6PTrack> trks = tracker->getTracks();
+    rec.assignMCLabels(trks, trkMCLabs, msCluMCLabels);
     int nTrks = trks.size();
     for (int jT = 0; jT < nTrks; jT++) {
       const NA6PTrack& tr = trks[jT];
-      NA6PMCComposedLabel mcCompLabel = trkLabels[jT];
+      NA6PMCComposedLabel mcCompLabel = trkMCLabs[jT];
       int idPartTrack = mcCompLabel.getTrackID();
       int jIteration = tr.getCAIteration();
       if (tr.getNHits() == 6) {

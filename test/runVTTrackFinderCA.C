@@ -26,6 +26,7 @@
 #include "MagneticField.h"
 #include "NA6PVerTelHit.h"
 #include "NA6PMCTruthContainer.h"
+#include "NA6PReconstruction.h"
 #endif
 
 const int maxIterationsCA = NA6PTrackerCA::kMaxIterationsCA;
@@ -59,6 +60,7 @@ void runVTTrackFinderCA(int firstEv = 0,
   std::unique_ptr<NA6PTrackerCA> tracker = std::make_unique<NA6PTrackerCA>();
   tracker->configureFromRecoParamVT();
   tracker->printConfiguration();
+  //  tracker->setVerbosity(true);
   TFile* fk = new TFile(Form("%s/MCKine.root", dirSimu));
   TTree* mcTree = (TTree*)fk->Get("mckine");
   std::vector<TParticle>* mcArr = nullptr;
@@ -81,7 +83,10 @@ void runVTTrackFinderCA(int firstEv = 0,
     lastEv = nEv;
   if (firstEv < 0)
     firstEv = 0;
+
   NA6PVertex primVert;
+  NA6PReconstruction rec("dummy");
+  std::vector<NA6PMCComposedLabel> trkMCLabs;
 
   int nIterationsCA = tracker->getNIterations();
 
@@ -124,14 +129,16 @@ void runVTTrackFinderCA(int firstEv = 0,
       }
     }
     tc->GetEvent(jEv);
+    for (size_t i = 0; i < vtClus.size(); ++i) {
+      vtClus[i].setClusterIndex(static_cast<int>(i));
+    }
     tracker->findTracks(vtClus, &primVert);
-    tracker->assignMCLabels(vtCluMCLabels);
-    std::vector<NA6PMCComposedLabel> trkLabels;
-    std::vector<NA6PTrack> trks = tracker->getTracks(&trkLabels);
+    std::vector<NA6PTrack> trks = tracker->getTracks();
+    rec.assignMCLabels(trks, trkMCLabs, vtCluMCLabels);
     int nTrks = trks.size();
     for (int jT = 0; jT < nTrks; jT++) {
       NA6PTrack tr = trks[jT];
-      NA6PMCComposedLabel mcCompLabel = trkLabels[jT];
+      NA6PMCComposedLabel mcCompLabel = trkMCLabs[jT];
       int idPartTrack = mcCompLabel.getTrackID();
       int jIteration = tr.getCAIteration();
       if (tr.getNHits() == 5) {
