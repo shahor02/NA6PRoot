@@ -71,7 +71,7 @@ bool NA6PTrackParCov::propagateToZ(float z, float by, NA6PTrackPar& linRef0)
   if (!linRef1.propagateParamToZ(z, by)) {
     return false;
   }
-  const float K = kB2C * by;
+  const float K = kB2C * by * linRef0.getPID().getCharge();
 
   prec_t snpRef0 = linRef0.getTx(), cspRef0 = linRef0.getCosPsi();
   prec_t snpRef1 = linRef1.getTx(), cspRef1 = linRef1.getCosPsi();
@@ -617,7 +617,8 @@ bool NA6PTrackParCov::correctForMaterial(float x2x0, float xrho, float density, 
     xrho *= angle;
   }
   auto m = getPID().getMass();
-  int charge2 = 1; // in case we introduce charge > 1 particle: getAbsCharge() * getAbsCharge();
+  int charge = getCharge();
+  int charge2 = charge * charge; // in case we introduce charge > 1 particle: getAbsCharge() * getAbsCharge();
   float p = getP(), p0 = p, p02 = p * p, e2 = p02 + getPID().getMass2(), massInv = 1.f / m, bg = p * massInv, dETot = 0.f;
   float e = std::sqrt(e2), e0 = e;
   if (m > 0 && xrho != 0.f) {
@@ -747,7 +748,8 @@ bool NA6PTrackParCov::correctForMaterial(float x2x0, float xrho, float density, 
     xrho *= angle;
   }
   auto m = getPID().getMass();
-  int charge2 = 1; // in case we introduce charge > 1 particle: getAbsCharge() * getAbsCharge();
+  int charge = getPID().getCharge();
+  int charge2 = charge * charge;
   float p = linRef.getP(), p0 = p, p02 = p * p, e2 = p02 + getPID().getMass2(), massInv = 1. / m, bg = p * massInv, dETot = 0.;
   float e = std::sqrt(e2), e0 = e;
   if (m > 0 && xrho != 0.f) {

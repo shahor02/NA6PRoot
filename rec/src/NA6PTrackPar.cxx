@@ -19,6 +19,9 @@ void NA6PTrackPar::initParam(const float* xyz, const float* pxyz, int sgn)
   mP[kTx] = px / pxz; // sin(psi)
   mP[kTy] = py / pxz; // py/pxz
   mP[kQ2Pxz] = (sgn >= 0 ? +1.f : -1.f) / pxz;
+  if (sgn == 0) {
+    mPID = PID::PI0;
+  }
 }
 
 bool NA6PTrackPar::propagateParamToZ(float z, float by)

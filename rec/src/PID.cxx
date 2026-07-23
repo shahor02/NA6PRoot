@@ -47,6 +47,48 @@ PID PID::PDG2PID(int pdg)
     case 13:
       pid = PID(Muon);
       break;
+    case 1000010020:
+      pid = PID(Deuteron);
+      break;
+    case 1000010030:
+      pid = PID(Triton);
+      break;
+    case 1000020030:
+      pid = PID(Helium3);
+      break;
+    case 1000020040:
+      pid = PID(Alpha);
+      break;
+    case 111:
+      pid = PID(PI0);
+      break;
+    case 22:
+      pid = PID(Photon);
+      break;
+    case 311:
+      pid = PID(K0);
+      break;
+    case 3122:
+      pid = PID(Lambda);
+      break;
+    case 1010010030:
+      pid = PID(HyperTriton);
+      break;
+    case 1010010040:
+      pid = PID(Hyperhydrog4);
+      break;
+    case 3312:
+      pid = PID(XiMinus);
+      break;
+    case 3334:
+      pid = PID(OmegaMinus);
+      break;
+    case 1010020040:
+      pid = PID(HyperHelium4);
+      break;
+    case 1010020050:
+      pid = PID(HyperHelium5);
+      break;
     default:
       LOGP(error, "pdg code {} not valid, falling back to {}", pdg, pid.getName());
   }
