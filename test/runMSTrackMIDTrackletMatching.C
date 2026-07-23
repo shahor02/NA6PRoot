@@ -53,9 +53,9 @@ void runMSTrackMIDTrackletMatching(int firstEv = 0,
   printf("Open cluster file: %s\n", fc->GetName());
   TTree* tc = (TTree*)fc->Get("clustersMuonSpec");
   std::vector<NA6PMuonSpecCluster> msClus, *msClusPtr = &msClus;
-  NA6PMCTruthContainer vtCluMCLabels, *vtCluMCLabelsPtr = &vtCluMCLabels;
+  NA6PMCTruthContainer msCluMCLabels, *msCluMCLabelsPtr = &msCluMCLabels;
   tc->SetBranchAddress("MuonSpec", &msClusPtr);
-  tc->SetBranchAddress("MuonSpecMCTruth", &vtCluMCLabelsPtr);
+  tc->SetBranchAddress("MuonSpecMCTruth", &msCluMCLabelsPtr);
 
   int nEv = tc->GetEntries();
   if (lastEv > nEv || lastEv < 0)
@@ -122,7 +122,7 @@ void runMSTrackMIDTrackletMatching(int firstEv = 0,
     }
     tracker->findTracks(msClus, &primVert);
     std::vector<NA6PTrack> trks = tracker->getTracks();
-    rec.assignMCLabels(trks, trkMCLabs, vtCluMCLabels);
+    rec.assignMCLabels(trks, trkMCLabs, msCluMCLabels);
     int nTrks = trks.size();
     std::vector<std::pair<NA6PMuonSpecCluster, NA6PMuonSpecCluster>> trkltsMID = tracker->findTracklets(9, 10, msClus, &primVert);
     int nTrklets = trkltsMID.size();
@@ -185,8 +185,8 @@ void runMSTrackMIDTrackletMatching(int firstEv = 0,
         float distXY = std::sqrt((xyzClu1[0] - xyzTr[0]) * (xyzClu1[0] - xyzTr[0]) + (xyzClu1[1] - xyzTr[1]) * (xyzClu1[1] - xyzTr[1]));
         float costh = dirSegm[0] * pxyzTr[0] + dirSegm[1] * pxyzTr[1] + dirSegm[2] * pxyzTr[2];
         int idTrack = lblTr.getTrackID();
-        bool ok1 = clusterMatch(clu1, idTrack, vtCluMCLabels);
-        bool ok2 = clusterMatch(clu2, idTrack, vtCluMCLabels);
+        bool ok1 = clusterMatch(clu1, idTrack, msCluMCLabels);
+        bool ok2 = clusterMatch(clu2, idTrack, msCluMCLabels);
         if (!lblTr.isFake() && ok1 && ok2) {
           nGoodFound++;
           hDistXYGood->Fill(distXY);
@@ -299,8 +299,8 @@ void runMSTrackMIDTrackletMatching(int firstEv = 0,
       NA6PMuonSpecCluster clu1 = tracklet.first;
       NA6PMuonSpecCluster clu2 = tracklet.second;
       int idTrack = lblTr.getTrackID();
-      bool ok1 = clusterMatch(clu1, idTrack, vtCluMCLabels);
-      bool ok2 = clusterMatch(clu2, idTrack, vtCluMCLabels);
+      bool ok1 = clusterMatch(clu1, idTrack, msCluMCLabels);
+      bool ok2 = clusterMatch(clu2, idTrack, msCluMCLabels);
       if (!lblTr.isFake()) {
         if (ok1 && ok2)
           hMatchType->Fill(0);
@@ -384,7 +384,7 @@ void runMSTrackMIDTrackletMatching(int firstEv = 0,
       fitter->constrainTrackToVertex(refitInw, primVert);
       ms42Tracks.push_back(refitInw);
     }
-    rec.assignMCLabels(ms42Tracks, ms42TrackLabs, vtCluMCLabels);
+    rec.assignMCLabels(ms42Tracks, ms42TrackLabs, msCluMCLabels);
     trackTree->Fill();
   }
   fouttr->cd();
