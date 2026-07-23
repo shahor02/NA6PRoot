@@ -3,7 +3,7 @@
 #include "NA6PTrackPar.h"
 #include <fairlogger/Logger.h>
 
-void NA6PTrackPar::initParam(const float* xyz, const float* pxyz, int sgn)
+void NA6PTrackPar::initParam(const float* xyz, const float* pxyz, int charge)
 {
   mZ = xyz[2];
   mP[kX] = xyz[0];
@@ -18,7 +18,12 @@ void NA6PTrackPar::initParam(const float* xyz, const float* pxyz, int sgn)
   const float pxz = std::hypot(px, pz);
   mP[kTx] = px / pxz; // sin(psi)
   mP[kTy] = py / pxz; // py/pxz
-  mP[kQ2Pxz] = (sgn >= 0 ? +1.f : -1.f) / pxz;
+  mP[kQ2Pxz] = (charge == 0 ? 1.f : static_cast<float>(charge)) / pxz;
+  if (charge == 0) {
+    mPID = PID::PI0;
+  } else if (std::abs(charge) == 2) {
+    mPID = PID::Alpha;
+  }
 }
 
 bool NA6PTrackPar::propagateParamToZ(float z, float by)

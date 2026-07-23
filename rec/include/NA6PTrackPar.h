@@ -18,6 +18,8 @@
 //   tx = px/pxz = sin(psi)   (psi is momentum angle in x–z plane, pz>0 => cos(psi)>0)
 //   ty = py/pxz
 //   q/pxz = charge / |p_xz|
+// For a zero-charge PID the last component stores +1/pxz: the PID carries q=0,
+// so momentum remains defined while getCharge2Pxz() and curvature are zero.
 //
 // Invariants in pure By magnetic field:
 //   pxz = const,  py = const,  q/pxz = const,  ty = py/pxz = const
@@ -65,8 +67,8 @@ class NA6PTrackPar
   ~NA6PTrackPar() = default;
   NA6PTrackPar& operator=(const NA6PTrackPar&) = default;
 
-  void initParam(const std::array<float, 3> xyz, const std::array<float, 3> pxyz, int sign) { initParam(xyz.data(), pxyz.data(), sign); }
-  void initParam(const float* xyz, const float* pxyz, int sign);
+  void initParam(const std::array<float, 3> xyz, const std::array<float, 3> pxyz, int charge) { initParam(xyz.data(), pxyz.data(), charge); }
+  void initParam(const float* xyz, const float* pxyz, int charge);
 
   void invalidate() { mZ = InvalidZ; }
   bool isValid() const { return mZ != InvalidZ; }
@@ -113,9 +115,9 @@ class NA6PTrackPar
     setXYZ(pos.data());
   }
 
-  float getPxz() const { return mP[kQ2Pxz] != 0.f ? 1.f / std::abs(mP[kQ2Pxz]) : 0.f; }
   int getSign() const { return mP[kQ2Pxz] < 0.f ? -1 : 1; }
-  int getCharge() const { return getSign(); }
+  int getCharge() const { return getSign() * mPID.getCharge(); }
+  float getPxz() const { return mP[kQ2Pxz] != 0.f ? (getCharge() != 0 ? getCharge() : 1.f) / mP[kQ2Pxz] : 0.f; }
 
   // Derived 3D momentum magnitudes
   float getP2Pxz2() const { return 1.f + getTy() * getTy(); }
@@ -126,7 +128,7 @@ class NA6PTrackPar
   float getPy() const { return getPxz() * getTy(); }     // py = pxz*ty
   float getPt() const { return std::hypot(getPx(), getPy()); } // pt = sqrt(px*px + py*py)
   float getQ2P() const;
-  float getCharge2Pxz() const { return getQ2Pxz(); } // RSTODO in case of q=0 return 0, while  getQ2Pxz() returns 1/p_xz
+  float getCharge2Pxz() const { return mPID.getCharge() == 0 ? 0 : getQ2Pxz(); }
 
   float getSinPsi2() const { return getTx() * getTx(); }
   float getSinPsi() const { return getTx(); }
@@ -138,7 +140,7 @@ class NA6PTrackPar
   float getEta() const { return -std::log(std::tan(getTheta() * 0.5f)); }
   float getEnergy() const { return std::hypot(getP(), mPID.getMass()); }
   float getRapidity() const;
-  float getCurvature(float by) const { return kB2C * by * getQ2Pxz(); }
+  float getCurvature(float by) const { return kB2C * by * getCharge2Pxz(); }
 
   float getR() const { return std::sqrt(getR2()); }
   float getSlopeX() const { return getTx() / getCosPsi(); } // px / pz

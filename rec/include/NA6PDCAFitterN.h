@@ -1011,6 +1011,7 @@ bool NA6PDCAFitterN<N, Args...>::roughDZCut() const
   }
   return accept;
 }
+
 //___________________________________________________________________
 template <int N, typename... Args>
 bool NA6PDCAFitterN<N, Args...>::closerToAlternative() const
@@ -1069,7 +1070,7 @@ NA6PTrack NA6PDCAFitterN<N, Args...>::createParentTrackParCov(int cand) const
   const double tx = px * invPxz;
   const double ty = py * invPxz;
   const double cs = pz * invPxz;
-  const double q2pxz = q * invPxz;
+  const double q2pxz = q == 0 ? invPxz : q * invPxz;
   const double jac[3][3] = {
     {cs * cs * invPxz, 0., -tx * cs * invPxz},
     {-ty * tx * invPxz, invPxz, -ty * cs * invPxz},
