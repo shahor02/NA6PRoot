@@ -11,7 +11,6 @@
 NA6PTrack::NA6PTrack()
 {
   mClusterIndices.fill(-1);
-  mClusterPartID.fill(-2);
   invalidate();
   mOuter.invalidate();
   mConstrained.invalidate();
@@ -21,7 +20,6 @@ NA6PTrack::NA6PTrack()
 NA6PTrack::NA6PTrack(const float* xyz, const float* pxyz, int sign, float errLoose)
 {
   mClusterIndices.fill(-1);
-  mClusterPartID.fill(-2);
   init(xyz, pxyz, sign, errLoose);
   mOuter.invalidate();
   mConstrained.invalidate();
@@ -34,7 +32,6 @@ void NA6PTrack::reset()
   mChi2Outer = 0;
   resetCovariance();
   resetClusters();
-  mParticleID = -2;
   mStatusMS = kNotMS;
   invalidate();
   mOuter.invalidate();
@@ -46,7 +43,6 @@ void NA6PTrack::resetClusters()
   mNClusters = 0;
   mClusterMap = 0;
   mClusterIndices.fill(-1);
-  mClusterPartID.fill(-2);
 }
 
 //_______________________________________________________________________
@@ -69,9 +65,7 @@ void NA6PTrack::addCluster(const ClusterType* clu)
 {
 
   mNClusters++;
-  int trackID = clu->getParticleID();
   int nLay = clu->getLayer();
-  mClusterPartID[nLay] = trackID;
   mClusterIndices[nLay] = clu->getClusterIndex();
   mClusterMap |= (1 << nLay);
 }

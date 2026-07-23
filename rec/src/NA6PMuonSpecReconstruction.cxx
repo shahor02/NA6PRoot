@@ -10,9 +10,7 @@
 #include "NA6PMuonSpecReconstruction.h"
 #include "NA6PLayoutParam.h"
 
-ClassImp(NA6PMuonSpecReconstruction)
-
-  NA6PMuonSpecReconstruction::NA6PMuonSpecReconstruction() : NA6PReconstruction("MuonSpec")
+NA6PMuonSpecReconstruction::NA6PMuonSpecReconstruction() : NA6PReconstruction("MuonSpec")
 {
   initTracker();
 }
@@ -49,6 +47,7 @@ void NA6PMuonSpecReconstruction::createClustersOutput()
   mClusFile = TFile::Open(nm.c_str(), "recreate");
   mClusTree = new TTree(fmt::format("clusters{}", getName()).c_str(), fmt::format("{} Clusters", getName()).c_str());
   mClusTree->Branch(getName().c_str(), &hClusPtr);
+  mClusTree->Branch(fmt::format("{}MCTruth", getName()).c_str(), &hCluMCLabelsPtr);
   LOGP(info, "Will store {} clusters in {}", getName(), nm);
 }
 
@@ -83,7 +82,7 @@ void NA6PMuonSpecReconstruction::setClusters(std::vector<NA6PMuonSpecCluster>& c
   }
 }
 
-void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecModularHit>& hits)
+void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecModularHit>& hits, int evID)
 {
   int nHits = hits.size();
   const auto& layout = NA6PLayoutParam::Instance();
@@ -124,9 +123,10 @@ void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecM
     auto& clu = mClusters.back();
     clu.setErr(ex2clu, 0., ey2clu);
     clu.setDetectorID(nDet);
-    clu.setParticleID(idPart);
     clu.setHitID(jHit);
     clu.setClusterIndex(cluID);
+    NA6PMCComposedLabel lbl(hit.getTrackID(), evID, 0);
+    mCluMCLabels.addElement(cluID, lbl);
   }
 }
 
@@ -138,6 +138,8 @@ void NA6PMuonSpecReconstruction::createTracksOutput()
   mTrackFile = TFile::Open(nm.c_str(), "recreate");
   mTrackTree = new TTree(fmt::format("tracks{}", getName()).c_str(), fmt::format("{} Tracks", getName()).c_str());
   mTrackTree->Branch(getName().c_str(), &hTrackPtr);
+  if (mReadMCTruth)
+    mTrackTree->Branch(fmt::format("{}MCTruth", getName()).c_str(), &hTrkMCLabelsPtr);
   LOGP(info, "Will store {} tracks in {}", getName(), nm);
 }
 
@@ -165,6 +167,8 @@ void NA6PMuonSpecReconstruction::closeTracksOutput()
 void NA6PMuonSpecReconstruction::runTracking()
 {
   clearTracks();
+  if (mReadMCTruth)
+    mMSTracker->setClusterMCTruth(hCluMCLabelsPtr);
   const auto& param = NA6PRecoParam::Instance();
   mMSTracker->findTracks(getClusters(), mPrimaryVertex);
   if (param.msDoTrackMSTrackletMID == false) {
@@ -175,6 +179,8 @@ void NA6PMuonSpecReconstruction::runTracking()
   } else {
     runMSTrackMIDTrackletMatching();
   }
+  if (mReadMCTruth)
+    assignMCLabels(mTracks, *hTrkMCLabelsPtr, *hCluMCLabelsPtr);
   writeTracks();
 }
 
