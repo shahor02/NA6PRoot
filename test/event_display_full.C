@@ -13,17 +13,19 @@
 #include <TEveSelection.h>
 #include <iostream>
 #include <TQObject.h>
-#include <NA6PBaseCluster.h>
-#include <NA6PMuonSpecModularHit.h>
-#include <NA6PMuonSpecCluster.h>
-#include <NA6PVerTelHit.h>
-#include <NA6PVerTelCluster.h>
-#include <NA6PTrack.h>
-#include <NA6PMCTruthContainer.h>
-#include <NA6PMCComposedLabel.h>
-#include <NA6PFastTrackFitter.h>
-#include <Propagator.h>
-#include <NA6PLayoutParam.h>
+#include "NA6PBaseCluster.h"
+#include "NA6PMuonSpecModularHit.h"
+#include "NA6PMuonSpecCluster.h"
+#include "NA6PVerTelHit.h"
+#include "NA6PVerTelCluster.h"
+#include "NA6PTrack.h"
+#include "NA6PMatch.h"
+#include "NA6PMCTruthContainer.h"
+#include "NA6PMCComposedLabel.h"
+#include "NA6PFastTrackFitter.h"
+#include "Propagator.h"
+#include "NA6PLayoutParam.h"
+#include "MagneticField.h"
 
 void ResetClusterHighlight(int);
 void HighlightClusterIndex(int, int);
@@ -38,7 +40,7 @@ std::vector<std::unique_ptr<NA6PMuonSpecModularHit>> gAllHitsM;
 std::vector<std::unique_ptr<NA6PVerTelHit>> gAllHitsV;
 std::vector<std::unique_ptr<NA6PTrack>> gAllTracksM;
 std::vector<std::unique_ptr<NA6PTrack>> gAllTracksV;
-std::vector<std::unique_ptr<NA6PTrack>> gAllTracksT;
+std::vector<std::unique_ptr<NA6PMatch>> gAllTracksT;
 std::vector<std::unique_ptr<NA6PBaseCluster>> gAllClustersM;
 std::vector<std::unique_ptr<NA6PBaseCluster>> gAllClustersV;
 std::vector<std::vector<const NA6PBaseCluster*>> gEventClustersM;
@@ -117,22 +119,26 @@ DetectorConfig kMatched{
 class EvePicker : public TObject
 {
  public:
-  void DumpTrack(const NA6PTrack* tr,
+  template <typename TRK>
+  void DumpTrack(const TRK* tr,
                  int ev,
                  std::string mcstr,
                  int mcpart,
                  const DetectorConfig& cfg)
   {
-    auto xyz = tr->getXYZ<double>();
-    auto pxyz = tr->getPXYZ<double>();
+    auto xyz = tr->template getXYZ<double>();
+    auto pxyz = tr->template getPXYZ<double>();
 
     double p = tr->getP();
     double pt = TMath::Sqrt(pxyz[0] * pxyz[0] + pxyz[1] * pxyz[1]);
     double eta = -TMath::Log(pt / (p + pxyz[2]));
-
+    int nHits = -1;
+    if (std::is_same<TRK, NA6PTrack>::value) {
+      nHits = tr->getNHits();
+    }
     std::cout << "[" << cfg.label << "]\n"
               << "  event " << ev << "\n"
-              << "  n_clusters = " << tr->getNHits() << "\n"
+              << "  n_clusters = " << nHits << "\n"
               << "  track origin X = " << xyz[0]
               << " Y = " << xyz[1]
               << " Z = " << xyz[2] << "\n"
@@ -146,46 +152,47 @@ class EvePicker : public TObject
 
     std::cout << "  Associated clusters:\n";
 
-    for (int lr = cfg.layerMin; lr < cfg.layerMax; ++lr) {
+    if (std::is_same<TRK, NA6PTrack>::value) {
+      for (int lr = cfg.layerMin; lr < cfg.layerMax; ++lr) {
+        int ic = tr->getClusterIndex(lr);
+        if (ic < 0)
+          continue;
 
-      int ic = tr->getClusterIndex(lr);
-      if (ic < 0)
-        continue;
+        HighlightClusterIndex(ev, ic);
 
-      HighlightClusterIndex(ev, ic);
+        const std::vector<const NA6PBaseCluster*>* evClustersPtr = nullptr;
 
-      const std::vector<const NA6PBaseCluster*>* evClustersPtr = nullptr;
-
-      if (cfg.det == DetectorType::Muon) {
-        evClustersPtr = &gEventClustersM[ev];
-      } else if (cfg.det == DetectorType::Vertex) {
-        evClustersPtr = &gEventClustersV[ev];
-      } else if (cfg.det == DetectorType::Matched) {
-
-        // layer-based routing
-        if (lr < 5)
-          evClustersPtr = &gEventClustersV[ev];
-        else
+        if (cfg.det == DetectorType::Muon) {
           evClustersPtr = &gEventClustersM[ev];
+        } else if (cfg.det == DetectorType::Vertex) {
+          evClustersPtr = &gEventClustersV[ev];
+        } else if (cfg.det == DetectorType::Matched) {
+
+          // layer-based routing
+          if (lr < 5)
+            evClustersPtr = &gEventClustersV[ev];
+          else
+            evClustersPtr = &gEventClustersM[ev];
+        }
+
+        if (!evClustersPtr)
+          continue;
+
+        const auto& evClusters = *evClustersPtr;
+
+        if (ic >= (int)evClusters.size())
+          continue;
+
+        const auto* clu = evClusters[ic];
+
+        std::cout
+          << "    layer " << clu->getLayer()
+          << "  size " << clu->getClusterSize()
+          << "  X " << clu->getX()
+          << "  Y " << clu->getY()
+          << "  Z " << clu->getZ()
+          << "\n";
       }
-
-      if (!evClustersPtr)
-        continue;
-
-      const auto& evClusters = *evClustersPtr;
-
-      if (ic >= (int)evClusters.size())
-        continue;
-
-      const auto* clu = evClusters[ic];
-
-      std::cout
-        << "    layer " << clu->getLayer()
-        << "  size " << clu->getClusterSize()
-        << "  X " << clu->getX()
-        << "  Y " << clu->getY()
-        << "  Z " << clu->getZ()
-        << "\n";
     }
     // ---- MC printout
     int n = TMath::Abs(mcpart);
@@ -391,7 +398,9 @@ void event_display_full(int firstEv = 0, int nEv = 1,
   // ------------------------------------------------------
   static bool geomLoaded = false;
   if (!geomLoaded) {
-    TGeoManager::Import(fgeo);
+    if (!Propagator::loadGeometry(fgeo) || !Propagator::loadField()) {
+      return;
+    }
 
     TEveGeoTopNode* geom =
       new TEveGeoTopNode(gGeoManager, gGeoManager->GetTopNode());
@@ -510,7 +519,7 @@ void event_display_full(int firstEv = 0, int nEv = 1,
   std::vector<NA6PMCComposedLabel> vtTrackLabs, *vtTrackLabPtr = &vtTrackLabs;
   ttV->SetBranchAddress("VerTel", &vtTracksPtr);
   ttV->SetBranchAddress("VerTelMCTruth", &vtTrackLabPtr);
-  std::vector<NA6PTrack> maTracks, *maTracksPtr = &maTracks;
+  std::vector<NA6PMatch> maTracks, *maTracksPtr = &maTracks;
   std::vector<NA6PMCComposedLabel> maTrackLabs, *maTrackLabPtr = &maTrackLabs;
   ttT->SetBranchAddress("Matching", &maTracksPtr);
   ttT->SetBranchAddress("MatchingMCTruth", &maTrackLabPtr);
@@ -612,7 +621,7 @@ void event_display_full(int firstEv = 0, int nEv = 1,
       auto& track = maTracks[j];
       NA6PMCComposedLabel lbl = maTrackLabs[j];
 
-      gAllTracksT.emplace_back(std::make_unique<NA6PTrack>(track));
+      gAllTracksT.emplace_back(std::make_unique<NA6PMatch>(track));
       auto* trPtr = gAllTracksT.back().get();
 
       TEveLine* eveTrack = new TEveLine();

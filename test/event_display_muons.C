@@ -13,13 +13,14 @@
 #include <TEveSelection.h>
 #include <iostream>
 #include <TQObject.h>
-#include <NA6PMuonSpecModularHit.h>
-#include <NA6PMuonSpecCluster.h>
-#include <NA6PTrack.h>
-#include <NA6PMCTruthContainer.h>
-#include <NA6PMCComposedLabel.h>
-#include <NA6PFastTrackFitter.h>
-#include <Propagator.h>
+#include "NA6PMuonSpecModularHit.h"
+#include "NA6PMuonSpecCluster.h"
+#include "NA6PTrack.h"
+#include "NA6PMCTruthContainer.h"
+#include "NA6PMCComposedLabel.h"
+#include "NA6PFastTrackFitter.h"
+#include "Propagator.h"
+#include "MagneticField.h"
 
 void ResetClusterHighlight(int);
 void HighlightClusterIndex(int, int);
@@ -212,7 +213,9 @@ void event_display_muons(int firstEv = 0, int nEv = 1,
   // ------------------------------------------------------
   static bool geomLoaded = false;
   if (!geomLoaded) {
-    TGeoManager::Import(fgeo);
+    if (!Propagator::loadGeometry(fgeo) || !Propagator::loadField()) {
+      return;
+    }
 
     TEveGeoTopNode* geom =
       new TEveGeoTopNode(gGeoManager, gGeoManager->GetTopNode());
