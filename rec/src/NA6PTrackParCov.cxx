@@ -71,7 +71,10 @@ bool NA6PTrackParCov::propagateToZ(float z, float by, NA6PTrackPar& linRef0)
   if (!linRef1.propagateParamToZ(z, by)) {
     return false;
   }
-  const float K = kB2C * by * linRef0.getPID().getCharge();
+  // The state stores q/pXZ for charged tracks, hence the charge is already
+  // included in the fifth parameter. For neutral tracks +1/pXZ is only a
+  // momentum placeholder and must not generate magnetic bending.
+  const float K = linRef0.getCharge() == 0 ? 0.f : kB2C * by;
 
   prec_t snpRef0 = linRef0.getTx(), cspRef0 = linRef0.getCosPsi();
   prec_t snpRef1 = linRef1.getTx(), cspRef1 = linRef1.getCosPsi();

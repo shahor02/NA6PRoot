@@ -67,8 +67,8 @@ class NA6PTrackPar
   ~NA6PTrackPar() = default;
   NA6PTrackPar& operator=(const NA6PTrackPar&) = default;
 
-  void initParam(const std::array<float, 3> xyz, const std::array<float, 3> pxyz, int sign) { initParam(xyz.data(), pxyz.data(), sign); }
-  void initParam(const float* xyz, const float* pxyz, int sign);
+  void initParam(const std::array<float, 3> xyz, const std::array<float, 3> pxyz, int charge) { initParam(xyz.data(), pxyz.data(), charge); }
+  void initParam(const float* xyz, const float* pxyz, int charge);
 
   void invalidate() { mZ = InvalidZ; }
   bool isValid() const { return mZ != InvalidZ; }
@@ -115,9 +115,9 @@ class NA6PTrackPar
     setXYZ(pos.data());
   }
 
-  float getPxz() const { return mP[kQ2Pxz] != 0.f ? 1.f / std::abs(mP[kQ2Pxz]) : 0.f; }
   int getSign() const { return mP[kQ2Pxz] < 0.f ? -1 : 1; }
   int getCharge() const { return getSign() * mPID.getCharge(); }
+  float getPxz() const { return mP[kQ2Pxz] != 0.f ? (getCharge() != 0 ? getCharge() : 1.f) / mP[kQ2Pxz] : 0.f; }
 
   // Derived 3D momentum magnitudes
   float getP2Pxz2() const { return 1.f + getTy() * getTy(); }
