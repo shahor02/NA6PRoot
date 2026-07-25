@@ -2,36 +2,42 @@
 #define NA6P_EVENT_READER_H
 
 #include "TFile.h"
-#include "TTree.h"
 #include "TParticle.h"
+#include "TTree.h"
 
-#include "NA6PVertex.h"
-#include "NA6PTrack.h"
-#include "NA6PMatching.h"
+#include "NA6PMatch.h"
+#include "NA6PMCComposedLabel.h"
 #include "NA6PMCEventHeader.h"
+#include "NA6PTrack.h"
+#include "NA6PVertex.h"
 
-#include <cstdint>
-#include <memory>
-#include <vector>
-#include <string>
-#include <stdexcept>
-#include <iostream>
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
-class NA6PEventReader {
-public:
+class NA6PEventReader
+{
+ public:
+  using TrackIndex = std::size_t;
+  using LabelToTrackIndices = std::unordered_map<NA6PMCComposedLabel, std::vector<TrackIndex>>;
+
   NA6PEventReader(
-    const char* fileNameVerTel         = "VerticesVerTel.root",
-    const char* fileNameTracksVerTel   = "TracksVerTel.root",
+    const char* fileNameVerTel = "VerticesVerTel.root",
+    const char* fileNameTracksVerTel = "TracksVerTel.root",
     const char* fileNameTracksMuonSpec = "TracksMuonSpec.root",
     const char* fileNameTracksMatching = "TracksMatching.root",
-    const char* fileNameMC             = "MCKine.root",
+    const char* fileNameMC = "MCKine.root",
     bool readVerTel = true,
     bool readTracksVerTel = true,
     bool readTracksMuonSpec = true,
     bool readTracksMatching = true,
-    bool readMC = true
-  )
+    bool readMC = true)
   {
     if (readVerTel) {
       openFile(mFileVerTel, fileNameVerTel);
@@ -58,31 +64,40 @@ public:
       setupTree(mFileMC.get(), "mckine", mTreeMC);
     }
 
+    // Vertex telescope vertices
     if (mTreeVerTel) {
-      mTreeVerTel->SetBranchAddress("VerTel", &mVerticesVerTel);
+      setupRequiredBranch(mTreeVerTel, "VerTel", mVerticesVerTel);
     }
 
+    // Vertex telescope tracks and corresponding MC labels
     if (mTreeTracksVerTel) {
-      mTreeTracksVerTel->SetBranchAddress("VerTel", &mTracksVerTel);
+      setupRequiredBranch(mTreeTracksVerTel, "VerTel", mTracksVerTel);
+      setupMCLabelBranch(mTreeTracksVerTel, "VerTelMCTruth", mTrackLabelsVerTel);
     }
 
+    // Muon spectrometer tracks and corresponding MC labels
     if (mTreeTracksMuonSpec) {
-      mTreeTracksMuonSpec->SetBranchAddress("MuonSpec", &mTracksMuonSpec);
+      setupRequiredBranch(mTreeTracksMuonSpec, "MuonSpec", mTracksMuonSpec);
+      setupMCLabelBranch(mTreeTracksMuonSpec, "MuonSpecMCTruth", mTrackLabelsMuonSpec);
     }
 
+    // Matched tracks and corresponding MC labels
     if (mTreeTracksMatching) {
-      mTreeTracksMatching->SetBranchAddress("Matching", &mMatches);
+      setupRequiredBranch(mTreeTracksMatching, "Matching", mMatches);
+      setupMCLabelBranch(mTreeTracksMatching, "MatchingMCTruth", mMatchLabels);
     }
 
+    // Generator-level MC information
     if (mTreeMC) {
-      mTreeMC->SetBranchAddress("header", &mMCHeader);
-      mTreeMC->SetBranchAddress("tracks", &mMCParticles);
+      setupRequiredBranch(mTreeMC, "header", mMCHeader);
+      setupRequiredBranch(mTreeMC, "tracks", mMCParticles);
     }
 
     determineEntries();
   }
 
   std::int64_t entries() const { return mEntries; }
+  std::int64_t currentEntry() const { return mCurrentEntry; }
 
   bool loadEvent(std::int64_t i)
   {
@@ -111,10 +126,26 @@ public:
     }
 
     mCurrentEntry = i;
+    buildTrackLabelMaps(); // after GetEntry(i);
     return true;
   }
 
-  std::int64_t currentEntry() const { return mCurrentEntry; }
+  // ------------------------------------------------------------------
+  // Availability
+  // ------------------------------------------------------------------
+
+  bool hasVerticesVerTel() const { return mTreeVerTel != nullptr; }
+  bool hasTracksVerTel() const { return mTreeTracksVerTel != nullptr; }
+  bool hasTracksMuonSpec() const { return mTreeTracksMuonSpec != nullptr; }
+  bool hasMatching() const { return mTreeTracksMatching != nullptr; }
+  bool hasMC() const { return mTreeMC != nullptr; }
+  bool hasVTTrackMCLabels() const { return mTrackLabelsVerTel != nullptr; }
+  bool hasMSTrackMCLabels() const { return mTrackLabelsMuonSpec != nullptr; }
+  bool hasMatchedTrackMCLabels() const { return mMatchLabels != nullptr; }
+
+  // ------------------------------------------------------------------
+  // Event-level getters
+  // ------------------------------------------------------------------
 
   NA6PMCEventHeader* mcHeader() const { return mMCHeader; }
 
@@ -148,31 +179,199 @@ public:
     return mMCParticles ? *mMCParticles : empty;
   }
 
-  const NA6PTrack* getVTTrack(size_t i) const
+  const std::vector<NA6PMCComposedLabel>& trackLabelsVerTel() const
   {
-    const auto& tr = tracksVerTel();
-    return i < tr.size() ? &tr[i] : nullptr;
+    static const std::vector<NA6PMCComposedLabel> empty;
+    return mTrackLabelsVerTel ? *mTrackLabelsVerTel : empty;
   }
 
-  const NA6PTrack* getMSTrack(size_t i) const
+  const std::vector<NA6PMCComposedLabel>& trackLabelsMuonSpec() const
   {
-    const auto& tr = tracksMuonSpec();
-    return i < tr.size() ? &tr[i] : nullptr;
+    static const std::vector<NA6PMCComposedLabel> empty;
+    return mTrackLabelsMuonSpec ? *mTrackLabelsMuonSpec : empty;
   }
 
-  const TParticle* getMCParticle(int i) const
+  const std::vector<NA6PMCComposedLabel>& matchLabels() const
   {
-    const auto& mc = mcParticles();
-    return (i >= 0 && static_cast<size_t>(i) < mc.size()) ? &mc[i] : nullptr;
+    static const std::vector<NA6PMCComposedLabel> empty;
+    return mMatchLabels ? *mMatchLabels : empty;
   }
 
-private:
-  static void openFile(std::unique_ptr<TFile>& file, const char* name)
+  // ------------------------------------------------------------------
+  // Individual reconstructed objects
+  // ------------------------------------------------------------------
+
+  const NA6PVertex* getVTVertex(std::size_t i) const
   {
-    file.reset(TFile::Open(name, "READ"));
+    const auto& vertices = verticesVerTel();
+    return i < vertices.size() ? &vertices[i] : nullptr;
+  }
+
+  const NA6PTrack* getVTTrack(std::size_t i) const
+  {
+    const auto& tracks = tracksVerTel();
+    return i < tracks.size() ? &tracks[i] : nullptr;
+  }
+
+  const NA6PTrack* getMSTrack(std::size_t i) const
+  {
+    const auto& tracks = tracksMuonSpec();
+    return i < tracks.size() ? &tracks[i] : nullptr;
+  }
+
+  const NA6PMatch* getMatchedTrack(std::size_t i) const
+  {
+    const auto& matchedTracks = matches();
+    return i < matchedTracks.size() ? &matchedTracks[i] : nullptr;
+  }
+
+  // ------------------------------------------------------------------
+  // MC-label access
+  // ------------------------------------------------------------------
+
+  const NA6PMCComposedLabel* getVTTrackLabel(std::size_t i) const
+  {
+    const auto& labels = trackLabelsVerTel();
+    return i < labels.size() ? &labels[i] : nullptr;
+  }
+
+  const NA6PMCComposedLabel* getMSTrackLabel(std::size_t i) const
+  {
+    const auto& labels = trackLabelsMuonSpec();
+    return i < labels.size() ? &labels[i] : nullptr;
+  }
+
+  const NA6PMCComposedLabel* getMatchedTrackLabel(std::size_t i) const
+  {
+    const auto& labels = matchLabels();
+    return i < labels.size() ? &labels[i] : nullptr;
+  }
+
+  const LabelToTrackIndices& vtTrackIndicesByLabel() const { return mVTTrackIndicesByLabel; }
+  const LabelToTrackIndices& msTrackIndicesByLabel() const { return mMSTrackIndicesByLabel; }
+
+  const std::vector<TrackIndex>* getVTTrackIndices(const NA6PMCComposedLabel& label) const
+  {
+    const auto it = mVTTrackIndicesByLabel.find(label);
+    return it != mVTTrackIndicesByLabel.end() ? &it->second : nullptr;
+  }
+
+  const std::vector<TrackIndex>* getMSTrackIndices(const NA6PMCComposedLabel& label) const
+  {
+    const auto it = mMSTrackIndicesByLabel.find(label);
+    return it != mMSTrackIndicesByLabel.end() ? &it->second : nullptr;
+  }
+
+  // ------------------------------------------------------------------
+  // MC-particle access
+  // ------------------------------------------------------------------
+
+  const TParticle* getMCParticle(int particleIndex) const
+  {
+    const auto& particles = mcParticles();
+
+    if (particleIndex < 0) {
+      return nullptr;
+    }
+
+    const auto index = static_cast<std::size_t>(particleIndex);
+
+    return index < particles.size() ? &particles[index] : nullptr;
+  }
+
+  const TParticle* getMCParticle(const NA6PMCComposedLabel& label) const
+  {
+    if (!label.isValid()) {
+      return nullptr;
+    }
+
+    /*
+     * Do not use getTrackIDSigned() here.
+     *
+     * getTrackIDSigned() returns a negative value for fake labels.
+     * The index of the TParticle vector must always be obtained using
+     * getTrackID().
+     */
+    return getMCParticle(label.getTrackID());
+  }
+
+  const TParticle* getMCParticleFromVTTrack(std::size_t trackIndex) const
+  {
+    const auto* label = getVTTrackLabel(trackIndex);
+
+    if (!label) {
+      return nullptr;
+    }
+
+    return getMCParticle(*label);
+  }
+
+  const TParticle* getMCParticleFromMSTrack(std::size_t trackIndex) const
+  {
+    const auto* label = getMSTrackLabel(trackIndex);
+
+    if (!label) {
+      return nullptr;
+    }
+
+    return getMCParticle(*label);
+  }
+
+  const TParticle* getMCParticleFromMatchedTrack(std::size_t trackIndex) const
+  {
+    const auto* label = getMatchedTrackLabel(trackIndex);
+
+    if (!label) {
+      return nullptr;
+    }
+
+    return getMCParticle(*label);
+  }
+
+  // ------------------------------------------------------------------
+  // Convenience helpers for correctly matched particles
+  // ------------------------------------------------------------------
+
+  const TParticle* getCorrectMCParticleFromVTTrack(std::size_t trackIndex) const
+  {
+    const auto* label = getVTTrackLabel(trackIndex);
+
+    if (!isUsableCorrectLabel(label)) {
+      return nullptr;
+    }
+
+    return getMCParticle(*label);
+  }
+
+  const TParticle* getCorrectMCParticleFromMSTrack(std::size_t trackIndex) const
+  {
+    const auto* label = getMSTrackLabel(trackIndex);
+
+    if (!isUsableCorrectLabel(label)) {
+      return nullptr;
+    }
+
+    return getMCParticle(*label);
+  }
+
+  const TParticle* getCorrectMCParticleFromMatchedTrack(std::size_t trackIndex) const
+  {
+    const auto* label = getMatchedTrackLabel(trackIndex);
+
+    if (!isUsableCorrectLabel(label)) {
+      return nullptr;
+    }
+
+    return getMCParticle(*label);
+  }
+
+ private:
+  static void openFile(std::unique_ptr<TFile>& file, const char* fileName)
+  {
+    file.reset(TFile::Open(fileName, "READ"));
 
     if (!file || file->IsZombie()) {
-      throw std::runtime_error(std::string("Cannot open file: ") + name);
+      throw std::runtime_error(std::string("Cannot open file: ") + fileName);
     }
   }
 
@@ -191,74 +390,153 @@ private:
     }
   }
 
+  template <typename T>
+  static void setupRequiredBranch(TTree* tree, const char* branchName, T*& object)
+  {
+    object = nullptr;
+
+    if (!tree) {
+      throw std::runtime_error(std::string("Null tree while setting branch: ") + branchName);
+    }
+
+    if (!tree->GetBranch(branchName)) {
+      throw std::runtime_error(std::string("Cannot find branch '") + branchName + "' in tree '" + tree->GetName() + "'");
+    }
+
+    const int status = tree->SetBranchAddress(branchName, &object);
+
+    if (status < 0) {
+      throw std::runtime_error(std::string("Cannot set branch address for '") + branchName + "' in tree '" + tree->GetName() + "'");
+    }
+  }
+
+  static bool setupMCLabelBranch(TTree* tree, const char* branchName, std::vector<NA6PMCComposedLabel>*& labels)
+  {
+    labels = nullptr;
+
+    if (!tree) {
+      return false;
+    }
+
+    if (!tree->GetBranch(branchName)) {
+      std::cerr << "WARNING: tree '" << tree->GetName() << "' does not contain MC-label branch '" << branchName << "'" << std::endl;
+      return false;
+    }
+
+    const int status = tree->SetBranchAddress(branchName, &labels);
+
+    if (status < 0) {
+      throw std::runtime_error(std::string("Cannot set branch address for '") + branchName + "' in tree '" + tree->GetName() + "'");
+    }
+
+    return true;
+  }
+
+  void buildTrackLabelMaps()
+  {
+    mVTTrackIndicesByLabel.clear();
+    mMSTrackIndicesByLabel.clear();
+    buildTrackLabelMap(tracksVerTel().size(), trackLabelsVerTel(), mVTTrackIndicesByLabel, "VT");
+    buildTrackLabelMap(tracksMuonSpec().size(), trackLabelsMuonSpec(), mMSTrackIndicesByLabel, "MS");
+  }
+
+  static void buildTrackLabelMap(std::size_t numberOfTracks, const std::vector<NA6PMCComposedLabel>& labels, LabelToTrackIndices& output, const char* detectorName)
+  {
+    output.clear();
+
+    if (numberOfTracks != labels.size()) {
+      std::cerr << "WARNING: " << detectorName << " track/label size mismatch: tracks=" << numberOfTracks << ", labels=" << labels.size() << std::endl;
+    }
+
+    const std::size_t numberOfEntries = std::min(numberOfTracks, labels.size());
+
+    for (std::size_t trackIndex = 0; trackIndex < numberOfEntries; ++trackIndex) {
+      const auto& label = labels[trackIndex];
+      if (!label.isValid() || label.isFake()) {
+        continue;
+      }
+      output[label].push_back(trackIndex);
+    }
+  }
+
+  static bool isUsableCorrectLabel(const NA6PMCComposedLabel* label)
+  {
+    return label && label->isValid() && !label->isFake();
+  }
+
   void determineEntries()
   {
-    std::vector<std::int64_t> n;
+    std::vector<std::int64_t> numbersOfEntries;
 
     if (mTreeMC) {
-      n.push_back(mTreeMC->GetEntries());
+      numbersOfEntries.push_back(mTreeMC->GetEntries());
     }
 
     if (mTreeVerTel) {
-      n.push_back(mTreeVerTel->GetEntries());
+      numbersOfEntries.push_back(mTreeVerTel->GetEntries());
     }
 
     if (mTreeTracksVerTel) {
-      n.push_back(mTreeTracksVerTel->GetEntries());
+      numbersOfEntries.push_back(mTreeTracksVerTel->GetEntries());
     }
 
     if (mTreeTracksMuonSpec) {
-      n.push_back(mTreeTracksMuonSpec->GetEntries());
+      numbersOfEntries.push_back(mTreeTracksMuonSpec->GetEntries());
     }
 
     if (mTreeTracksMatching) {
-      n.push_back(mTreeTracksMatching->GetEntries());
+      numbersOfEntries.push_back(mTreeTracksMatching->GetEntries());
     }
 
-    if (n.empty()) {
+    if (numbersOfEntries.empty()) {
       throw std::runtime_error("No input trees were loaded");
     }
 
-    const auto [minIt, maxIt] = std::minmax_element(n.begin(), n.end());
+    const auto [minIt, maxIt] = std::minmax_element(numbersOfEntries.begin(), numbersOfEntries.end());
 
     if (*minIt != *maxIt) {
-      std::cerr << "WARNING: input trees have different number of entries. "
-                << "Using min entries = " << *minIt
-                << ", max entries = " << *maxIt
-                << std::endl;
+      std::cerr << "WARNING: input trees have different numbers of entries. Using minimum entries = " << *minIt << ", maximum entries = " << *maxIt << std::endl;
     }
 
     mEntries = *minIt;
   }
 
-  bool hasVerticesVerTel() const { return mTreeVerTel != nullptr; }
-  bool hasTracksVerTel() const { return mTreeTracksVerTel != nullptr; }
-  bool hasTracksMuonSpec() const { return mTreeTracksMuonSpec != nullptr; }
-  bool hasMatching() const { return mTreeTracksMatching != nullptr; }
-  bool hasMC() const { return mTreeMC != nullptr; }
-
-private:
+ private:
+  // Files
   std::unique_ptr<TFile> mFileVerTel;
   std::unique_ptr<TFile> mFileTracksVerTel;
   std::unique_ptr<TFile> mFileTracksMuonSpec;
   std::unique_ptr<TFile> mFileTracksMatching;
   std::unique_ptr<TFile> mFileMC;
 
+  // Trees
   TTree* mTreeVerTel = nullptr;
   TTree* mTreeTracksVerTel = nullptr;
   TTree* mTreeTracksMuonSpec = nullptr;
   TTree* mTreeTracksMatching = nullptr;
   TTree* mTreeMC = nullptr;
 
+  // Reconstructed objects
   std::vector<NA6PVertex>* mVerticesVerTel = nullptr;
   std::vector<NA6PTrack>* mTracksVerTel = nullptr;
   std::vector<NA6PTrack>* mTracksMuonSpec = nullptr;
   std::vector<NA6PMatch>* mMatches = nullptr;
+
+  // Reconstructed-object MC labels
+  std::vector<NA6PMCComposedLabel>* mTrackLabelsVerTel = nullptr;
+  std::vector<NA6PMCComposedLabel>* mTrackLabelsMuonSpec = nullptr;
+  std::vector<NA6PMCComposedLabel>* mMatchLabels = nullptr;
+
+  // Generator-level MC objects
   std::vector<TParticle>* mMCParticles = nullptr;
   NA6PMCEventHeader* mMCHeader = nullptr;
 
+  LabelToTrackIndices mVTTrackIndicesByLabel;
+  LabelToTrackIndices mMSTrackIndicesByLabel;
+
+  // Entry bookkeeping
   std::int64_t mEntries = 0;
   std::int64_t mCurrentEntry = -1;
 };
 
-#endif
+#endif // NA6P_EVENT_READER_H
