@@ -39,6 +39,8 @@ class NA6PEventReader
     bool readTracksMatching = true,
     bool readMC = true)
   {
+    mReadMC = readMC;
+
     if (readVerTel) {
       openFile(mFileVerTel, fileNameVerTel);
       setupTree(mFileVerTel.get(), "verticesVerTel", mTreeVerTel);
@@ -72,19 +74,25 @@ class NA6PEventReader
     // Vertex telescope tracks and corresponding MC labels
     if (mTreeTracksVerTel) {
       setupRequiredBranch(mTreeTracksVerTel, "VerTel", mTracksVerTel);
-      setupMCLabelBranch(mTreeTracksVerTel, "VerTelMCTruth", mTrackLabelsVerTel);
+      if (readMC) {
+        setupMCLabelBranch(mTreeTracksVerTel, "VerTelMCTruth", mTrackLabelsVerTel);
+      }
     }
 
     // Muon spectrometer tracks and corresponding MC labels
     if (mTreeTracksMuonSpec) {
       setupRequiredBranch(mTreeTracksMuonSpec, "MuonSpec", mTracksMuonSpec);
-      setupMCLabelBranch(mTreeTracksMuonSpec, "MuonSpecMCTruth", mTrackLabelsMuonSpec);
+      if (readMC) {
+        setupMCLabelBranch(mTreeTracksMuonSpec, "MuonSpecMCTruth", mTrackLabelsMuonSpec);
+      }
     }
 
     // Matched tracks and corresponding MC labels
     if (mTreeTracksMatching) {
       setupRequiredBranch(mTreeTracksMatching, "Matching", mMatches);
-      setupMCLabelBranch(mTreeTracksMatching, "MatchingMCTruth", mMatchLabels);
+      if (readMC) {
+        setupMCLabelBranch(mTreeTracksMatching, "MatchingMCTruth", mMatchLabels);
+      }
     }
 
     // Generator-level MC information
@@ -126,7 +134,13 @@ class NA6PEventReader
     }
 
     mCurrentEntry = i;
-    buildTrackLabelMaps(); // after GetEntry(i);
+
+    mVTTrackIndicesByLabel.clear();
+    mMSTrackIndicesByLabel.clear();
+
+    if (mReadMC) {
+      buildTrackLabelMaps(); // after GetEntry(i);
+    }
     return true;
   }
 
@@ -201,50 +215,61 @@ class NA6PEventReader
   // Individual reconstructed objects
   // ------------------------------------------------------------------
 
-  const NA6PVertex* getVTVertex(std::size_t i) const
+  const NA6PVertex& getVTVertex(std::size_t i) const
   {
-    const auto& vertices = verticesVerTel();
-    return i < vertices.size() ? &vertices[i] : nullptr;
+    return verticesVerTel().at(i); // if index is out of range, at returns std::out_of_range;
   }
 
-  const NA6PTrack* getVTTrack(std::size_t i) const
+  const NA6PTrack& getVTTrack(std::size_t i) const
   {
-    const auto& tracks = tracksVerTel();
-    return i < tracks.size() ? &tracks[i] : nullptr;
+    return tracksVerTel().at(i); // if index is out of range, at returns std::out_of_range;
   }
 
-  const NA6PTrack* getMSTrack(std::size_t i) const
+  const NA6PTrack& getMSTrack(std::size_t i) const
   {
-    const auto& tracks = tracksMuonSpec();
-    return i < tracks.size() ? &tracks[i] : nullptr;
+    return tracksMuonSpec().at(i); // if index is out of range, at returns std::out_of_range;
   }
 
-  const NA6PMatch* getMatchedTrack(std::size_t i) const
+  const NA6PMatch& getMatchedTrack(std::size_t i) const
   {
-    const auto& matchedTracks = matches();
-    return i < matchedTracks.size() ? &matchedTracks[i] : nullptr;
+    return matches().at(i); // if index is out of range, at returns std::out_of_range;
+  }
+
+  const NA6PTrack* getVTTrack(const NA6PMCComposedLabel& label) const
+  {
+    const auto* indices = getVTTrackIndices(label);
+    if (!indices || indices->empty()) {
+      return nullptr;
+    }
+    return &getVTTrack(indices->front());
+  }
+
+  const NA6PTrack* getMSTrack(const NA6PMCComposedLabel& label) const
+  {
+    const auto* indices = getMSTrackIndices(label);
+    if (!indices || indices->empty()) {
+      return nullptr;
+    }
+    return &getMSTrack(indices->front());
   }
 
   // ------------------------------------------------------------------
   // MC-label access
   // ------------------------------------------------------------------
 
-  const NA6PMCComposedLabel* getVTTrackLabel(std::size_t i) const
+  const NA6PMCComposedLabel& getVTTrackLabel(std::size_t i) const
   {
-    const auto& labels = trackLabelsVerTel();
-    return i < labels.size() ? &labels[i] : nullptr;
+    return trackLabelsVerTel().at(i);
   }
 
-  const NA6PMCComposedLabel* getMSTrackLabel(std::size_t i) const
+  const NA6PMCComposedLabel& getMSTrackLabel(std::size_t i) const
   {
-    const auto& labels = trackLabelsMuonSpec();
-    return i < labels.size() ? &labels[i] : nullptr;
+    return trackLabelsMuonSpec().at(i);
   }
 
-  const NA6PMCComposedLabel* getMatchedTrackLabel(std::size_t i) const
+  const NA6PMCComposedLabel& getMatchedTrackLabel(std::size_t i) const
   {
-    const auto& labels = matchLabels();
-    return i < labels.size() ? &labels[i] : nullptr;
+    return matchLabels().at(i);
   }
 
   const LabelToTrackIndices& vtTrackIndicesByLabel() const { return mVTTrackIndicesByLabel; }
@@ -266,17 +291,9 @@ class NA6PEventReader
   // MC-particle access
   // ------------------------------------------------------------------
 
-  const TParticle* getMCParticle(int particleIndex) const
+  const TParticle& getMCParticle(std::size_t i) const
   {
-    const auto& particles = mcParticles();
-
-    if (particleIndex < 0) {
-      return nullptr;
-    }
-
-    const auto index = static_cast<std::size_t>(particleIndex);
-
-    return index < particles.size() ? &particles[index] : nullptr;
+    return mcParticles().at(i); // if index is out of range, at returns std::out_of_range;
   }
 
   const TParticle* getMCParticle(const NA6PMCComposedLabel& label) const
@@ -292,77 +309,7 @@ class NA6PEventReader
      * The index of the TParticle vector must always be obtained using
      * getTrackID().
      */
-    return getMCParticle(label.getTrackID());
-  }
-
-  const TParticle* getMCParticleFromVTTrack(std::size_t trackIndex) const
-  {
-    const auto* label = getVTTrackLabel(trackIndex);
-
-    if (!label) {
-      return nullptr;
-    }
-
-    return getMCParticle(*label);
-  }
-
-  const TParticle* getMCParticleFromMSTrack(std::size_t trackIndex) const
-  {
-    const auto* label = getMSTrackLabel(trackIndex);
-
-    if (!label) {
-      return nullptr;
-    }
-
-    return getMCParticle(*label);
-  }
-
-  const TParticle* getMCParticleFromMatchedTrack(std::size_t trackIndex) const
-  {
-    const auto* label = getMatchedTrackLabel(trackIndex);
-
-    if (!label) {
-      return nullptr;
-    }
-
-    return getMCParticle(*label);
-  }
-
-  // ------------------------------------------------------------------
-  // Convenience helpers for correctly matched particles
-  // ------------------------------------------------------------------
-
-  const TParticle* getCorrectMCParticleFromVTTrack(std::size_t trackIndex) const
-  {
-    const auto* label = getVTTrackLabel(trackIndex);
-
-    if (!isUsableCorrectLabel(label)) {
-      return nullptr;
-    }
-
-    return getMCParticle(*label);
-  }
-
-  const TParticle* getCorrectMCParticleFromMSTrack(std::size_t trackIndex) const
-  {
-    const auto* label = getMSTrackLabel(trackIndex);
-
-    if (!isUsableCorrectLabel(label)) {
-      return nullptr;
-    }
-
-    return getMCParticle(*label);
-  }
-
-  const TParticle* getCorrectMCParticleFromMatchedTrack(std::size_t trackIndex) const
-  {
-    const auto* label = getMatchedTrackLabel(trackIndex);
-
-    if (!isUsableCorrectLabel(label)) {
-      return nullptr;
-    }
-
-    return getMCParticle(*label);
+    return &getMCParticle(label.getTrackID());
   }
 
  private:
@@ -459,11 +406,6 @@ class NA6PEventReader
     }
   }
 
-  static bool isUsableCorrectLabel(const NA6PMCComposedLabel* label)
-  {
-    return label && label->isValid() && !label->isFake();
-  }
-
   void determineEntries()
   {
     std::vector<std::int64_t> numbersOfEntries;
@@ -508,6 +450,7 @@ class NA6PEventReader
   std::unique_ptr<TFile> mFileTracksMuonSpec;
   std::unique_ptr<TFile> mFileTracksMatching;
   std::unique_ptr<TFile> mFileMC;
+  bool mReadMC{false};
 
   // Trees
   TTree* mTreeVerTel = nullptr;

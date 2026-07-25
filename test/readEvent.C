@@ -29,13 +29,13 @@ void readEvent(
 
     for (std::size_t iTrack = 0; iTrack < vtTracks.size(); ++iTrack) {
       const auto& track = vtTracks[iTrack];
-      const auto* label = reader.getVTTrackLabel(iTrack);
+      const auto& label = reader.getVTTrackLabel(iTrack);
 
-      if (!label || !label->isValid() || label->isFake()) {
+      if (!label.isValid() || label.isFake()) {
         continue;
       }
 
-      const auto* mcParticle = reader.getMCParticle(*label);
+      const auto* mcParticle = reader.getMCParticle(label);
       if (!mcParticle) {
         continue;
       }
