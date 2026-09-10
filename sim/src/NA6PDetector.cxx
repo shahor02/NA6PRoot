@@ -140,7 +140,10 @@ void NA6PDetector::createGeometry(const std::string& name)
     for (auto m : mModulesVec) {
       m->createGeometry(world);
     }
-    world->SetName("World");
+    world->SetName("World");    
+    auto* topNode = geom->GetTopNode();
+    topNode->SetName(
+      fmt::format("{}_{}", world->GetName(), topNode->GetNumber()).c_str());
   }
 
   // Apply consistent coloring: Iron/Fe → blue, Copper/Cu → yellow
