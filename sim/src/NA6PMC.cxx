@@ -493,6 +493,7 @@ void NA6PMC::selectTracksToSave()
     auto* part = mStack->GetParticle(i);
     bool isFromHFDecay = false;
     int idMoth = part->GetFirstMother();
+    const bool isVirtualPhotonMuon = std::abs(part->GetPdgCode()) == 13 && idMoth >= 0 && idMoth < ntrIni && mStack->GetParticle(idMoth)->GetPdgCode() == 23; // Check the immediate mother before the ancestor scan changes idMoth.
     int mothPdg = -1;
     while (idMoth >= 0) {
       auto* currMoth = mStack->GetParticle(idMoth);
@@ -509,7 +510,7 @@ void NA6PMC::selectTracksToSave()
       }
       idMoth = currMoth->GetFirstMother();
     }
-    if (NA6PModule::testActiveIDOrKeepBits(*part) || isFromHFDecay) { // has hits
+    if (NA6PModule::testActiveIDOrKeepBits(*part) || isFromHFDecay || isVirtualPhotonMuon) { // has hits
       if (mRemap[i] >= 0) {                    // was already accounted
         continue;
       }
