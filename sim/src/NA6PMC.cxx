@@ -619,29 +619,6 @@ void NA6PMC::selectTracksToSave()
       mMCTracks.back().SetLastMother(family[idd]); // orig particle ID
     }
   }
-  // Restore links for generator-level dimuons. Primaries are already saved
-  // in their original order; do not append/count them again as secondaries.
-  // Raw daughter fields above are reserved for the transport-secondary list.
-  for (int i = 0; i < nPrimIni; ++i) {
-    const auto* part = mStack->GetParticle(i);
-    const int parentID = part->GetFirstMother();
-    if (std::abs(part->GetPdgCode()) != 13 || parentID < 0 || parentID >= nPrimIni) {
-      continue;
-    }
-    const auto* parent = mStack->GetParticle(parentID);
-    if (parent->GetPdgCode() != 23 || parent->TestBit(NA6PMCStack::kToBeDone)) {
-      continue;
-    }
-    auto& savedParent = mMCTracks[mRemap[parentID]];
-    const int childID = mRemap[i];
-    if (savedParent.GetFirstDaughter() < 0) {
-      savedParent.SetFirstDaughter(childID);
-    } else if (savedParent.GetLastDaughter() + 1 != childID) {
-      LOGP(fatal, "Non-contiguous primary dimuon daughters for parent {}", parentID);
-    }
-    savedParent.SetLastDaughter(childID);
-    mMCTracks[childID].SetFirstMother(mRemap[parentID]);
-  }
   callUserHook(UserHook::SelectParticles, false); // call at exit
   LOGP(info, "Will save {} tracks out of {}", mMCTracks.size(), mRemap.size());
 }
