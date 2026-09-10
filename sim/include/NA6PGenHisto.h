@@ -33,6 +33,12 @@ class NA6PGenHisto : public NA6PGenerator
   void setPoisson(bool v) { mPoisson = v; }
   bool isPoisson() const { return mPoisson; }
 
+  // PDG 23 only: retain an untransported parent and generate two primary
+  // muons with an isotropic rest-frame decay (lambda_theta = 0).
+  // Multiplicity continues to count virtual photons, not muons.
+  void setPrimaryDimuonDecay(bool v = true) { mPrimaryDimuonDecay = v; }
+  bool isPrimaryDimuonDecay() const { return mPrimaryDimuonDecay; }
+
   void setMPtYHistogram(TH3* histo);
   void setPtYHistogram(TH2* histo);
   void setPtHistogram(TH1* histo);
@@ -46,6 +52,7 @@ class NA6PGenHisto : public NA6PGenerator
   int mPDGCode = 0;
   float mMult = -1.f;
   bool mPoisson = true;
+  bool mPrimaryDimuonDecay = false;
   float mYCM = 0.f;
 
   std::string mSourceFileName;

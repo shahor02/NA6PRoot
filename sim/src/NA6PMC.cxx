@@ -493,7 +493,6 @@ void NA6PMC::selectTracksToSave()
     auto* part = mStack->GetParticle(i);
     bool isFromHFDecay = false;
     int idMoth = part->GetFirstMother();
-    const bool isVirtualPhotonMuon = std::abs(part->GetPdgCode()) == 13 && idMoth >= 0 && idMoth < ntrIni && mStack->GetParticle(idMoth)->GetPdgCode() == 23; // Check the immediate mother before the ancestor scan changes idMoth.
     int mothPdg = -1;
     while (idMoth >= 0) {
       auto* currMoth = mStack->GetParticle(idMoth);
@@ -510,7 +509,7 @@ void NA6PMC::selectTracksToSave()
       }
       idMoth = currMoth->GetFirstMother();
     }
-    if (NA6PModule::testActiveIDOrKeepBits(*part) || isFromHFDecay || isVirtualPhotonMuon) { // has hits
+    if (NA6PModule::testActiveIDOrKeepBits(*part) || isFromHFDecay) { // has hits
       if (mRemap[i] >= 0) {                    // was already accounted
         continue;
       }
@@ -619,6 +618,29 @@ void NA6PMC::selectTracksToSave()
       mMCTracks.back().SetFirstMother(mothID);
       mMCTracks.back().SetLastMother(family[idd]); // orig particle ID
     }
+  }
+  // Restore links for generator-level dimuons. Primaries are already saved
+  // in their original order; do not append/count them again as secondaries.
+  // Raw daughter fields above are reserved for the transport-secondary list.
+  for (int i = 0; i < nPrimIni; ++i) {
+    const auto* part = mStack->GetParticle(i);
+    const int parentID = part->GetFirstMother();
+    if (std::abs(part->GetPdgCode()) != 13 || parentID < 0 || parentID >= nPrimIni) {
+      continue;
+    }
+    const auto* parent = mStack->GetParticle(parentID);
+    if (parent->GetPdgCode() != 23 || parent->TestBit(NA6PMCStack::kToBeDone)) {
+      continue;
+    }
+    auto& savedParent = mMCTracks[mRemap[parentID]];
+    const int childID = mRemap[i];
+    if (savedParent.GetFirstDaughter() < 0) {
+      savedParent.SetFirstDaughter(childID);
+    } else if (savedParent.GetLastDaughter() + 1 != childID) {
+      LOGP(fatal, "Non-contiguous primary dimuon daughters for parent {}", parentID);
+    }
+    savedParent.SetLastDaughter(childID);
+    mMCTracks[childID].SetFirstMother(mRemap[parentID]);
   }
   callUserHook(UserHook::SelectParticles, false); // call at exit
   LOGP(info, "Will save {} tracks out of {}", mMCTracks.size(), mRemap.size());

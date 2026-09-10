@@ -145,6 +145,7 @@ NA6PGenerator* addBgEventGenerator(NA6PGenCocktail* genCocktail, TH3* h3, int pd
   }
 
   auto gen = new NA6PGenHisto("VirtualPhoton", 23, NSignalinAcc, false, h3, ycm);
+  gen->setPrimaryDimuonDecay(true);
   genCocktail->addGenerator(gen);
   return genCocktail;
 }
