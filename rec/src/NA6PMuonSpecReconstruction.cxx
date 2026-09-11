@@ -301,7 +301,7 @@ void NA6PMuonSpecReconstruction::runMSTrackMIDTrackletMatching()
     trMSMID.setOuterParam(trOut);
     trMSMID.resetClusters();
     fitter->addClustersToTrack(trMSMID);
-    if (param.vtDoConstrainedTrack) {
+    if (param.msDoConstrainedTrack) {
       fitter->constrainTrackToVertex(trMSMID, *mPrimaryVertex);
     } else {
       trMSMID.getVertexConstrainedParam().invalidate();
