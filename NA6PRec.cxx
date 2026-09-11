@@ -114,14 +114,22 @@ int main(int argc, char** argv)
   }
 
   auto flini = vm["load-ini"].as<std::string>();
-  if (!flini.empty()) {
-    na6p::conf::ConfigurableParam::updateFromFile(flini, "", true);
+  try {
+    if (!flini.empty()) {
+      na6p::conf::ConfigurableParam::updateFromFile(flini, "", true);
+    }
+    auto flrp = vm["load-recoparam"].as<std::string>();
+    if (!flrp.empty()) {
+      na6p::conf::ConfigurableParam::updateFromFile(flrp, "", true);
+    }
+    na6p::conf::ConfigurableParam::updateFromString(vm["configKeyValues"].as<std::string>()); // highest priority
+  } catch (const std::exception& error) {
+    std::cerr << "ERROR: Failed to load configuration: " << error.what() << std::endl;
+    return 2;
+  } catch (...) {
+    std::cerr << "ERROR: Failed to load configuration: unknown error" << std::endl;
+    return 2;
   }
-  auto flrp = vm["load-recoparam"].as<std::string>();
-  if (!flrp.empty()) {
-    na6p::conf::ConfigurableParam::updateFromFile(flrp, "", true);
-  }
-  na6p::conf::ConfigurableParam::updateFromString(vm["configKeyValues"].as<std::string>()); // highest priority
   LOGP(info, "Printing all configs");
   na6p::conf::ConfigurableParam::printAllKeyValuePairs();
 

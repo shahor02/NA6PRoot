@@ -65,9 +65,17 @@ int main(int argc, char** argv)
     exit(2);
   }
   auto flini = vm["load-ini"].as<std::string>();
-  na6p::conf::ConfigurableParam::updateFromString(vm["configKeyValues"].as<std::string>());
-  if (!flini.empty()) {
-    na6p::conf::ConfigurableParam::updateFromFile(flini, "", true);
+  try {
+    na6p::conf::ConfigurableParam::updateFromString(vm["configKeyValues"].as<std::string>());
+    if (!flini.empty()) {
+      na6p::conf::ConfigurableParam::updateFromFile(flini, "", true);
+    }
+  } catch (const std::exception& error) {
+    std::cerr << "ERROR: Failed to load configuration: " << error.what() << std::endl;
+    return 2;
+  } catch (...) {
+    std::cerr << "ERROR: Failed to load configuration: unknown error" << std::endl;
+    return 2;
   }
   LOGP(info, "Printing all configs");
   na6p::conf::ConfigurableParam::printAllKeyValuePairs();

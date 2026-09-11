@@ -211,16 +211,18 @@ void ConfigurableParam::setValue(std::string const& key, std::string const& valu
     }
     LOG(fatal) << "Inexistant ConfigurableParam key: " << key;
   }
-  try {
-    if (sPtree->get_optional<std::string>(key).is_initialized()) {
-      sPtree->put(key, valuestring);
-      auto changed = updateThroughStorageMapWithConversion(key, valuestring);
-      if (changed != EParamUpdateStatus::Failed) {
-        sValueProvenanceMap->find(key)->second = p; // set to runtime
-      }
+  if (sPtree->get_optional<std::string>(key).is_initialized()) {
+    EParamUpdateStatus changed;
+    try {
+      changed = updateThroughStorageMapWithConversion(key, valuestring);
+    } catch (const std::exception& error) {
+      throw std::runtime_error(fmt::format("Invalid value for ConfigurableParam key {:s}: {:s}", key, error.what()));
     }
-  } catch (std::exception const& e) {
-    std::cerr << "Error in setValue (string) " << e.what() << "\n";
+    if (changed == EParamUpdateStatus::Failed) {
+      throw std::runtime_error(fmt::format("Invalid value for ConfigurableParam key {:s}", key));
+    }
+    sPtree->put(key, valuestring);
+    sValueProvenanceMap->find(key)->second = p;
   }
 }
 
@@ -404,18 +406,12 @@ void ConfigurableParam::updateFromFile(std::string const& configFile, std::strin
       }
     }
     for (auto& subKey : section.second) {
-      try {
-        auto name = subKey.first;
-        auto value = subKey.second.get_value<std::string>();
-        std::string key = mainKey + "." + name;
-        if (!unchangedOnly || getProvenance(key) == kCODE) {
-          std::pair<std::string, std::string> pair = std::make_pair(key, na6p::utils::Str::trim_copy(value));
-          keyValPairs.push_back(pair);
-        }
-      } catch (std::exception const& error) {
-        LOG(error) << "Error while updating param " << mainKey << "." << subKey.first << ": " << error.what();
-      } catch (...) {
-        LOG(error) << "Unknown error while updating param " << mainKey << "." << subKey.first;
+      auto name = subKey.first;
+      auto value = subKey.second.get_value<std::string>();
+      std::string key = mainKey + "." + name;
+      if (!unchangedOnly || getProvenance(key) == kCODE) {
+        std::pair<std::string, std::string> pair = std::make_pair(key, na6p::utils::Str::trim_copy(value));
+        keyValPairs.push_back(pair);
       }
     }
   }
@@ -427,11 +423,7 @@ void ConfigurableParam::updateFromFile(std::string const& configFile, std::strin
     }
   }
 
-  try {
-    setValues(keyValPairs, kRTF);
-  } catch (std::exception const& error) {
-    LOG(error) << "Error while setting values " << error.what();
-  }
+  setValues(keyValPairs, kRTF);
 }
 
 // ------------------------------------------------------------------
