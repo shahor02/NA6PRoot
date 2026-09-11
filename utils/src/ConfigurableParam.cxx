@@ -280,7 +280,7 @@ ConfigurableParam::EParamProvenance ConfigurableParam::getProvenance(const std::
   }
   auto iter = sValueProvenanceMap->find(key);
   if (iter == sValueProvenanceMap->end()) {
-    throw std::runtime_error(fmt::format("provenace of unknown {:s} parameter is requested", key));
+    throw std::runtime_error(fmt::format("provenance of unknown {:s} parameter is requested", key));
   }
   return iter->second;
 }
@@ -370,7 +370,7 @@ void ConfigurableParam::printAllRegisteredParamNames()
 // If nonempty comma-separated paramsList is provided, only those params will
 // be updated, absence of data for any of requested params will lead to fatal
 // If unchangedOnly is true, then only those parameters whose provenance is kCODE will be updated
-// (to allow prefernce of run-time settings)
+// (to allow preference of run-time settings)
 void ConfigurableParam::updateFromFile(std::string const& configFile, std::string const& paramsList, bool unchangedOnly)
 {
   if (!sIsFullyInitialized) {
@@ -394,17 +394,17 @@ void ConfigurableParam::updateFromFile(std::string const& configFile, std::strin
     }
   }
 
-  try {
-    for (auto& section : pt) {
-      std::string mainKey = section.first;
-      if (requestMap.size()) {
-        if (requestMap.find(mainKey) == requestMap.end()) {
-          continue; // if something was requested, ignore everything else
-        } else {
-          requestMap[mainKey] = 1;
-        }
+  for (auto& section : pt) {
+    std::string mainKey = section.first;
+    if (requestMap.size()) {
+      if (requestMap.find(mainKey) == requestMap.end()) {
+        continue; // if something was requested, ignore everything else
+      } else {
+        requestMap[mainKey] = 1;
       }
-      for (auto& subKey : section.second) {
+    }
+    for (auto& subKey : section.second) {
+      try {
         auto name = subKey.first;
         auto value = subKey.second.get_value<std::string>();
         std::string key = mainKey + "." + name;
@@ -412,12 +412,12 @@ void ConfigurableParam::updateFromFile(std::string const& configFile, std::strin
           std::pair<std::string, std::string> pair = std::make_pair(key, na6p::utils::Str::trim_copy(value));
           keyValPairs.push_back(pair);
         }
+      } catch (std::exception const& error) {
+        LOG(error) << "Error while updating param " << mainKey << "." << subKey.first << ": " << error.what();
+      } catch (...) {
+        LOG(error) << "Unknown error while updating param " << mainKey << "." << subKey.first;
       }
     }
-  } catch (std::exception const& error) {
-    LOG(error) << "Error while updating params " << error.what();
-  } catch (...) {
-    LOG(error) << "Unknown while updating params ";
   }
 
   // make sure all requested params were retrieved
