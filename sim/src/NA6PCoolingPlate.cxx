@@ -130,7 +130,31 @@ TGeoXtru* CreateRoundedRect(const char* name, double halfX, double halfY, double
   }
   auto* xtru = new TGeoXtru(2);
   xtru->SetName(name);
-  xtru->DefinePolygon(nPoints, x, y);
+  if (cornerRadius == 0.) {
+    const double rectX[] = {halfX, -halfX, -halfX, halfX};
+    const double rectY[] = {halfY, halfY, -halfY, -halfY};
+    xtru->DefinePolygon(4, rectX, rectY);
+  } else {
+    // Adjacent arcs share a vertex when the corner radius equals a half-side.
+    // Remove coincident points because TGeoXtru requires distinct polygon vertices.
+    double uniqueX[nPoints];
+    double uniqueY[nPoints];
+    int nUnique = 0;
+    constexpr double tolerance = 1.e-12;
+    for (int i = 0; i < nPoints; ++i) {
+      if (nUnique && std::abs(x[i] - uniqueX[nUnique - 1]) <= tolerance &&
+          std::abs(y[i] - uniqueY[nUnique - 1]) <= tolerance) {
+        continue;
+      }
+      uniqueX[nUnique] = x[i];
+      uniqueY[nUnique++] = y[i];
+    }
+    if (std::abs(uniqueX[0] - uniqueX[nUnique - 1]) <= tolerance &&
+        std::abs(uniqueY[0] - uniqueY[nUnique - 1]) <= tolerance) {
+      --nUnique;
+    }
+    xtru->DefinePolygon(nUnique, uniqueX, uniqueY);
+  }
   xtru->DefineSection(0, -halfZ);
   xtru->DefineSection(1, halfZ);
   return xtru;
