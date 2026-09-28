@@ -119,6 +119,11 @@ class NA6PTrackerCA
                           float maxChi2ndfTracks,
                           int minNClusTracks);
   void setMinimumNumberOfClusters(int iter, int minNClusTracks) { mMinNClusTracksCA[iter] = minNClusTracks; }
+  void setTrackletCuts(float maxDeltaTheta, float maxDeltaPhi)
+  {
+    mMaxDeltaThetaTrackletMID = maxDeltaTheta;
+    mMaxDeltaPhiTrackletMID = maxDeltaPhi;
+  }
   void setPID(PID pid) { mPID = pid; }
   void allowSkipLayer(int lay)
   {
@@ -281,6 +286,8 @@ class NA6PTrackerCA
   int mNIterationsCA = 2;
   int mCurIteration = -1;
   int mNDOF = 5;
+  float mMaxDeltaThetaTrackletMID = 0.1f;
+  float mMaxDeltaPhiTrackletMID = 0.6f;
   float mMaxDeltaThetaTrackletsCA[kMaxIterationsCA] = {0.04, 0.1, 0.15, 0.3, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   float mMaxDeltaPhiTrackletsCA[kMaxIterationsCA] = {0.1, 0.2, 0.25, 0.5, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};
   float mMaxDeltaTanLCellsCA[kMaxIterationsCA] = {4., 9., 18., 40., 999.0, 999.0, 999.0, 999.0, 999.0, 999.0};

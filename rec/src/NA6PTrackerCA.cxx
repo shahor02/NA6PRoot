@@ -132,6 +132,7 @@ void NA6PTrackerCA::configureFromRecoParamMS()
   setDoTrackConstrainedToPrimVert(param.msDoConstrainedTrack);
   setMaxPropagationStep(param.maxPropagationStep);
   setUseLinRef(param.useLinRefMS);
+  setTrackletCuts(param.msMaxDeltaThetaTrackletMID, param.msMaxDeltaPhiTrackletMID);
   mTrackFitter->setSeedImprovePrec(param.seedImprovePrecMS);
   mTrackFitter->setPID(mPID);
 
@@ -1112,15 +1113,8 @@ std::vector<std::pair<ClusterType, ClusterType>> NA6PTrackerCA::findTracklets(in
   std::vector<int> lastCluPerLay;
   sortClustersByLayerAndY(cluArr, firstCluPerLay, lastCluPerLay);
   std::vector<TrackletCandidate> foundTracklets;
-  float cutDeltaTheta = mMaxDeltaThetaTrackletsCA[0];
-  float cutDeltaPhi = mMaxDeltaPhiTrackletsCA[0];
-  for (int jIteration = 0; jIteration < mNIterationsCA; ++jIteration) {
-    if (mMaxDeltaThetaTrackletsCA[jIteration] > cutDeltaTheta)
-      cutDeltaTheta = mMaxDeltaThetaTrackletsCA[jIteration];
-    if (mMaxDeltaPhiTrackletsCA[jIteration] > cutDeltaPhi)
-      cutDeltaPhi = mMaxDeltaPhiTrackletsCA[jIteration];
-  }
-  computeLayerTracklets(cluArr, layersToUse, firstCluPerLay, lastCluPerLay, foundTracklets, cutDeltaTheta, cutDeltaPhi);
+  computeLayerTracklets(cluArr, layersToUse, firstCluPerLay, lastCluPerLay, foundTracklets,
+                        mMaxDeltaThetaTrackletMID, mMaxDeltaPhiTrackletMID);
   const int nTracklets = foundTracklets.size();
   std::vector<std::pair<ClusterType, ClusterType>> trackletLines;
   trackletLines.reserve(nTracklets);

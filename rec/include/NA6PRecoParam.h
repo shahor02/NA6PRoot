@@ -64,6 +64,9 @@ struct NA6PRecoParam : public na6p::conf::ConfigurableParamHelper<NA6PRecoParam>
   float msZForMSMIDmatch = 810.f;
   float msMaxDistTrackMSTrackletMID = 7.5f;
   float msMinCosThetaTrackMSTrackletMID = 0.999f;
+  float msMaxDeltaThetaTrackletMID = 0.1f;
+  float msMaxDeltaPhiTrackletMID = 0.6f;
+  float msMaxChi2TrClMSTrackletMID = 20.f;
 
   int msNIterationsTrackerCA = 2;
   bool useLinRefMS = false;
