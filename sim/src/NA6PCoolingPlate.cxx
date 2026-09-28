@@ -337,7 +337,10 @@ TGeoVolume* BuildFirstStationsCoolingPlate(const char* tag,
   tFiberBack->RegisterYourself();
 
   const Double_t fiberWindowX = fiberWindowSideX / 2 + fiberWindowR;
-  const Double_t shiftFiberWindow = NA6PLayoutParam::Instance().shiftFiberWindow;
+  const auto& layout = NA6PLayoutParam::Instance();
+  const Double_t shiftFiberWindow = layout.shiftFiberWindow;
+  const Double_t fiberWindowClearanceX = shiftFiberWindow - layout.pixChipOffsXFront;
+  const Double_t shiftFiberWindowBack = layout.pixChipOffsXBack - fiberWindowClearanceX;
   const Double_t fiberWindowY = fiberWindowSideY / 2 + fiberWindowR;
 
   auto* tFiberFrontTL = new TGeoTranslation(tFiberFrontTLN, +fiberWindowX + shiftFiberWindow, +fiberWindowY - fiberCenterHoleR, 0);
@@ -345,9 +348,9 @@ TGeoVolume* BuildFirstStationsCoolingPlate(const char* tag,
   auto* tFiberFrontBR = new TGeoTranslation(tFiberFrontBRN, -fiberWindowX - shiftFiberWindow, -fiberWindowY + fiberCenterHoleR, 0);
   tFiberFrontBR->RegisterYourself();
 
-  auto* tFiberBackTR = new TGeoTranslation(tFiberBackTRN, -fiberWindowX + shiftFiberWindow, +fiberWindowY + fiberCenterHoleR, 0);
+  auto* tFiberBackTR = new TGeoTranslation(tFiberBackTRN, -fiberWindowX + shiftFiberWindowBack, +fiberWindowY + fiberCenterHoleR, 0);
   tFiberBackTR->RegisterYourself();
-  auto* tFiberBackBL = new TGeoTranslation(tFiberBackBLN, +fiberWindowX - shiftFiberWindow, -fiberWindowY - fiberCenterHoleR, 0);
+  auto* tFiberBackBL = new TGeoTranslation(tFiberBackBLN, +fiberWindowX - shiftFiberWindowBack, -fiberWindowY - fiberCenterHoleR, 0);
   tFiberBackBL->RegisterYourself();
 
   TString grooveExpr = "";
@@ -555,7 +558,10 @@ TGeoVolume* BuildOuterStationsCoolingPlate(const char* tag,
   tFiberBack->RegisterYourself();
 
   const Double_t fiberWindowX = fiberWindowSide / 2 + fiberWindowR;
-  const Double_t shiftFiberWindow = NA6PLayoutParam::Instance().shiftFiberWindow;
+  const auto& layout = NA6PLayoutParam::Instance();
+  const Double_t shiftFiberWindow = layout.shiftFiberWindow;
+  const Double_t fiberWindowClearanceX = shiftFiberWindow - layout.pixChipOffsXFront;
+  const Double_t shiftFiberWindowBack = layout.pixChipOffsXBack - fiberWindowClearanceX;
   const Double_t fiberWindowY = fiberWindowSide / 2 + fiberWindowR;
 
   auto* tFiberFrontTL = new TGeoTranslation(tFiberFrontTLN, +fiberWindowX + shiftFiberWindow, +fiberWindowY - fiberCenterHoleR, 0);
@@ -563,9 +569,9 @@ TGeoVolume* BuildOuterStationsCoolingPlate(const char* tag,
   auto* tFiberFrontBR = new TGeoTranslation(tFiberFrontBRN, -fiberWindowX - shiftFiberWindow, -fiberWindowY + fiberCenterHoleR, 0);
   tFiberFrontBR->RegisterYourself();
 
-  auto* tFiberBackTR = new TGeoTranslation(tFiberBackTRN, -fiberWindowX + shiftFiberWindow, +fiberWindowY + fiberCenterHoleR, 0);
+  auto* tFiberBackTR = new TGeoTranslation(tFiberBackTRN, -fiberWindowX + shiftFiberWindowBack, +fiberWindowY + fiberCenterHoleR, 0);
   tFiberBackTR->RegisterYourself();
-  auto* tFiberBackBL = new TGeoTranslation(tFiberBackBLN, +fiberWindowX - shiftFiberWindow, -fiberWindowY - fiberCenterHoleR, 0);
+  auto* tFiberBackBL = new TGeoTranslation(tFiberBackBLN, +fiberWindowX - shiftFiberWindowBack, -fiberWindowY - fiberCenterHoleR, 0);
   tFiberBackBL->RegisterYourself();
 
   TString grooveExpr = "";
