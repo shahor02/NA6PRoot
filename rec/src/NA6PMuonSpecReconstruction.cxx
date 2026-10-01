@@ -25,7 +25,7 @@ bool NA6PMuonSpecReconstruction::initTracker()
   mMSTracker = std::make_unique<NA6PTrackerCA>();
   mMSTracker->configureFromRecoParamMS();
   const auto& param = NA6PRecoParam::Instance();
-  if (param.msDoTrackMSTrackletMID) {
+  if (param.msDoTrackMSTrackletMIDMatching) {
     mMSTracker->setNLayers(4);
     mMSTracker->setStartLayer(param.vtNLayers);
     for (int j = 0; j < mMSTracker->getNIterations(); ++j) {
@@ -171,7 +171,7 @@ void NA6PMuonSpecReconstruction::runTracking()
     mMSTracker->setClusterMCTruth(hCluMCLabelsPtr);
   const auto& param = NA6PRecoParam::Instance();
   mMSTracker->findTracks(getClusters(), mPrimaryVertex);
-  if (param.msDoTrackMSTrackletMID == false) {
+  if (param.msDoTrackMSTrackletMIDMatching == false) {
     mTracks = mMSTracker->getTracks();
     for (auto& t : mTracks) {
       t.setStatusMS(NA6PTrack::kFullMSMID);
@@ -191,9 +191,10 @@ void NA6PMuonSpecReconstruction::runMSTrackMIDTrackletMatching()
   auto& clusters = getClusters();
   const auto& trks = mMSTracker->getFinalTracks();
 
-  auto saveTrack = [&trks, this](int j, int flag) {
+  auto saveTrack = [&trks, this](int j, int flag) -> NA6PTrack& {
     this->mTracks.push_back(trks[j].trackFitFast);
     this->mTracks.back().setStatusMS(flag);
+    return this->mTracks.back();
   };
 
   int nTrks = trks.size();
@@ -246,6 +247,13 @@ void NA6PMuonSpecReconstruction::runMSTrackMIDTrackletMatching()
   std::vector<bool> segmentUsed(nTrklets, false);
   std::vector<int> trackMatch(nTrks, -1);
 
+  auto saveUnrefittedMatch = [&saveTrack](int trackIndex,
+                                          const std::pair<NA6PMuonSpecCluster, NA6PMuonSpecCluster>& tracklet, NA6PTrack::MuonSpecTrackCase caseType) {
+    auto& savedTrack = saveTrack(trackIndex, caseType);
+    savedTrack.addCluster(&tracklet.first);
+    savedTrack.addCluster(&tracklet.second);
+  };
+
   for (auto& c : candidates) {
     if (trackUsed[c.track])
       continue;
@@ -263,14 +271,21 @@ void NA6PMuonSpecReconstruction::runMSTrackMIDTrackletMatching()
       saveTrack(jT, NA6PTrack::kMSNotMatchedToMID);
       continue;
     }
-    auto& trOut = outTrProp[jT]; // propagated tracks are guaranteed to exist if there was at least 1 match (or even tracklet)
+
     const auto& tracklet = trkltsMID[jS];
+    if (!param.msDoRefitMSTrackletMID) {
+      // Store the MID cluster IDs without including them in the fit.
+      saveUnrefittedMatch(jT, tracklet, NA6PTrack::kMSMatchedToMIDnotRefitted);
+      continue;
+    }
+
+    auto& trOut = outTrProp[jT]; // propagated tracks are guaranteed to exist if there was at least 1 match (or even tracklet)
     fitter->cleanupAndStartFit();
     fitter->addCluster(tracklet.first);
     fitter->addCluster(tracklet.second);
     if (fitter->fitSeedOutward(trOut, false) < 0.) {
-      // track not refitted: save with specific status flag
-      saveTrack(jT, NA6PTrack::kMSMatchedToMIDnotRefitted);
+      // fit failed: save with specific status flag
+      saveUnrefittedMatch(jT, tracklet, NA6PTrack::kMSMatchedToMIDRefitFailed);
       continue;
     }
 
@@ -291,8 +306,8 @@ void NA6PMuonSpecReconstruction::runMSTrackMIDTrackletMatching()
     auto refitInw = trOut;
     float chi2Refit = fitter->fitSeedInward(refitInw, true);
     if (chi2Refit < 0.f) {
-      // track not refitted: save with specific status flag
-      saveTrack(jT, NA6PTrack::kMSMatchedToMIDnotRefitted);
+      // fit failed: save with specific status flag
+      saveUnrefittedMatch(jT, tracklet, NA6PTrack::kMSMatchedToMIDRefitFailed);
       continue;
     }
     saveTrack(jT, NA6PTrack::kMSMatchedToMIDRefitted);
