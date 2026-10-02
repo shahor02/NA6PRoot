@@ -37,15 +37,15 @@ endif()
 include(dependencies/CMakeLists.txt)
 
 if(APPLE)
+    get_target_property(NA6P_FMT_INCLUDE_DIR fmt::fmt INTERFACE_INCLUDE_DIRECTORIES)
     get_directory_property(NA6P_INCLUDE_DIRS INCLUDE_DIRECTORIES)
 
     list(REMOVE_ITEM NA6P_INCLUDE_DIRS
         "/opt/homebrew/include"
-        "/Users/lucamicheletti/na6pbuild_sw/homebrew-no-fmt"
     )
 
     list(PREPEND NA6P_INCLUDE_DIRS
-        "/Users/lucamicheletti/na6pbuild_sw/sw/fmt/10.2.1/include"
+        "${NA6P_FMT_INCLUDE_DIR}"
     )
 
     set_property(DIRECTORY PROPERTY INCLUDE_DIRECTORIES "${NA6P_INCLUDE_DIRS}")
