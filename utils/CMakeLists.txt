@@ -36,9 +36,11 @@ ROOT_GENERATE_DICTIONARY(
 )
 
 # Set include directories for consumers
-target_include_directories(${LIB_NAME} INTERFACE ${THIS_INCLUDE_DIR})
+target_include_directories(${LIB_NAME} INTERFACE
+    ${THIS_INCLUDE_DIR}
+)
 
-# !!!!!!!!!!!!!!!!!!!!!!
+# !!!!!!!!!!!!!!!!!!!!!!!
 #target_compile_options(${LIB_NAME} PRIVATE -ggdb -g -O0)
 
 # Link against required libraries

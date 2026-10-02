@@ -36,6 +36,23 @@ endif()
 
 include(dependencies/CMakeLists.txt)
 
+if(APPLE)
+    get_target_property(NA6P_FMT_INCLUDE_DIR fmt::fmt INTERFACE_INCLUDE_DIRECTORIES)
+    get_directory_property(NA6P_INCLUDE_DIRS INCLUDE_DIRECTORIES)
+
+    list(REMOVE_ITEM NA6P_INCLUDE_DIRS
+        "/opt/homebrew/include"
+    )
+
+    list(PREPEND NA6P_INCLUDE_DIRS
+        "${NA6P_FMT_INCLUDE_DIR}"
+    )
+
+    set_property(DIRECTORY PROPERTY INCLUDE_DIRECTORIES "${NA6P_INCLUDE_DIRS}")
+
+    unset(NA6P_INCLUDE_DIRS)
+endif()
+
 # Locate sources and headers for this project
 #
 # Define include and source directories
