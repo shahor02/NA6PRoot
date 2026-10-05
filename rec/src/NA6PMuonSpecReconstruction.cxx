@@ -34,7 +34,9 @@ bool NA6PMuonSpecReconstruction::initTracker()
       }
     }
     mMSTracker->setDoOutwardPropagation(true);
-    mMSTracker->setZForOutwardPropagation(param.msZForMSMIDmatch);
+    const auto& layout = NA6PLayoutParam::Instance();
+    const int firstMIDPlane = layout.nMSPlanes - 2;
+    mMSTracker->setZForOutwardPropagation(layout.shiftMS[2] + layout.posMSPlaneZ[firstMIDPlane] - layout.thicknessMSPlane[firstMIDPlane] / 2.f);
   }
   createTracksOutput();
   return true;
@@ -219,7 +221,8 @@ void NA6PMuonSpecReconstruction::runMSTrackMIDTrackletMatching()
     for (int jT = 0; jT < nTrks; jT++) {
       const auto& tr = trks[jT].trackFitFast;
       auto& trOutCopy = outTrProp.emplace_back(tr.getOuterParam());
-      if (!Propagator::Instance()->propagateToZ(trOutCopy, param.msZForMSMIDmatch, fitter->getPropOpt())) {
+      if (!trOutCopy.isValid()) { // outward propagation is done in the ca tracking
+        LOGP(debug, "Track {} has invalid outward propagated parameters, skipping matching", jT);
         continue;
       }
       for (int jS = 0; jS < nTrklets; jS++) {

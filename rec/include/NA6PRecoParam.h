@@ -62,7 +62,6 @@ struct NA6PRecoParam : public na6p::conf::ConfigurableParamHelper<NA6PRecoParam>
   int msNLayers = 6;
   bool msDoTrackMSTrackletMIDMatching = false;
   bool msDoRefitMSTrackletMID = false;
-  float msZForMSMIDmatch = 810.f;
   float msMaxDistTrackMSTrackletMID = 7.5f;
   float msMinCosThetaTrackMSTrackletMID = 0.999f;
   float msMaxDeltaThetaTrackletMID = 0.1f;
