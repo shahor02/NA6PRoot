@@ -54,6 +54,8 @@
 #pragma link C++ class std::vector < ROOT::Math::PtEtaPhiMVector > + ;
 #pragma link C++ class std::vector < ROOT::Math::PxPyPzMVector > + ;
 
+#pragma link C++ class NA6PGenBeam + ;
+
 #pragma link C++ class GenMUONLMR + ;
 
 #pragma link C++ class UserHook + ;
