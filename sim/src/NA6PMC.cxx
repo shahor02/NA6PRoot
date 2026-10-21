@@ -635,7 +635,7 @@ void NA6PMC::addSpecialParticles()
 
   // Pb ion
   //TVirtualMC::GetMC()->DefineParticle(1000822080, "Lead208", kPTHadron, 207.97665, 82., 1e6, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 208, kTRUE);
-  TVirtualMC::GetMC()->DefineIon("Lead208", 82., 207.97665, 82, 0.0);
+  TVirtualMC::GetMC()->DefineIon("Lead208", 82, 208, 82, 0.0);
   
   // Hypertriton
   TVirtualMC::GetMC()->DefineParticle(1010010030, "HyperTriton", kPTHadron, 2.991134, 1.0, 2.632e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 3, kFALSE);
