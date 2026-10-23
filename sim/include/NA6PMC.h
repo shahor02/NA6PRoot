@@ -21,6 +21,7 @@ class NA6PMC : public TVirtualMCApplication
   void ConstructOpGeometry() override;
   void InitGeometry() override;
   void AddParticles() override;
+  void AddIons() override;
   void GeneratePrimaries() override;
   void BeginEvent() override;
   void FinishEvent() override;

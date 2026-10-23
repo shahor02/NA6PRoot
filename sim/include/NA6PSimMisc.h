@@ -8,6 +8,7 @@
 struct UserHook {
   static constexpr int ADDParticles = 0;                  // 1st arg passed to hook method at the entrance and exit of NA6PMC::AddParticles
   static constexpr int SelectParticles = 1;               // 1st arg passed to hook method from the NA6PMC::selectTracksToSave
+  static constexpr int ADDIons = 2;                       // 1st arg passed to hook method at the entrance and exit of NA6PMC::AddIons
   static constexpr int KeepParticleBit = 0x1 << (9 + 14); // user may set this bit to the particle in the user hook method call with SelectParticles
 
   ClassDefNV(UserHook, 1);
