@@ -2,6 +2,7 @@
 
 #include <TFile.h>
 #include <TTree.h>
+#include <TParticle.h>
 #include <TRandom3.h>
 #include <fairlogger/Logger.h>
 #include "NA6PMuonSpecModularHit.h"
@@ -84,7 +85,7 @@ void NA6PMuonSpecReconstruction::setClusters(std::vector<NA6PMuonSpecCluster>& c
   }
 }
 
-void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecModularHit>& hits, int evID)
+void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecModularHit>& hits, int evID, const std::vector<TParticle>* mcArray)
 {
   int nHits = hits.size();
   const auto& layout = NA6PLayoutParam::Instance();
@@ -107,7 +108,6 @@ void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecM
     // very rough cluster size settings
     int clusiz = 1;
     int nDet = hit.getDetectorID();
-    int idPart = hit.getTrackID();
     // Set layer based on Z position - find closest plane
 
     float minDist = std::abs(z - layout.posMSPlaneZ[0]);
@@ -120,15 +120,51 @@ void NA6PMuonSpecReconstruction::hitsToRecPoints(const std::vector<NA6PMuonSpecM
         layer = i + layout.nVerTelPlanes;
       }
     }
-    int cluID = mClusters.size();
-    mClusters.emplace_back(x, y, z, clusiz, layer);
-    auto& clu = mClusters.back();
-    clu.setErr(ex2clu, 0., ey2clu);
-    clu.setDetectorID(nDet);
-    clu.setHitID(jHit);
-    clu.setClusterIndex(cluID);
-    NA6PMCComposedLabel lbl(hit.getTrackID(), evID, 0);
-    mCluMCLabels.addElement(cluID, lbl);
+    // reject electrons produced in the material which are nearby the muon
+    bool reject = false;
+    if (mDiscardNearbyElectrons && mcArray != nullptr) {
+      int mcLabel = hit.getTrackID();
+      if (mcLabel >= 0 && mcLabel < static_cast<int>(mcArray->size())) {
+        TParticle part = mcArray->at(mcLabel);
+        int pdg = part.GetPdgCode();
+        if (pdg == 11) {
+          // hit from electron
+          int mcLabelMoth = part.GetFirstMother();
+          if (mcLabelMoth >= 0 && mcLabelMoth < static_cast<int>(mcArray->size())) {
+            TParticle mothPart = mcArray->at(mcLabelMoth);
+            int pdgMoth = mothPart.GetPdgCode();
+            if (pdgMoth != 11 && pdgMoth != 22) {
+              // search for hit of the mother particle (unless the mother is a photon or an electron)
+              for (int kHit = 0; kHit < nHits; ++kHit) {
+                const auto& hitMoth = hits[kHit];
+                int candLabel = hitMoth.getTrackID();
+                if (candLabel == mcLabelMoth) {
+                  double xm = hitMoth.getX();
+                  double ym = hitMoth.getY();
+                  double zm = hitMoth.getZ();
+                  double dist2 = (xm - x) * (xm - x) + (ym - y) * (ym - y);
+                  if (dist2 < mMinElectronHitDistance * mMinElectronHitDistance) {
+                    reject = true;
+                    break;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    if (!reject) {
+      int cluID = mClusters.size();
+      mClusters.emplace_back(x, y, z, clusiz, layer);
+      auto& clu = mClusters.back();
+      clu.setErr(ex2clu, 0., ey2clu);
+      clu.setDetectorID(nDet);
+      clu.setHitID(jHit);
+      clu.setClusterIndex(cluID);
+      NA6PMCComposedLabel lbl(hit.getTrackID(), evID, 0);
+      mCluMCLabels.addElement(cluID, lbl);
+    }
   }
 }
 
