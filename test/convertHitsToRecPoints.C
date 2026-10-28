@@ -15,7 +15,7 @@
 #include "NA6PMuonSpecReconstruction.h"
 #endif
 
-void convertHitsToRecPoints(bool simulateDeadVTRegions = true)
+void convertHitsToRecPoints(bool simulateDeadVTRegions = true, bool rejectNearbyElectronsinMS = false)
 {
   // Process VerTel hits
   TFile* fhVT = TFile::Open("HitsVerTel.root");
@@ -51,6 +51,17 @@ void convertHitsToRecPoints(bool simulateDeadVTRegions = true)
 
   // Process MuonSpec hits
   TFile* fhMS = TFile::Open("HitsMuonSpecModular.root");
+  TFile* fk = new TFile("MCKine.root");
+  std::vector<TParticle>* mcArr = nullptr;
+  TTree* mcTree = nullptr;
+  if (!fk || fk->IsZombie()) {
+    LOGP(error, "Cannot open MCKine.root");
+    if (fk)
+      delete fk;
+  } else {
+    mcTree = (TTree*)fk->Get("mckine");
+    mcTree->SetBranchAddress("tracks", &mcArr);
+  }
   if (!fhMS || fhMS->IsZombie()) {
     LOGP(error, "Cannot open HitsMuonSpecModular.root");
     if (fhMS)
@@ -66,12 +77,15 @@ void convertHitsToRecPoints(bool simulateDeadVTRegions = true)
 
       NA6PMuonSpecReconstruction* recMS = new NA6PMuonSpecReconstruction();
       recMS->createClustersOutput();
+      recMS->rejectHitsFromNearbyElectrons(rejectNearbyElectronsinMS);
       for (int jEv = 0; jEv < nEvMS; jEv++) {
         thMS->GetEvent(jEv);
+        mcTree->GetEvent(jEv);
         int nHits = msHits.size();
-        printf("MuonSpec Event %d nHits=%d\n", jEv, nHits);
+        int nPart = mcArr->size();
+        printf("MuonSpec Event %d nParticles = %d ; nHits = %d\n", jEv, nPart, nHits);
         recMS->clearClusters();
-        recMS->hitsToRecPoints(msHits);
+        recMS->hitsToRecPoints(msHits, 0, mcArr);
         recMS->writeClusters();
       }
       recMS->closeClustersOutput();

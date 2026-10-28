@@ -29,6 +29,7 @@
 
 class TFile;
 class TTree;
+class TParticle;
 class NA6PMuonSpecHit;
 class NA6PMuonSpecModularHit;
 class NA6PMuonSpecVertexerTracklets;
@@ -63,7 +64,12 @@ class NA6PMuonSpecReconstruction : public NA6PReconstruction
   // fast method to smear the hits bypassing digitization and cluster finder
   void setClusterSpaceResolutionX(double clures) { mCluResX = clures; }
   void setClusterSpaceResolutionY(double clures) { mCluResY = clures; }
-  void hitsToRecPoints(const std::vector<NA6PMuonSpecModularHit>& hits, int evID = 0);
+  void rejectHitsFromNearbyElectrons(bool reject, float mindist = 0.25)
+  {
+    mDiscardNearbyElectrons = reject;
+    mMinElectronHitDistance = mindist;
+  }
+  void hitsToRecPoints(const std::vector<NA6PMuonSpecModularHit>& hits, int evID = 0, const std::vector<TParticle>* mcArray = nullptr);
   NA6PTrackerCA* getTracker() const { return mMSTracker.get(); }
 
   // methods to steer tracking
@@ -91,6 +97,8 @@ class NA6PMuonSpecReconstruction : public NA6PReconstruction
   TTree* mClusTree = nullptr;                                                      // tree of clusters
   double mCluResX = 100.e-4;                                                       // cluster resolution, cm (for fast simu)
   double mCluResY = 500.e-4;                                                       // cluster resolution, cm (for fast simu)
+  bool mDiscardNearbyElectrons = false;                                            // flag to discard delta electrons in fast simu
+  float mMinElectronHitDistance = 0.25;                                            // minimum e-mu distance to reject electron hit
   std::vector<NA6PTrack> mTracks, *hTrackPtr = &mTracks;                           // vector of tracks
   std::vector<NA6PMCComposedLabel> mTrkMCLabels, *hTrkMCLabelsPtr = &mTrkMCLabels; // track MC labels
   TFile* mTrackFile = nullptr;                                                     // file with tracks

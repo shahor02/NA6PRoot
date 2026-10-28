@@ -94,6 +94,7 @@ int main(int argc, char** argv)
     add_option("doTrackletVertex,vert", bpo::value<bool>()->default_value(true), "run tracklet vertexer");
     add_option("doVTTracking,vt", bpo::value<bool>()->default_value(true), "run VT tracker");
     add_option("allowHolesInVTTracks,holesVT", bpo::value<bool>()->default_value(false), "allow holes in VT tracks");
+    add_option("rejectNearbyElectronHitsInMS,elems", bpo::value<bool>()->default_value(false), "reject delta electron hits in MS");
     add_option("doMSTracking,ms", bpo::value<bool>()->default_value(true), "run MS tracker");
     add_option("doMatching,mt", bpo::value<bool>()->default_value(true), "run matching between VT and MS");
     opt_all.add(opt_general).add(opt_hidden);
@@ -143,6 +144,7 @@ int main(int argc, char** argv)
   const bool doMatching = vm["doMatching"].as<bool>();
   const bool readMC = vm["readMC"].as<bool>();
   const bool skipVTlays = vm["allowHolesInVTTracks"].as<bool>();
+  const bool rejectEleInMS = vm["rejectNearbyElectronHitsInMS"].as<bool>();
 
   int firstEv = vm["firstevent"].as<int32_t>();
   int lastEv = vm["lastevent"].as<int32_t>();
@@ -174,6 +176,14 @@ int main(int argc, char** argv)
   }
   std::unique_ptr<NA6PMatching> matching = std::make_unique<NA6PMatching>();
 
+  const bool needsMCKine = doTrackletVertex || doVTTracking || doMSTracking || doMatching || rejectEleInMS;
+  std::unique_ptr<TreeFromFile> tfKine;
+  std::vector<TParticle>* mcArr = nullptr;
+  if (needsMCKine) {
+    tfKine = std::make_unique<TreeFromFile>("MCKine.root", "mckine");
+    tfKine->getTree()->SetBranchAddress("tracks", &mcArr);
+  }
+
   if (doHitsToRecPoints) {
     { // VTHits
       if (!doDigitsToRecPoints) {
@@ -203,12 +213,19 @@ int main(int argc, char** argv)
       const auto [first, last] = getEventRange(nEvMS);
 
       msrec->createClustersOutput();
+      if (rejectEleInMS)
+        msrec->rejectHitsFromNearbyElectrons(true);
       for (int jEv = first; jEv <= last; jEv++) {
         tfMS.getTree()->GetEvent(jEv);
         int nHits = msHits.size();
         LOGP(info, "MuonSpec Event {} nHits= {}", jEv, nHits);
         msrec->clearClusters();
-        msrec->hitsToRecPoints(msHits, jEv);
+        if (rejectEleInMS) {
+          tfKine->getTree()->GetEvent(jEv);
+          msrec->hitsToRecPoints(msHits, jEv, mcArr);
+        } else {
+          msrec->hitsToRecPoints(msHits, jEv);
+        }
         msrec->writeClusters();
       }
       msrec->closeClustersOutput();
@@ -235,14 +252,6 @@ int main(int argc, char** argv)
       vtrec->writeClusters();
     }
     vtrec->closeClustersOutput();
-  }
-
-  const bool needsMCKine = doTrackletVertex || doVTTracking || doMSTracking || doMatching;
-  std::unique_ptr<TreeFromFile> tfKine;
-  std::vector<TParticle>* mcArr = nullptr;
-  if (needsMCKine) {
-    tfKine = std::make_unique<TreeFromFile>("MCKine.root", "mckine");
-    tfKine->getTree()->SetBranchAddress("tracks", &mcArr);
   }
 
   std::unique_ptr<TreeFromFile> tfCVT, tfCMS;
