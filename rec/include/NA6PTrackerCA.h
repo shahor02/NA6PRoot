@@ -105,6 +105,7 @@ class NA6PTrackerCA
   void setDoOutwardPropagation(bool opt = true) { mDoOutwardPropagation = opt; }
   void setZForOutwardPropagation(float zout) { mZOutProp = zout; }
   void setDoInwardRefit(bool opt = true) { mDoInwardRefit = opt; }
+  void setDoInwardSeedExtension(bool opt = true) { mDoInwardSeedExtension = opt; }
   void setDoTrackConstrainedToPrimVert(bool opt = true) { mDoTrackConstrainedToPrimVert = opt; }
   void setNumberOfIterations(int nIter);
   void setIterationParams(int iter,
@@ -194,7 +195,7 @@ class NA6PTrackerCA
                          float maxChi2TrClu,
                          float maxChi2NDF);
   template <typename ClusterType>
-  float computeTrackToClusterChi2(const NA6PTrackParCov& track,
+  float computeTrackToClusterChi2(NA6PTrackParCov& track,
                                   const ClusterType& clu);
   template <typename ClusterType>
   float fitTrackPointsFast(const std::vector<int>& cluIDs,
@@ -203,7 +204,7 @@ class NA6PTrackerCA
                            float maxChi2TrClu,
                            float maxChi2NDF);
   template <typename ClusterType>
-  void findCellsNeighbours(const std::vector<CellCandidate>& cells,
+  void findCellsNeighbours(std::vector<CellCandidate>& cells,
                            const std::vector<int>& layers,
                            const std::vector<int>& firstIndex,
                            const std::vector<int>& lastIndex,
@@ -212,7 +213,7 @@ class NA6PTrackerCA
                            float maxChi2TrClu);
   template <typename ClusterType>
   std::vector<TrackCandidate> prolongSeed(const TrackCandidate& seed,
-                                          const std::vector<CellCandidate>& cells,
+                                          std::vector<CellCandidate>& cells,
                                           const std::vector<int>& layers,
                                           const std::vector<int>& firstIndex,
                                           const std::vector<int>& lastIndex,
@@ -221,7 +222,7 @@ class NA6PTrackerCA
                                           ExtendDirection dir);
   template <typename ClusterType>
   void findRoads(const std::vector<std::pair<int, int>>& cneigh,
-                 const std::vector<CellCandidate>& cells,
+                 std::vector<CellCandidate>& cells,
                  const std::vector<int>& layers,
                  const std::vector<int>& firstIndex,
                  const std::vector<int>& lastIndex,
@@ -281,6 +282,7 @@ class NA6PTrackerCA
   bool mPropagateTracksToPrimaryVertex = false;
   bool mDoOutwardPropagation = false;
   bool mDoInwardRefit = false;
+  bool mDoInwardSeedExtension = true;
   bool mDoTrackConstrainedToPrimVert = false;
   float mZOutProp = 38.1175;
   int mNIterationsCA = 2;
