@@ -12,6 +12,7 @@ for ((i=0; i<NEVENTS_BCK; i++)); do
 
   na6psim -n $NEVENTS_SIG \
           -g genDimuonBgEvent.C \
+          --load-ini na6pLayout.ini \
           -V embed.C \
 	  -r -1 \
 	  -v 0
